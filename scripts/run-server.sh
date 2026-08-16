@@ -5,9 +5,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODELS_DIR="${MODELS_DIR:-$HOME/models}"
-LLAMA_BIN="${LLAMA_BIN:-$SCRIPT_DIR/../../llamacpp/build/bin/llama-server}"
+LLAMA_BIN="${LLAMA_BIN:-$SCRIPT_DIR/../llama.cpp/build/bin/llama-server}"
 LLAMA_BIN_DIR="$(dirname "$LLAMA_BIN")"
 PORT="${PORT:-8080}"
+HOST="${HOST:-0.0.0.0}"
 OFFLOAD_LAYERS="${OFFLOAD_LAYERS:-99}"
 CTX_SIZE="${CTX_SIZE:-8192}"
 ALIAS="${ALIAS:-}"
@@ -15,13 +16,22 @@ SKIP_CHAT_PARSING="${SKIP_CHAT_PARSING:-}"
 CHAT_TEMPLATE="${CHAT_TEMPLATE:-}"
 REASONING="${REASONING:-}"
 
+get_lan_ip() {
+  local ip
+  ip="$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K[0-9.]+' || true)"
+  if [[ -z "$ip" ]]; then
+    ip="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
+  fi
+  echo "${ip:-127.0.0.1}"
+}
+
 usage() {
   echo "Usage: run-server.sh [model-name]"
   echo ""
   echo "Fast mode: model + KV on GPU."
   echo "  model-name  substring match against ~/models/*.gguf (or run with 'list')"
   echo ""
-  echo "Env: CTX_SIZE=${CTX_SIZE} PORT=${PORT} OFFLOAD_LAYERS=${OFFLOAD_LAYERS}"
+  echo "Env: CTX_SIZE=${CTX_SIZE} PORT=${PORT} HOST=${HOST} OFFLOAD_LAYERS=${OFFLOAD_LAYERS}"
   echo "     REASONING=${REASONING:-off} SKIP_CHAT_PARSING=${SKIP_CHAT_PARSING:-off} CHAT_TEMPLATE=${CHAT_TEMPLATE:-none}"
 }
 
@@ -42,14 +52,17 @@ if [[ ! -x "$LLAMA_BIN" ]]; then
 fi
 
 ALIAS="${ALIAS:-$(basename "$MODEL_PATH" .gguf)}"
+LAN_IP="$(get_lan_ip)"
 echo "Serving: $MODEL_PATH"
 echo "  port: $PORT  gpu layers: $OFFLOAD_LAYERS  ctx: $CTX_SIZE"
+echo "  local:   http://127.0.0.1:$PORT"
+echo "  network: http://$LAN_IP:$PORT  (reachable by other machines)"
 
 export LD_LIBRARY_PATH="${LLAMA_BIN_DIR}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
 exec "$LLAMA_BIN" \
   -m "$MODEL_PATH" -ngl "$OFFLOAD_LAYERS" -c "$CTX_SIZE" \
-  --alias "$ALIAS" --host 127.0.0.1 --port "$PORT" \
+  --alias "$ALIAS" --host "$HOST" --port "$PORT" \
   ${SKIP_CHAT_PARSING:+--skip-chat-parsing} \
   ${CHAT_TEMPLATE:+--chat-template "$CHAT_TEMPLATE"} \
   ${REASONING:+--reasoning "$REASONING"}
