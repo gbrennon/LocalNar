@@ -8,17 +8,29 @@ This guide covers everything from setup to using the local model as a coding age
 
 ## 1. Setup (one-time)
 
-### 1.1 Clone and build llama.cpp
+Clone with submodules (llama.cpp is pinned as a submodule):
+
+```
+git clone --recursive ssh://git@codeberg.org/gbrennon/bare-ai-server.git
+```
+
+If you already cloned without `--recursive`, or the submodule is out of date:
 
 ```sh
-cd ~/repos/gbrennon
-git clone --depth 1 https://github.com/ggerganov/llama.cpp.git llamacpp
-cd llamacpp
+git submodule update --init --recursive
+```
+
+### 1.1 Build llama.cpp from the submodule
+
+The submodule lives at `llama.cpp/`. Build it with Vulkan support:
+
+```sh
+cd llama.cpp
 cmake -B build -DGGML_VULKAN=ON -DCMAKE_BUILD_TYPE=Release
 cmake --build build --target llama-server -j4
 ```
 
-The binary lands at `llamacpp/build/bin/llama-server`. This repo's `run-server.sh` resolves it relative to itself (`../llamacpp/build/bin/llama-server`).
+The binary lands at `llama.cpp/build/bin/llama-server`. This repo's `run-server.sh` resolves it relative to itself (`../llama.cpp/build/bin/llama-server`).
 
 ### 1.2 System dependencies (already installed)
 
@@ -87,9 +99,20 @@ Key env vars:
 |---|---|---|
 | `CTX_SIZE` | 8192 | **Always set to 32768 for pi** |
 | `PORT` | 8080 | Override if port is busy |
+| `HOST` | 0.0.0.0 | Bind address. Default exposes the server to the LAN so other machines can use it |
 | `SKIP_CHAT_PARSING` | empty | Set to `1` only if you get PEG parser errors |
 | `CHAT_TEMPLATE` | empty | Set to `chatml` for Mistral, leave empty for Qwen/Llama |
 | `KV_OFFLOAD` | 1 | Set to `0` for `--no-kv-offload` (KV on CPU, frees VRAM for bigger models) |
+
+The server binds to `0.0.0.0` by default and prints the LAN URL on startup:
+
+```
+Serving: /home/gbrennon/models/qwen3-8b/Qwen3-8B-Q4_K_M.gguf
+  local:   http://127.0.0.1:8080
+  network: http://192.168.0.14:8080  (reachable by other machines)
+```
+
+Point other machines on the same network at the `network` URL to consume the model. To restrict to this machine only, set `HOST=127.0.0.1`.
 
 ### 3.1 Verify the server
 
@@ -248,6 +271,7 @@ free -h | head -2
 
 | File | Purpose |
 |---|---|
-| `run-server.sh` | Launcher (env vars: CTX_SIZE, PORT, SKIP_CHAT_PARSING, CHAT_TEMPLATE, KV_OFFLOAD) |
+| `llama.cpp/` | Pinned llama.cpp submodule (built with `GGML_VULKAN=ON`) |
+| `run-server.sh` | Launcher (env vars: CTX_SIZE, PORT, HOST, SKIP_CHAT_PARSING, CHAT_TEMPLATE, KV_OFFLOAD) |
 | `register-with-pi.sh` | Registers repo as a pi project |
 | `README.md` | This guide |
