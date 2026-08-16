@@ -1,6 +1,6 @@
 # Local Bare Llama
 
-Run a local llama.cpp server and use it as a pi coding agent. No containers, no API keys. GPU + system RAM split support.
+Run a local llama.cpp server and use it as a pi coding agent. No containers, no API keys. GPU + system RAM split support. Servers bind to `0.0.0.0` and print the LAN URL on startup, so other machines on the network can consume the model (e.g. `http://192.168.0.14:8080`).
 
 ## Quick start
 
@@ -73,6 +73,7 @@ Inside pi, use `/fresh` to save progress and `/compact` to free context without 
 |---|---|---|
 | `CTX_SIZE` | 32768 | Context window size |
 | `PORT` | 8080 | Server port |
+| `HOST` | 0.0.0.0 | Bind address. Default exposes the server to the LAN |
 | `REASONING` | off | Set to `off` for Qwen3 models (prevents empty responses) |
 | `PI_MODEL` | auto-detect | Override model id for pi-task.sh |
 | `SKIP_CHAT_PARSING` | empty | Set to `1` for Mistral models (PEG parser workaround) |
