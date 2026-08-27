@@ -3,18 +3,45 @@
 # Usage: ./run-server.sh [model-name]
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MODELS_DIR="${MODELS_DIR:-$HOME/models}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit 1
+readonly SCRIPT_DIR
+MODELS_DIR="${MODELS_DIR:-$HOME/models}" || exit 1
+readonly MODELS_DIR
 LLAMA_BIN="${LLAMA_BIN:-$SCRIPT_DIR/../llama.cpp/build/bin/llama-server}"
-LLAMA_BIN_DIR="$(dirname "$LLAMA_BIN")"
-PORT="${PORT:-8080}"
-HOST="${HOST:-0.0.0.0}"
-OFFLOAD_LAYERS="${OFFLOAD_LAYERS:-99}"
-CTX_SIZE="${CTX_SIZE:-8192}"
-ALIAS="${ALIAS:-}"
-SKIP_CHAT_PARSING="${SKIP_CHAT_PARSING:-}"
-CHAT_TEMPLATE="${CHAT_TEMPLATE:-}"
-REASONING="${REASONING:-}"
+readonly LLAMA_BIN
+LLAMA_BIN_DIR="$(dirname "$LLAMA_BIN")" || exit 1
+readonly LLAMA_BIN_DIR
+readonly PORT="${PORT:-8080}"
+readonly HOST="${HOST:-0.0.0.0}"
+readonly OFFLOAD_LAYERS="${OFFLOAD_LAYERS:-99}"
+readonly CTX_SIZE="${CTX_SIZE:-8192}"
+readonly ALIAS="${ALIAS:-}"
+readonly SKIP_CHAT_PARSING="${SKIP_CHAT_PARSING:-}"
+readonly CHAT_TEMPLATE="${CHAT_TEMPLATE:-}"
+readonly REASONING="${REASONING:-}"
+
+die() {
+  echo "$@" >&2
+  exit 1
+}
+
+validate_llama_binary() {
+  [[ -x "$LLAMA_BIN" ]] || die "llama-server not found at $LLAMA_BIN"
+}
+
+validate_model_path() {
+  local model_path="$1"
+  [[ -n "$model_path" ]] || die "No model matched '${1:-}'. Available models:" "$(list_models)"
+}
+
+list_models() {
+  find "$MODELS_DIR" -type f -name '*.gguf' -print | sort
+}
+
+find_model() {
+  local query="${1:-}"
+  list_models | grep -i "$query" | head -n1 || true
+}
 
 get_lan_ip() {
   local ip
@@ -25,44 +52,92 @@ get_lan_ip() {
   echo "${ip:-127.0.0.1}"
 }
 
-usage() {
-  echo "Usage: run-server.sh [model-name]"
-  echo ""
-  echo "Fast mode: model + KV on GPU."
-  echo "  model-name  substring match against ~/models/*.gguf (or run with 'list')"
-  echo ""
-  echo "Env: CTX_SIZE=${CTX_SIZE} PORT=${PORT} HOST=${HOST} OFFLOAD_LAYERS=${OFFLOAD_LAYERS}"
-  echo "     REASONING=${REASONING:-off} SKIP_CHAT_PARSING=${SKIP_CHAT_PARSING:-off} CHAT_TEMPLATE=${CHAT_TEMPLATE:-none}"
+setup_library_path() {
+  export LD_LIBRARY_PATH="${LLAMA_BIN_DIR}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 }
 
-list_models() { find "$MODELS_DIR" -type f -name '*.gguf' -print | sort; }
+print_server_info() {
+  local model_path="$1"
+  local lan_ip="$2"
+  local alias="$3"
 
-if [[ "${1:-}" == "list" || "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-  [[ "${1:-}" == "list" ]] && list_models || usage
-  exit 0
-fi
+  echo "Serving: $model_path"
+  echo "  alias:  $alias"
+  echo "  port: $PORT  gpu layers: $OFFLOAD_LAYERS  ctx: $CTX_SIZE"
+  echo "  local:   http://127.0.0.1:$PORT"
+  echo "  network: http://$lan_ip:$PORT  (reachable by other machines)"
+}
 
-MODEL_PATH=$(list_models | grep -i "${1:-}" | head -n1 || true)
-if [[ -z "$MODEL_PATH" ]]; then
-  echo "No model matched '${1:-}'." >&2; list_models >&2; exit 1
-fi
+build_server_args() {
+  local model_path="$1"
+  local alias="$2"
 
-if [[ ! -x "$LLAMA_BIN" ]]; then
-  echo "llama-server not found at $LLAMA_BIN" >&2; exit 1
-fi
+  local args=(
+    -m "$model_path"
+    -ngl "$OFFLOAD_LAYERS"
+    -c "$CTX_SIZE"
+    --alias "$alias"
+    --host "$HOST"
+    --port "$PORT"
+  )
 
-ALIAS="${ALIAS:-$(basename "$MODEL_PATH" .gguf)}"
-LAN_IP="$(get_lan_ip)"
-echo "Serving: $MODEL_PATH"
-echo "  port: $PORT  gpu layers: $OFFLOAD_LAYERS  ctx: $CTX_SIZE"
-echo "  local:   http://127.0.0.1:$PORT"
-echo "  network: http://$LAN_IP:$PORT  (reachable by other machines)"
+  [[ -n "$SKIP_CHAT_PARSING" ]] && args+=(--skip-chat-parsing)
+  [[ -n "$CHAT_TEMPLATE" ]] && args+=(--chat-template "$CHAT_TEMPLATE")
+  [[ -n "$REASONING" ]] && args+=(--reasoning "$REASONING")
 
-export LD_LIBRARY_PATH="${LLAMA_BIN_DIR}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+  printf '%s\n' "${args[@]}"
+}
 
-exec "$LLAMA_BIN" \
-  -m "$MODEL_PATH" -ngl "$OFFLOAD_LAYERS" -c "$CTX_SIZE" \
-  --alias "$ALIAS" --host "$HOST" --port "$PORT" \
-  ${SKIP_CHAT_PARSING:+--skip-chat-parsing} \
-  ${CHAT_TEMPLATE:+--chat-template "$CHAT_TEMPLATE"} \
-  ${REASONING:+--reasoning "$REASONING"}
+start_server() {
+  local model_path="$1"
+  local alias="$2"
+
+  setup_library_path
+  print_server_info "$model_path" "$(get_lan_ip)" "$alias"
+
+  local -a args
+  mapfile -t args < <(build_server_args "$model_path" "$alias")
+  exec "$LLAMA_BIN" "${args[@]}"
+}
+
+print_usage() {
+  cat <<EOF
+Usage: run-server.sh [model-name]
+
+Fast mode: model + KV on GPU.
+  model-name  substring match against $MODELS_DIR/*.gguf (or run with 'list')
+
+Env: CTX_SIZE=${CTX_SIZE} PORT=${PORT} HOST=${HOST} OFFLOAD_LAYERS=${OFFLOAD_LAYERS}
+     REASONING=${REASONING:-off} SKIP_CHAT_PARSING=${SKIP_CHAT_PARSING:-off} CHAT_TEMPLATE=${CHAT_TEMPLATE:-none}
+EOF
+}
+
+handle_help_or_list() {
+  local arg="${1:-}"
+
+  case "$arg" in
+    list)
+      list_models
+      exit 0
+      ;;
+    -h | --help)
+      print_usage
+      exit 0
+      ;;
+  esac
+}
+
+main() {
+  handle_help_or_list "${1:-}"
+
+  validate_llama_binary
+
+  local model_path
+  model_path="$(find_model "${1:-}")"
+  validate_model_path "$model_path"
+
+  local alias="${ALIAS:-$(basename "$model_path" .gguf)}"
+  start_server "$model_path" "$alias"
+}
+
+main "$@"
