@@ -1,6 +1,38 @@
 [package]
 name = "bare-ai-server"
+edition.workspace = true
+version.workspace = true
+
+[workspace]
+members = [
+    "crates/domain",
+    "crates/application",
+    "crates/infrastructure",
+    "crates/presentation",
+]
+resolver = "2"
+
+[workspace.package]
 version = "0.1.0"
 edition = "2024"
+authors = ["gbrennon"]
+license = "MIT OR Apache-2.0"
 
-[dependencies]
+[workspace.dependencies]
+domain = { path = "crates/domain" }
+application = { path = "crates/application" }
+infrastructure = { path = "crates/infrastructure" }
+presentation = { path = "crates/presentation" }
+
+# Shared dependencies
+async-trait = "0.1"
+thiserror = "2"
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+clap = { version = "4", features = ["derive", "cargo"] }
+hf-hub = { version = "0.4", features = ["tokio"] }
+sha2 = "0.10"
+tempfile = "3"
