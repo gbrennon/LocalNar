@@ -1,8 +1,10 @@
 # bare-ai-server
 
-Local LLM serving with [llama.cpp](https://github.com/ggerganov/llama.cpp), built from source without containers. GPU offload via **Vulkan** on NVIDIA RTX 5070 (12 GB VRAM).
+Local LLM serving with [llama.cpp](https://github.com/ggerganov/llama.cpp), built from source without containers. GPU offload via **Vulkan** on NVIDIA RTX 5070 (12 GB VRAM). The repo also contains a Rust workspace that automates model download/install.
 
 This guide covers everything from setup to using the local model as a coding agent with [pi](https://pi.dev).
+
+Current state of the automation is documented in [`docs/`](docs/); the quick overview is in [section 9](#9-rust-workspace-model-downloader-automation).
 
 ---
 
@@ -76,13 +78,15 @@ Qwen3-8B is the sweet spot: newest generation, good tool calling, fits comfortab
 ### 2.2 Download a model
 
 ```sh
-# Primary method (if working):
+# Manual method (used today):
 hf download unsloth/Qwen3-8B-GGUF Qwen3-8B-Q4_K_M.gguf --local-dir ~/models/qwen3-8b/
 
 # Fallback if hf is broken (Python 3.14 / typer incompatibility):
 curl -L -o ~/models/qwen3-8b/Qwen3-8B-Q4_K_M.gguf \
   "https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf"
 ```
+
+The Rust workspace is being built to automate exactly this step; see [section 9](#9-rust-workspace-model-downloader-automation).
 
 ---
 
@@ -267,11 +271,68 @@ free -h | head -2
 
 ---
 
+## 8. Rust development
+
+The repo is a Cargo workspace. From the repository root:
+
+```sh
+# Build everything
+cargo build --workspace
+
+# Run the domain crate tests
+cargo test -p domain
+
+# Lint (all targets, including tests)
+cargo clippy --workspace --all-targets
+
+# Format
+cargo fmt --all
+```
+
+The workspace requires Rust `1.95` (edition **2024**).
+
+---
+
+## 9. Rust workspace: model downloader automation
+
+### 9.1 Why
+
+Today models are downloaded by hand (`hf download` or `curl`) into `~/models`. This repo is adding a small Rust automation that, given a model spec (e.g. `qwen3-8b` from `unsloth/Qwen3-8B-GGUF`), resolves the remote file, downloads it, verifies its SHA-256, and installs it into the model library. The runtime target is `llama-server` (built via the `llama.cpp` submodule).
+
+### 9.2 Layered layout
+
+The hexagon has four crates under `crates/`:
+
+| Crate | Layer | Status |
+|---|---|---|
+| `domain` | pure model + ports (no I/O) | **implemented** |
+| `application` | use cases / orchestration | scaffolding placeholder |
+| `infrastructure` | adapters (hf-hub, filesystem, hashing) | scaffolding placeholder |
+| `presentation` | CLI / command driver | scaffolding placeholder |
+
+The `domain` crate already:
+
+- defines value objects (`ModelId`, `ModelRepository`, `ModelSpec`, `Sha256`, ...),
+- models the install lifecycle as a state machine (`ModelState` -> `ModelPlan`),
+- declares the ports (contracts) that adapters implement: `RemoteModelRegistry`, `ModelDownloader`, `ModelLibrary`,
+- ships 24 unit tests, all green.
+
+The surrounding crates compile as empty scaffolds so the workspace resolves; they are filled in by the planned work below.
+
+Full, code-level documentation (with live signatures and module layout) lives in [`docs/architecture.md`](docs/architecture.md); the upcoming work is tracked in [`docs/roadmap.md`](docs/roadmap.md).
+
+---
+
 ## Files in this repo
 
-| File | Purpose |
+| File / dir | Purpose |
 |---|---|
 | `llama.cpp/` | Pinned llama.cpp submodule (built with `GGML_VULKAN=ON`) |
 | `run-server.sh` | Launcher (env vars: CTX_SIZE, PORT, HOST, SKIP_CHAT_PARSING, CHAT_TEMPLATE, KV_OFFLOAD) |
 | `register-with-pi.sh` | Registers repo as a pi project |
+| `crates/domain/` | Pure domain model + ports of the downloader automation |
+| `crates/application/` | Use-case orchestration (scaffold, planned) |
+| `crates/infrastructure/` | Adapters for ports (scaffold, planned) |
+| `crates/presentation/` | CLI entry point (scaffold, planned) |
+| `docs/` | Current-state and roadmap documentation |
 | `README.md` | This guide |

@@ -1,0 +1,7 @@
+[package]
+name = "application"
+description = "application layer of the bare-ai-server model downloader automation (scaffolded)."
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+license.workspace = true
