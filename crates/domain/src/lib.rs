@@ -35,7 +35,7 @@ pub use model_revision::ModelRevision;
 pub use model_spec::ModelSpec;
 pub use model_state::ModelState;
 pub use ports::{
-    DownloadError, LibraryError, ModelDownloader, ModelLibrary, RegistryReadError,
+    LibraryError, ModelDownloadError, ModelDownloader, ModelLibrary, RegistryReadError,
     RemoteModelRegistry,
 };
 pub use remote_model_file::RemoteModelFile;

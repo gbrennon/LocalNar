@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use crate::model_artifact::ModelArtifact;
-use crate::ports::download_error::DownloadError;
+use crate::ports::model_download_error::ModelDownloadError;
 use crate::remote_model_file::RemoteModelFile;
 
 /// Contract for transmitting the bytes of a resolved remote file.
@@ -12,5 +12,5 @@ use crate::remote_model_file::RemoteModelFile;
 #[async_trait]
 pub trait ModelDownloader: Send + Sync {
     /// Transfers `remote` into a freshly created, staged artifact.
-    async fn fetch(&self, remote: &RemoteModelFile) -> Result<ModelArtifact, DownloadError>;
+    async fn fetch(&self, remote: &RemoteModelFile) -> Result<ModelArtifact, ModelDownloadError>;
 }

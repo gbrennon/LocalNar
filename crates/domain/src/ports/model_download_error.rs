@@ -2,7 +2,7 @@ use crate::byte_length::ByteLength;
 
 /// Failures that can occur while transmitting a remote file.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-pub enum DownloadError {
+pub enum ModelDownloadError {
     /// The upstream host could not be reached.
     #[error("could not reach the host while downloading `{file}`: {cause}")]
     Unreachable { file: String, cause: String },
