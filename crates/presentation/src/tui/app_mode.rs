@@ -3,8 +3,8 @@
 pub enum AppMode {
     /// Search mode - user enters search query
     Search,
-    /// Model list mode - displays search results
-    ModelList,
+    /// Model table mode - displays one row per model found
+    ModelTable,
     /// Install progress mode - shows download/install progress
     InstallProgress,
     /// Help mode - displays key bindings and usage

@@ -1,27 +1,21 @@
 use std::sync::Arc;
 
 use application::ports::inbound::search_models_port::SearchModelsPort;
-use application::ports::outbound::download_progress_port::DownloadProgressPort;
-use application::ports::outbound::download_progress::DownloadProgress;
-use application::ports::outbound::model_downloader_port::ModelDownloaderPort;
-use application::ports::outbound::model_library_port::ModelLibraryPort;
-use application::ports::outbound::remote_model_registry_port::RemoteModelRegistryPort;
 use application::services::{InstallModelService, SearchModelsService};
 use crossterm::event::{KeyCode, KeyEvent};
-use domain::{ByteFormatter, ModelSpec, SearchQuery};
+use domain::SearchQuery;
 use infrastructure::{DiskModelLibrary, HfApiRegistry, HfHubDownloader, ReqwestHubTransport};
 use infrastructure::adapters::ProgressBus;
 use infrastructure::remote::huggingface::downloader::HfHubTokioTransport;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap},
+    style::{Color, Style},
+    widgets::{Block, Borders, Clear, Paragraph, Wrap},
     Frame,
 };
 use tokio::sync::mpsc;
 
-use crate::tui::components::{HelpWidget, ModelListWidget, ProgressWidget, SearchWidget, StatusWidget};
+use crate::tui::components::{HelpWidget, ModelTableWidget, ProgressWidget, SearchWidget, StatusWidget};
 use crate::tui::events::EventHandler;
 use crate::tui::app_mode::AppMode;
 use crate::tui::app_event::AppEvent;
@@ -30,7 +24,7 @@ use crate::tui::layout_helper::LayoutHelper;
 
 /// Main TUI application struct managing the model downloader interface.
 ///
-/// Coordinates search, model listing, installation progress, and help modes.
+/// Coordinates search, the model table, installation progress, and help modes.
 /// Uses concrete infrastructure adapters at the composition root.
 pub struct TuiApp {
     search_service: Arc<SearchModelsService<HfApiRegistry<ReqwestHubTransport>>>,
@@ -41,7 +35,7 @@ pub struct TuiApp {
     mode: AppMode,
     previous_mode: Option<AppMode>,
     search_widget: SearchWidget,
-    model_list_widget: ModelListWidget,
+    model_table_widget: ModelTableWidget,
     progress_widget: ProgressWidget,
     status_widget: StatusWidget,
     help_widget: HelpWidget,
@@ -72,7 +66,7 @@ impl TuiApp {
             mode: AppMode::Search,
             previous_mode: None,
             search_widget: SearchWidget::new(),
-            model_list_widget: ModelListWidget::new(),
+            model_table_widget: ModelTableWidget::new(),
             progress_widget: ProgressWidget::new(),
             status_widget: StatusWidget::new(),
             help_widget: HelpWidget::new(),
@@ -114,8 +108,8 @@ impl TuiApp {
         while let Ok(event) = self.event_receiver.try_recv() {
             match event {
                 AppEvent::SearchCompleted(results) => {
-                    self.model_list_widget.set_models(results);
-                    self.mode = AppMode::ModelList;
+                    self.model_table_widget.set_models(results);
+                    self.mode = AppMode::ModelTable;
                     self.status_widget.set_message(Self::MSG_SEARCH_COMPLETED);
                 }
                 AppEvent::SearchFailed(err) => {
@@ -132,11 +126,11 @@ impl TuiApp {
                     self.progress_widget.set_progress(progress, msg);
                 }
                 AppEvent::InstallCompleted(model) => {
-                    self.mode = self.previous_mode.take().unwrap_or(AppMode::ModelList);
+                    self.mode = self.previous_mode.take().unwrap_or(AppMode::ModelTable);
                     self.status_widget.set_message(format!("{}{}", Self::MSG_INSTALL_COMPLETED, model.spec()));
                 }
                 AppEvent::InstallFailed(err) => {
-                    self.mode = self.previous_mode.take().unwrap_or(AppMode::ModelList);
+                    self.mode = self.previous_mode.take().unwrap_or(AppMode::ModelTable);
                     self.last_error = Some(err.clone());
                     self.status_widget.set_error(err);
                 }
@@ -163,7 +157,7 @@ impl TuiApp {
 
         match self.mode {
             AppMode::Search => self.handle_search_keys(key).await,
-            AppMode::ModelList => self.handle_model_list_keys(key).await,
+            AppMode::ModelTable => self.handle_model_table_keys(key).await,
             AppMode::InstallProgress => self.handle_install_progress_keys(key),
             AppMode::Help => self.handle_help_keys(key),
         }
@@ -205,7 +199,7 @@ impl TuiApp {
                 self.mode = AppMode::Help;
             }
             KeyCode::Tab => {
-                self.mode = AppMode::ModelList;
+                self.mode = AppMode::ModelTable;
             }
             KeyCode::BackTab => {
                 self.mode = AppMode::Help;
@@ -214,17 +208,17 @@ impl TuiApp {
         }
     }
 
-    async fn handle_model_list_keys(&mut self, key: KeyEvent) {
+    async fn handle_model_table_keys(&mut self, key: KeyEvent) {
         match key.code {
             KeyCode::Up => {
-                self.model_list_widget.previous();
+                self.model_table_widget.previous();
             }
             KeyCode::Down => {
-                self.model_list_widget.next();
+                self.model_table_widget.next();
             }
             KeyCode::Enter => {
-                if let Some(model) = self.model_list_widget.selected_model() {
-                    let spec = ModelSpec::new(model.repository().clone(), model.file().clone());
+                if let Some(model) = self.model_table_widget.selected_model() {
+                    let spec = model.spec().clone();
                     self.event_sender.send(AppEvent::InstallStarted).ok();
 
                     let sender = self.event_sender.clone();
@@ -260,11 +254,8 @@ impl TuiApp {
     }
 
     fn handle_install_progress_keys(&mut self, key: KeyEvent) {
-        match key.code {
-            KeyCode::Esc => {
-                self.mode = self.previous_mode.take().unwrap_or(AppMode::ModelList);
-            }
-            _ => {}
+        if key.code == KeyCode::Esc {
+            self.mode = self.previous_mode.take().unwrap_or(AppMode::ModelTable);
         }
     }
 
@@ -274,7 +265,7 @@ impl TuiApp {
         } else if matches!(key.code, KeyCode::Tab) {
             self.mode = AppMode::Search;
         } else if matches!(key.code, KeyCode::BackTab) {
-            self.mode = AppMode::ModelList;
+            self.mode = AppMode::ModelTable;
         }
     }
     /// Render the TUI application.
@@ -299,10 +290,10 @@ impl TuiApp {
             AppMode::Search => {
                 self.search_widget.draw(frame, area);
             }
-            AppMode::ModelList => {
-                let title = Paragraph::new(Self::MODEL_LIST_HEADER)
+            AppMode::ModelTable => {
+                let title = Paragraph::new(Self::MODEL_TABLE_HEADER)
                     .style(Style::default().fg(Color::Cyan))
-                    .block(Block::default().borders(Borders::ALL).title(Self::MODEL_LIST_TITLE));
+                    .block(Block::default().borders(Borders::ALL).title(Self::MODEL_TABLE_TITLE));
                 frame.render_widget(title, area);
             }
             AppMode::InstallProgress => {
@@ -325,8 +316,8 @@ impl TuiApp {
             AppMode::Search => {
                 self.draw_search_help(frame, area);
             }
-            AppMode::ModelList => {
-                self.model_list_widget.draw(frame, area);
+            AppMode::ModelTable => {
+                self.model_table_widget.draw(frame, area);
             }
             AppMode::InstallProgress => {
                 self.progress_widget.draw(frame, area);
@@ -371,8 +362,8 @@ impl TuiApp {
     const CONTENT_MIN_HEIGHT: u16 = 10;
     const STATUS_HEIGHT: u16 = 3;
 
-    const MODEL_LIST_HEADER: &'static str = "Models (↑/↓ navigate, Enter install, Esc search, h help)";
-    const MODEL_LIST_TITLE: &'static str = "Models";
+    const MODEL_TABLE_HEADER: &'static str = "Models (↑/↓ navigate, Enter install, Esc search, h help)";
+    const MODEL_TABLE_TITLE: &'static str = "Models";
 
     const INSTALL_PROGRESS_HEADER: &'static str = "Installing Model... (Esc to return)";
     const INSTALL_PROGRESS_TITLE: &'static str = "Install Progress";
@@ -380,7 +371,7 @@ impl TuiApp {
     const HELP_HEADER: &'static str = "Help (Esc/h to close)";
     const HELP_TITLE: &'static str = "Help";
 
-    const SEARCH_HELP_TEXT: &'static str = "Enter search query and press Enter to search models.\nTab to switch to model list view.\nEsc for help.";
+    const SEARCH_HELP_TEXT: &'static str = "Enter search query and press Enter to search models.\nTab to switch to the model table.\nEsc for help.";
     const SEARCH_HELP_TITLE: &'static str = "Search";
 
     const ERROR_TITLE: &'static str = "Error";

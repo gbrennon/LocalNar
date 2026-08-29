@@ -1,11 +1,11 @@
 #![allow(dead_code)]
 use application::errors::RegistryReadError;
 use application::ports::outbound::RemoteModelRegistryPort;
-use domain::{ModelFileName, ModelRepository, RemoteModelFile, SearchQuery};
+use domain::{ModelFileName, ModelInfo, ModelRepository, RemoteModelFile, SearchQuery};
 
 use crate::common::fakes::model_fixture::ModelFixture;
 
-/// A registry that answers a search with one downloadable file.
+/// A registry that answers a search with one described model.
 pub struct FakeSearchingRegistry;
 
 impl RemoteModelRegistryPort for FakeSearchingRegistry {
@@ -20,7 +20,7 @@ impl RemoteModelRegistryPort for FakeSearchingRegistry {
     async fn search_models(
         &self,
         _query: &SearchQuery,
-    ) -> Result<Vec<RemoteModelFile>, RegistryReadError> {
-        Ok(vec![ModelFixture::remote_file()])
+    ) -> Result<Vec<ModelInfo>, RegistryReadError> {
+        Ok(vec![ModelFixture::model_info()])
     }
 }
