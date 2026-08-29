@@ -1,14 +1,16 @@
 //! The infrastructure layer for bare-ai-server.
 //!
 //! Provides concrete outbound port adapters connecting the application layer
-//! to external services including Hugging Face Hub and local filesystem storage.
+//! to external services. Adapters are grouped by implementation topic:
+//! remote providers (`remote`) and local persistence (`persistence`).
 
 #![allow(async_fn_in_trait)]
 
-pub mod disk_model_library;
-pub mod hf_api_registry;
-pub mod hf_hub_downloader;
+pub mod persistence;
+pub mod remote;
 
-pub use disk_model_library::DiskModelLibrary;
-pub use hf_api_registry::{HfApiRegistry, HubTransport, ReqwestHubTransport};
-pub use hf_hub_downloader::{HfHubDownloader, HfHubTokioTransport, HubDownloadTransport};
+pub use persistence::DiskModelLibrary;
+pub use remote::{
+    HfApiRegistry, HfHubDownloader, HfHubTokioTransport, HubDownloadTransport, HubTransport,
+    ReqwestHubTransport,
+};
