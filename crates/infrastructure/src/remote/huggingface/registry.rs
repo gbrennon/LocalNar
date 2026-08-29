@@ -1,9 +1,10 @@
 use application::errors::RegistryReadError;
 use application::ports::outbound::RemoteModelRegistryPort;
 use domain::{
-    ByteLength, Checksum, ModelFileName, ModelRepository, ModelRepositoryId, ModelRevision,
-    RemoteModelFile, SearchQuery,
+    ByteLength, Checksum, ContextLength, ModelFileName, ModelInfo, ModelProfile, ModelRepository,
+    ModelRepositoryId, ModelWeightChoice, ParameterCount, RemoteModelFile, SearchQuery,
 };
+use futures::future::join_all;
 use reqwest::Client;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
@@ -106,6 +107,9 @@ pub struct HfApiRegistry<Transport = ReqwestHubTransport> {
 }
 
 impl<Transport: HubTransport> HfApiRegistry<Transport> {
+    const SEARCH_RESULT_LIMIT: usize = 10;
+    const GGUF_EXPANSION: &'static str = "expand%5B%5D=gguf";
+
     /// Builds a registry with an injected transport.
     pub fn new(transport: Transport) -> Self {
         Self { transport }
@@ -114,6 +118,67 @@ impl<Transport: HubTransport> HfApiRegistry<Transport> {
     /// Returns a reference to the inner transport.
     pub fn transport(&self) -> &Transport {
         &self.transport
+    }
+
+    /// Describes one catalog entry as the single candidate it offers, if any.
+    ///
+    /// The catalog lists an entry's file names without their sizes, so the
+    /// entry's own revision is read to learn what each file weighs before the
+    /// domain picks the one file that stands for the model. An entry whose
+    /// revision cannot be read, whose identifier is malformed, or that publishes
+    /// no installable weight yields nothing.
+    async fn describe(&self, entry: &CatalogEntryResponse) -> Option<ModelInfo> {
+        let identifier = ModelRepositoryId::parse(&entry.id).ok()?;
+        let repository = ModelRepository::at_default_revision(identifier);
+        let offered = self.offered_files(&repository).await.ok()?;
+
+        ModelWeightChoice::among(&offered)
+            .map(|weight| ModelInfo::describing(weight, entry.to_profile()))
+    }
+
+    /// Reads every file a repository revision publishes, with its size and digest.
+    async fn offered_files(
+        &self,
+        repository: &ModelRepository,
+    ) -> Result<Vec<RemoteModelFile>, RegistryReadError> {
+        let path = format!(
+            "api/models/{}/{}/revision/{}?blobs=true",
+            repository.identifier().owner(),
+            repository.identifier().name(),
+            repository.revision().as_str()
+        );
+
+        let details: RepositoryRevisionResponse = self.transport.get_json(&path).await?;
+
+        Ok(details
+            .siblings
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|sibling| sibling.to_remote_file(repository))
+            .collect())
+    }
+
+    fn search_path(query: &SearchQuery) -> String {
+        format!(
+            "api/models?search={}&limit={}&{}",
+            query.as_str(),
+            Self::SEARCH_RESULT_LIMIT,
+            Self::GGUF_EXPANSION
+        )
+    }
+
+    fn as_file_failure(
+        failure: RegistryReadError,
+        repository: &ModelRepository,
+        file: &ModelFileName,
+    ) -> RegistryReadError {
+        match failure {
+            RegistryReadError::FileNotFound { .. } => RegistryReadError::FileNotFound {
+                repository: repository.to_string(),
+                file: file.to_string(),
+            },
+            other => other,
+        }
     }
 }
 
@@ -124,138 +189,111 @@ impl HfApiRegistry<ReqwestHubTransport> {
     }
 }
 
-#[derive(Debug, Deserialize)]
-struct RepoDetailsResponse {
-    siblings: Option<Vec<RepoSiblingResponse>>,
-}
-
-#[derive(Debug, Deserialize)]
-struct RepoSiblingResponse {
-    rfilename: String,
-    size: Option<u64>,
-    lfs: Option<LfsDetailsResponse>,
-}
-
-#[derive(Debug, Deserialize)]
-struct LfsDetailsResponse {
-    size: Option<u64>,
-    sha256: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct SearchModelItemResponse {
-    id: String,
-    siblings: Option<Vec<RepoSiblingResponse>>,
-}
-
 impl<Transport: HubTransport> RemoteModelRegistryPort for HfApiRegistry<Transport> {
     async fn resolve_model_file(
         &self,
         repository: &ModelRepository,
         file: &ModelFileName,
     ) -> Result<RemoteModelFile, RegistryReadError> {
-        let path = format!(
-            "api/models/{}/{}/revision/{}?blobs=true",
-            repository.identifier().owner(),
-            repository.identifier().name(),
-            repository.revision().as_str()
-        );
+        let offered = self
+            .offered_files(repository)
+            .await
+            .map_err(|failure| Self::as_file_failure(failure, repository, file))?;
 
-        let repo_info: RepoDetailsResponse =
-            self.transport
-                .get_json(&path)
-                .await
-                .map_err(|err| match err {
-                    RegistryReadError::FileNotFound { .. } => RegistryReadError::FileNotFound {
-                        repository: repository.to_string(),
-                        file: file.to_string(),
-                    },
-                    other => other,
-                })?;
-
-        extract_matching_file(repository, file, repo_info)
+        offered
+            .into_iter()
+            .find(|offer| offer.file() == file)
+            .ok_or_else(|| RegistryReadError::FileNotFound {
+                repository: repository.to_string(),
+                file: file.to_string(),
+            })
     }
 
     async fn search_models(
         &self,
         query: &SearchQuery,
-    ) -> Result<Vec<RemoteModelFile>, RegistryReadError> {
-        let path = format!("api/models?search={}&full=true&limit=10", query.as_str());
-        let results: Vec<SearchModelItemResponse> = self.transport.get_json(&path).await?;
-        Ok(extract_search_files(results))
+    ) -> Result<Vec<ModelInfo>, RegistryReadError> {
+        let entries: Vec<CatalogEntryResponse> =
+            self.transport.get_json(&Self::search_path(query)).await?;
+
+        let described = join_all(entries.iter().map(|entry| self.describe(entry))).await;
+
+        Ok(described.into_iter().flatten().collect())
     }
 }
 
-fn extract_matching_file(
-    repository: &ModelRepository,
-    file: &ModelFileName,
-    repo_info: RepoDetailsResponse,
-) -> Result<RemoteModelFile, RegistryReadError> {
-    let matching = repo_info
-        .siblings
-        .as_deref()
-        .unwrap_or_default()
-        .iter()
-        .find(|sibling| sibling.rfilename == file.as_str())
-        .ok_or_else(|| RegistryReadError::FileNotFound {
-            repository: repository.to_string(),
-            file: file.to_string(),
-        })?;
-
-    let size = matching
-        .lfs
-        .as_ref()
-        .and_then(|lfs| lfs.size)
-        .or(matching.size)
-        .unwrap_or(0);
-
-    let checksum = matching
-        .lfs
-        .as_ref()
-        .and_then(|lfs| lfs.sha256.as_deref())
-        .and_then(|digest_str| Checksum::parse(digest_str).ok());
-
-    Ok(RemoteModelFile::new(
-        repository.clone(),
-        file.clone(),
-        ByteLength::new(size),
-        checksum,
-    ))
+#[derive(Debug, Deserialize)]
+struct RepositoryRevisionResponse {
+    siblings: Option<Vec<RepositoryFileResponse>>,
 }
 
-fn extract_search_files(results: Vec<SearchModelItemResponse>) -> Vec<RemoteModelFile> {
-    let mut files = Vec::new();
-    for item in results {
-        let Ok(repo_id) = ModelRepositoryId::parse(&item.id) else {
-            continue;
-        };
-        let repository = ModelRepository::new(repo_id, ModelRevision::default());
+#[derive(Debug, Deserialize)]
+struct RepositoryFileResponse {
+    rfilename: String,
+    size: Option<u64>,
+    lfs: Option<LargeFileResponse>,
+}
 
-        for sibling in item.siblings.unwrap_or_default() {
-            let Ok(file_name) = ModelFileName::new(&sibling.rfilename) else {
-                continue;
-            };
+impl RepositoryFileResponse {
+    fn to_remote_file(&self, repository: &ModelRepository) -> Option<RemoteModelFile> {
+        let file = ModelFileName::new(&self.rfilename).ok()?;
 
-            let size = sibling
-                .lfs
-                .as_ref()
-                .and_then(|lfs| lfs.size)
-                .or(sibling.size)
-                .unwrap_or(0);
-
-            let checksum = sibling
-                .lfs
-                .as_ref()
-                .and_then(|lfs| lfs.sha256.as_deref())
-                .and_then(|digest_str| Checksum::parse(digest_str).ok());
-
-            files.push(RemoteModelFile::new(
-                repository.clone(),
-                file_name,
-                ByteLength::new(size),
-                checksum,
-            ));
-        }
+        Some(RemoteModelFile::new(
+            repository.clone(),
+            file,
+            ByteLength::new(self.byte_size()),
+            self.advertised_checksum(),
+        ))
     }
-    files
+
+    fn byte_size(&self) -> u64 {
+        self.lfs
+            .as_ref()
+            .and_then(|lfs| lfs.size)
+            .or(self.size)
+            .unwrap_or_default()
+    }
+
+    fn advertised_checksum(&self) -> Option<Checksum> {
+        self.lfs
+            .as_ref()
+            .and_then(|lfs| lfs.sha256.as_deref())
+            .and_then(|digest| Checksum::parse(digest).ok())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct LargeFileResponse {
+    size: Option<u64>,
+    sha256: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CatalogEntryResponse {
+    id: String,
+    gguf: Option<GgufMetadataResponse>,
+}
+
+impl CatalogEntryResponse {
+    fn to_profile(&self) -> ModelProfile {
+        self.gguf
+            .as_ref()
+            .map(GgufMetadataResponse::to_profile)
+            .unwrap_or(ModelProfile::UNDISCLOSED)
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct GgufMetadataResponse {
+    total: Option<u64>,
+    context_length: Option<u32>,
+}
+
+impl GgufMetadataResponse {
+    fn to_profile(&self) -> ModelProfile {
+        ModelProfile::new(
+            self.total.map(ParameterCount::new),
+            self.context_length.map(ContextLength::new),
+        )
+    }
 }

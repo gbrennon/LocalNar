@@ -1,6 +1,5 @@
 use application::ports::outbound::download_progress::DownloadProgress;
-use std::sync::Arc;
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::broadcast;
 
 /// Progress event emitted by the progress bus.
 #[derive(Debug, Clone)]
@@ -72,6 +71,7 @@ impl application::ports::outbound::download_progress_port::DownloadProgressPort 
 mod tests {
     use super::*;
     use application::ports::outbound::download_progress::DownloadProgress;
+    use application::ports::outbound::download_progress_port::DownloadProgressPort;
     use domain::ByteLength;
 
     #[tokio::test]

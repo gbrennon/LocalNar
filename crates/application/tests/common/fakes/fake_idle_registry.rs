@@ -1,9 +1,9 @@
 #![allow(dead_code)]
 use application::errors::RegistryReadError;
 use application::ports::outbound::RemoteModelRegistryPort;
-use domain::{ModelFileName, ModelRepository, RemoteModelFile};
+use domain::{ModelFileName, ModelInfo, ModelRepository, RemoteModelFile, SearchQuery};
 
-/// A registry for scenarios that must never reach the network.
+/// A registry that offers no enumeration and must never reach the network.
 pub struct FakeIdleRegistry;
 
 impl RemoteModelRegistryPort for FakeIdleRegistry {
@@ -13,5 +13,12 @@ impl RemoteModelRegistryPort for FakeIdleRegistry {
         _file: &ModelFileName,
     ) -> Result<RemoteModelFile, RegistryReadError> {
         panic!("the registry must not be consulted in this scenario")
+    }
+
+    async fn search_models(
+        &self,
+        _query: &SearchQuery,
+    ) -> Result<Vec<ModelInfo>, RegistryReadError> {
+        Err(RegistryReadError::EnumerationUnsupported)
     }
 }

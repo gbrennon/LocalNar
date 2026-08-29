@@ -9,31 +9,61 @@ use crate::common::fakes::fake_unreachable_registry::FakeUnreachableRegistry;
 use crate::common::fakes::model_fixture::ModelFixture;
 
 #[test]
-fn search_when_the_catalog_has_matches_then_each_downloadable_file_is_a_row() {
+fn search_when_the_catalog_has_matches_then_each_model_is_one_row() {
     BlockOn::run(async {
         let rows = SearchModelsService::new(FakeSearchingRegistry)
             .execute(&ModelFixture::query())
             .await
             .expect("a reachable catalog must be searchable");
 
-        assert_eq!(rows, vec![ModelFixture::remote_file()]);
+        assert_eq!(rows, vec![ModelFixture::model_info()]);
     });
 }
 
 #[test]
-fn search_rows_carry_the_repository_file_and_size_a_candidate_needs() {
+fn search_rows_carry_the_name_size_and_precision_a_candidate_needs() {
     BlockOn::run(async {
         let rows = SearchModelsService::new(FakeSearchingRegistry)
             .execute(&ModelFixture::query())
             .await
             .expect("a reachable catalog must be searchable");
 
-        let row = rows.first().expect("the catalog matched one file");
-        let expected = ModelFixture::spec();
+        let row = rows.first().expect("the catalog matched one model");
 
-        assert_eq!(row.repository(), expected.repository());
-        assert_eq!(row.file(), expected.file());
+        assert_eq!(row.name(), ModelFixture::spec().repository().identifier());
         assert_eq!(row.size(), ModelFixture::remote_file().size());
+        assert_eq!(
+            row.quantization().map(|quantization| quantization.label()),
+            Some("Q4_K_M")
+        );
+    });
+}
+
+#[test]
+fn search_rows_are_actionable_as_install_intents() {
+    BlockOn::run(async {
+        let rows = SearchModelsService::new(FakeSearchingRegistry)
+            .execute(&ModelFixture::query())
+            .await
+            .expect("a reachable catalog must be searchable");
+
+        let row = rows.first().expect("the catalog matched one model");
+
+        assert_eq!(row.spec(), &ModelFixture::spec());
+    });
+}
+
+#[test]
+fn search_rows_carry_the_serving_profile_the_catalog_disclosed() {
+    BlockOn::run(async {
+        let rows = SearchModelsService::new(FakeSearchingRegistry)
+            .execute(&ModelFixture::query())
+            .await
+            .expect("a reachable catalog must be searchable");
+
+        let row = rows.first().expect("the catalog matched one model");
+
+        assert_eq!(row.profile(), &ModelFixture::profile());
     });
 }
 

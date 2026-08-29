@@ -1,7 +1,6 @@
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
-    text::{Line, Span},
     widgets::{Block, Borders, Gauge, Paragraph},
     Frame,
 };
@@ -74,5 +73,5 @@ impl ProgressWidget {
     const GAUGE_TITLE: &'static str = "Progress";
     const STATUS_TITLE: &'static str = "Status";
     const CONTROLS_TITLE: &'static str = "Controls";
-    const HELP_TEXT: &'static str = "Press Esc to return to model list (install continues in background)";
+    const HELP_TEXT: &'static str = "Press Esc to return to the model table (install continues in background)";
 }

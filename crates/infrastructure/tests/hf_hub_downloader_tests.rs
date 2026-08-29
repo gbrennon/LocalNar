@@ -45,14 +45,11 @@ impl FakeHubDownloadTransport {
 }
 
 impl HubDownloadTransport for FakeHubDownloadTransport {
-    async fn download_file<Progress>(
+    async fn download_file(
         &self,
         remote: &RemoteModelFile,
-        progress: &Progress,
-    ) -> Result<ModelArtifact, ModelDownloadError>
-    where
-        Progress: DownloadProgressPort,
-    {
+        progress: &dyn DownloadProgressPort,
+    ) -> Result<ModelArtifact, ModelDownloadError> {
         if let Some(err) = &self.should_fail {
             return Err(err.clone());
         }

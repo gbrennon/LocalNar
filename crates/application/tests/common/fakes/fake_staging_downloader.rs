@@ -9,14 +9,11 @@ use crate::common::fakes::model_fixture::ModelFixture;
 pub struct FakeStagingDownloader;
 
 impl ModelDownloaderPort for FakeStagingDownloader {
-    async fn fetch<Progress>(
+    async fn fetch(
         &self,
         remote: &RemoteModelFile,
-        progress: &Progress,
-    ) -> Result<ModelArtifact, ModelDownloadError>
-    where
-        Progress: DownloadProgressPort,
-    {
+        progress: &dyn DownloadProgressPort,
+    ) -> Result<ModelArtifact, ModelDownloadError> {
         let total = remote.size();
 
         progress.report(DownloadProgress::Started { total });
