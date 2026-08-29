@@ -1,4 +1,4 @@
-use presentation::tui::{ByteFormatter, LayoutHelper};
+use domain::ByteFormatter;
 use ratatui::layout::Rect;
 
 #[test]
@@ -34,9 +34,9 @@ fn byte_formatter_formats_gibibytes() {
 #[test]
 fn layout_helper_centers_rect() {
     let area = Rect::new(0, 0, 100, 50);
-    let centered = LayoutHelper::centered_rect(50, 50, area);
-    assert_eq!(centered.width(), 50);
-    assert_eq!(centered.height(), 25);
+    let centered = presentation::tui::LayoutHelper::centered_rect(50, 50, area);
+    assert_eq!(centered.width, 50);
+    assert_eq!(centered.height, 25);
     assert_eq!(centered.x, 25);
     assert_eq!(centered.y, 12);
 }
