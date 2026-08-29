@@ -1,5 +1,5 @@
 use crate::tui::app_event::AppEvent;
-use domain::ByteFormatter;
+use domain::ByteLength;
 use infrastructure::adapters::{ProgressBus, ProgressEvent};
 use tokio::sync::mpsc;
 
@@ -49,8 +49,8 @@ impl ProgressReporterBridge {
         let ratio = percentage / 100.0;
         let message = format!(
             "Downloading: {} / {} ({:.1}%)",
-            ByteFormatter::format(transferred),
-            ByteFormatter::format(total),
+            ByteLength::new(transferred),
+            ByteLength::new(total),
             percentage
         );
         AppEvent::InstallProgress(ratio, message)
