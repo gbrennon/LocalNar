@@ -5,15 +5,15 @@ use crate::domain_error::DomainError;
 const DIGEST_BYTES: usize = 32;
 const HEX_DIGITS: usize = DIGEST_BYTES * 2;
 
-/// A SHA-256 digest that proves the byte integrity of a downloaded model.
+/// A digest that proves the byte integrity of a downloaded model.
 ///
 /// Construction happens either from the exact 32 raw bytes (for adapters that
 /// already produced a digest) or from a 64-character hexadecimal literal.
 /// Two digests are equal when all 32 bytes match.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Sha256([u8; DIGEST_BYTES]);
+pub struct Checksum([u8; DIGEST_BYTES]);
 
-impl Sha256 {
+impl Checksum {
     /// Builds a digest from its exact 32 raw bytes.
     pub const fn from_bytes(raw: [u8; DIGEST_BYTES]) -> Self {
         Self(raw)
@@ -22,10 +22,10 @@ impl Sha256 {
     /// Parses a 64-character hexadecimal literal into a digest.
     ///
     /// Both lowercase and uppercase letters are accepted; anything else is a
-    /// `DomainError::InvalidSha256Literal`.
+    /// `DomainError::InvalidChecksumLiteral`.
     pub fn parse(literal: &str) -> Result<Self, DomainError> {
         if literal.len() != HEX_DIGITS {
-            return Err(DomainError::InvalidSha256Literal(literal.to_owned()));
+            return Err(DomainError::InvalidChecksumLiteral(literal.to_owned()));
         }
         let mut raw = [0u8; DIGEST_BYTES];
         let characters: Vec<char> = literal.chars().collect();
@@ -41,88 +41,77 @@ impl Sha256 {
     pub fn to_hex(self) -> String {
         self.0.iter().map(|byte| format!("{byte:02x}")).collect()
     }
-
-    /// Borrows the 32 raw bytes of the digest.
-    pub fn as_bytes(&self) -> &[u8; DIGEST_BYTES] {
-        &self.0
-    }
-
-    /// Consumes the digest and returns its 32 raw bytes.
-    pub fn into_bytes(self) -> [u8; DIGEST_BYTES] {
-        self.0
-    }
 }
 
 fn decode_hex_digit(character: char, literal: &str) -> Result<u8, DomainError> {
     character
         .to_digit(16)
         .map(|digit| digit as u8)
-        .ok_or_else(|| DomainError::InvalidSha256Literal(literal.to_owned()))
+        .ok_or_else(|| DomainError::InvalidChecksumLiteral(literal.to_owned()))
 }
 
-impl fmt::Display for Sha256 {
+impl fmt::Display for Checksum {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(&self.to_hex())
     }
 }
 
-impl fmt::Debug for Sha256 {
+impl fmt::Debug for Checksum {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(&self.to_hex())
     }
 }
 
 #[cfg(test)]
-mod sha256_tests {
+mod checksum_tests {
+    use crate::checksum::Checksum;
     use crate::domain_error::DomainError;
-    use crate::sha256::Sha256;
 
     const SAMPLE_HEX: &str = "a94a8fe5ccb19ba61c4c0873d391e987982fbbd3fdf96d1b0f6a55a0f9f0f7e8";
 
     #[test]
     fn round_tripping_a_hex_literal_preserves_the_digest() {
-        let digest = Sha256::parse(SAMPLE_HEX).expect("sample must parse");
+        let digest = Checksum::parse(SAMPLE_HEX).expect("sample must parse");
         assert_eq!(digest.to_hex(), SAMPLE_HEX);
         assert_eq!(
             digest,
-            Sha256::parse(&digest.to_hex()).expect("hex must re-parse")
+            Checksum::parse(&digest.to_hex()).expect("hex must re-parse")
         );
     }
 
     #[test]
     fn uppercase_hex_literals_parse_to_the_same_digest() {
-        let lowercase = Sha256::parse(SAMPLE_HEX).expect("lowercase must parse");
-        let uppercase = Sha256::parse(&SAMPLE_HEX.to_uppercase()).expect("uppercase must parse");
+        let lowercase = Checksum::parse(SAMPLE_HEX).expect("lowercase must parse");
+        let uppercase = Checksum::parse(&SAMPLE_HEX.to_uppercase()).expect("uppercase must parse");
         assert_eq!(lowercase, uppercase);
     }
 
     #[test]
     fn reject_literals_that_are_not_64_characters() {
         assert_eq!(
-            Sha256::parse("deadbeef"),
-            Err(DomainError::InvalidSha256Literal("deadbeef".to_owned()))
+            Checksum::parse("deadbeef"),
+            Err(DomainError::InvalidChecksumLiteral("deadbeef".to_owned()))
         );
     }
 
     #[test]
     fn reject_literals_that_contain_non_hex_characters() {
         assert!(matches!(
-            Sha256::parse(&format!("{}z", &SAMPLE_HEX[..63])),
-            Err(DomainError::InvalidSha256Literal(_))
+            Checksum::parse(&format!("{}z", &SAMPLE_HEX[..63])),
+            Err(DomainError::InvalidChecksumLiteral(_))
         ));
     }
 
     #[test]
     fn from_bytes_round_trips_through_hex() {
-        let digest = Sha256::from_bytes([7u8; 32]);
+        let digest = Checksum::from_bytes([7u8; 32]);
         assert_eq!(digest.to_hex(), "07".repeat(32));
-        assert_eq!(digest.into_bytes(), [7u8; 32]);
     }
 
     #[test]
     fn digests_differ_when_a_single_byte_differs() {
-        let left = Sha256::from_bytes([0u8; 32]);
-        let right = Sha256::from_bytes([1u8; 32]);
+        let left = Checksum::from_bytes([0u8; 32]);
+        let right = Checksum::from_bytes([1u8; 32]);
         assert_ne!(left, right);
     }
 }

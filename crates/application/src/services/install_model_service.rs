@@ -1,0 +1,135 @@
+use domain::{InstalledModel, ModelSpec, ModelState};
+
+use crate::errors::install_model_error::InstallModelError;
+use crate::ports::inbound::InstallModelPort;
+use crate::ports::outbound::download_progress_port::DownloadProgressPort;
+use crate::ports::outbound::model_downloader_port::ModelDownloaderPort;
+use crate::ports::outbound::model_library_port::ModelLibraryPort;
+use crate::ports::outbound::remote_model_registry_port::RemoteModelRegistryPort;
+
+/// The use case that brings one model into its installed, verified state.
+///
+/// It owns no I/O: every external effect is delegated to an injected port, so
+/// the install decisions stay testable against fakes. The ports are type
+/// parameters rather than trait objects, which keeps the calls statically
+/// dispatched and allocation free; an outer layer that needs to choose an
+/// adapter at runtime erases the type at its own boundary.
+pub struct InstallModelService<Registry, Downloader, Library, Progress>
+where
+    Registry: RemoteModelRegistryPort,
+    Downloader: ModelDownloaderPort,
+    Library: ModelLibraryPort,
+    Progress: DownloadProgressPort,
+{
+    registry: Registry,
+    downloader: Downloader,
+    library: Library,
+    progress: Progress,
+}
+
+impl<Registry, Downloader, Library, Progress>
+    InstallModelService<Registry, Downloader, Library, Progress>
+where
+    Registry: RemoteModelRegistryPort,
+    Downloader: ModelDownloaderPort,
+    Library: ModelLibraryPort,
+    Progress: DownloadProgressPort,
+{
+    /// Compose the use case from the outbound ports.
+    pub fn new(
+        registry: Registry,
+        downloader: Downloader,
+        library: Library,
+        progress: Progress,
+    ) -> Self {
+        Self {
+            registry,
+            downloader,
+            library,
+            progress,
+        }
+    }
+
+    async fn fetch_and_commit(&self, spec: &ModelSpec) -> Result<ModelState, InstallModelError> {
+        let remote = self
+            .registry
+            .resolve_model_file(spec.repository(), spec.file())
+            .await?;
+        let artifact = self.downloader.fetch(&remote, &self.progress).await?;
+
+        Ok(self.library.commit_artifact(spec, &artifact).await?)
+    }
+
+    async fn verify(&self, spec: &ModelSpec) -> Result<ModelState, InstallModelError> {
+        let remote = self
+            .registry
+            .resolve_model_file(spec.repository(), spec.file())
+            .await?;
+
+        Ok(self
+            .library
+            .verify_integrity(spec, remote.checksum())
+            .await?)
+    }
+
+    async fn repair(&self, spec: &ModelSpec) -> Result<ModelState, InstallModelError> {
+        self.fetch_and_commit(spec).await
+    }
+}
+
+impl<Registry, Downloader, Library, Progress> InstallModelPort
+    for InstallModelService<Registry, Downloader, Library, Progress>
+where
+    Registry: RemoteModelRegistryPort,
+    Downloader: ModelDownloaderPort,
+    Library: ModelLibraryPort,
+    Progress: DownloadProgressPort,
+{
+    /// Drives `spec` towards the verified state, performing at most one fetch,
+    /// one verification, and one repair attempt.
+    ///
+    /// Settling on `Verified` or on a `Downloaded` replica that has already
+    /// been through verification both mean the bytes are installed, so both
+    /// answer with the replica's location; the two are told apart by whether
+    /// upstream advertised a checksum to prove it against.
+    async fn execute(&self, spec: &ModelSpec) -> Result<InstalledModel, InstallModelError> {
+        let mut state = self.library.installed_state(spec).await?;
+        let mut fetched = false;
+        let mut verified = false;
+        let mut repaired = false;
+
+        loop {
+            match state {
+                ModelState::Verified => return Ok(self.library.locate(spec).await?),
+
+                ModelState::Missing => {
+                    if fetched {
+                        return Err(InstallModelError::UpstreamUnavailable);
+                    }
+                    fetched = true;
+                    state = self.fetch_and_commit(spec).await?;
+                }
+
+                ModelState::Downloaded => {
+                    if verified {
+                        return Ok(self.library.locate(spec).await?);
+                    }
+                    verified = true;
+                    state = self.verify(spec).await?;
+                }
+
+                ModelState::IntegrityMismatch { expected, actual } => {
+                    if repaired {
+                        return Err(InstallModelError::UnresolvedIntegrity {
+                            expected: expected.to_string(),
+                            actual: actual.to_string(),
+                        });
+                    }
+                    repaired = true;
+                    verified = false;
+                    state = self.repair(spec).await?;
+                }
+            }
+        }
+    }
+}

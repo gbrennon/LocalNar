@@ -26,11 +26,6 @@ impl ModelRevision {
         Self(Self::DEFAULT_REVISION.to_owned())
     }
 
-    /// Whether this is the conventional `main` revision.
-    pub fn is_default(&self) -> bool {
-        self.0 == Self::DEFAULT_REVISION
-    }
-
     /// The revision as a string slice.
     pub fn as_str(&self) -> &str {
         &self.0
@@ -57,7 +52,6 @@ mod model_revision_tests {
     #[test]
     fn default_revision_is_main() {
         let revision = ModelRevision::default();
-        assert!(revision.is_default());
         assert_eq!(revision.as_str(), "main");
         assert_eq!(ModelRevision::new(""), Err(DomainError::EmptyRevision));
     }

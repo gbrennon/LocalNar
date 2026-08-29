@@ -1,7 +1,6 @@
 use std::path::{Path, PathBuf};
 
 use crate::byte_length::ByteLength;
-use crate::model_repository::ModelRepository;
 
 /// A byte stream that a downloader has produced but that has not yet been
 /// committed to the durable model library.
@@ -12,16 +11,14 @@ use crate::model_repository::ModelRepository;
 pub struct ModelArtifact {
     staged_at: PathBuf,
     size: ByteLength,
-    origin: ModelRepository,
 }
 
 impl ModelArtifact {
-    /// Wraps a staged file produced for a given upstream origin.
-    pub fn new(staged_at: impl Into<PathBuf>, size: ByteLength, origin: ModelRepository) -> Self {
+    /// Wraps a staged file that a downloader has produced.
+    pub fn new(staged_at: impl Into<PathBuf>, size: ByteLength) -> Self {
         Self {
             staged_at: staged_at.into(),
             size,
-            origin,
         }
     }
 
@@ -33,10 +30,5 @@ impl ModelArtifact {
     /// The number of bytes staged.
     pub fn size(&self) -> ByteLength {
         self.size
-    }
-
-    /// The upstream repository the bytes were drawn from.
-    pub fn origin(&self) -> &ModelRepository {
-        &self.origin
     }
 }
