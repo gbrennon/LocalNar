@@ -1,8 +1,7 @@
-use application::ports::outbound::download_progress_port::DownloadProgressPort;
 use crate::adapters::progress_bus::ProgressBusSender;
 
-/// Infrastructure adapter for progress reporting using the event bus pattern.
-/// This replaces the presentation-layer TuiProgressReporter.
+/// The progress reporter every download adapter reports through.
+///
+/// Reporting is a broadcast on the progress bus, so any number of observers can
+/// follow one transfer without the download knowing about them.
 pub type ProgressReporter = ProgressBusSender;
-
-// DownloadProgressPort is already implemented for ProgressBusSender in progress_bus.rs
