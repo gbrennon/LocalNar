@@ -5,3 +5,11 @@ edition.workspace = true
 version.workspace = true
 authors.workspace = true
 license.workspace = true
+
+[dependencies]
+ratatui = { workspace = true }
+crossterm = { workspace = true }
+application = { workspace = true }
+domain = { workspace = true }
+tokio = { workspace = true }
+infrastructure = { workspace = true }

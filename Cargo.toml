@@ -3,6 +3,14 @@ name = "bare-ai-server"
 edition.workspace = true
 version.workspace = true
 
+[dependencies]
+application = { workspace = true }
+infrastructure = { workspace = true }
+presentation = { workspace = true }
+tokio = { workspace = true }
+crossterm = { workspace = true }
+ratatui = { workspace = true }
+
 [workspace]
 members = [
     "crates/domain",
@@ -35,5 +43,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 clap = { version = "4", features = ["derive", "cargo"] }
 hf-hub = { version = "0.4", features = ["tokio"] }
 sha2 = "0.10"
-tempfile = "3"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tempfile = "3"
+ratatui = { version = "0.28", features = ["crossterm"] }
+crossterm = "0.28"
