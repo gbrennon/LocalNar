@@ -1,0 +1,14 @@
+[package]
+name = "application"
+description = "Ports and services orchestrating the model downloader automation."
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+domain.workspace = true
+
+[[test]]
+name = "services"
+path = "tests/services/mod.rs"

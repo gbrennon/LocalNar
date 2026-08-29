@@ -1,0 +1,9 @@
+[package]
+name = "domain"
+description = "Pure domain model and inbound/outbound ports for the model downloader automation."
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
