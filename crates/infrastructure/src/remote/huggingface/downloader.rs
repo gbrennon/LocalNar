@@ -44,7 +44,7 @@ impl HfHubTokioTransport {
 
     /// Resolves configuration from environment variables.
     pub fn from_env() -> Self {
-        let staging_dir = std::env::var("BARE_AI_STAGING_DIR")
+        let staging_dir = std::env::var("LOCALNAR_STAGING_DIR")
             .map(PathBuf::from)
             .unwrap_or_else(|_| default_staging_dir());
         let endpoint =
@@ -274,6 +274,6 @@ fn default_staging_dir() -> PathBuf {
         .map(PathBuf::from)
         .unwrap_or_else(|_| std::env::temp_dir())
         .join(".cache")
-        .join("bare-ai-server")
+        .join("localnar")
         .join("staging")
 }

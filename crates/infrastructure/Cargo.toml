@@ -1,6 +1,6 @@
 [package]
 name = "infrastructure"
-description = "infrastructure layer of the bare-ai-server model downloader automation (scaffolded)."
+description = "infrastructure layer of the localnar model downloader automation (scaffolded)."
 edition.workspace = true
 version.workspace = true
 authors.workspace = true
@@ -10,6 +10,7 @@ license.workspace = true
 domain.workspace = true
 application.workspace = true
 tokio.workspace = true
+futures.workspace = true
 hf-hub.workspace = true
 sha2.workspace = true
 serde.workspace = true

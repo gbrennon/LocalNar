@@ -4,7 +4,10 @@ pub enum HelpLine {
     /// Section header text
     Header(&'static str),
     /// Key binding with description
-    KeyBinding { key: &'static str, description: &'static str },
+    KeyBinding {
+        key: &'static str,
+        description: &'static str,
+    },
     /// Plain text line
     Plain(&'static str),
 }

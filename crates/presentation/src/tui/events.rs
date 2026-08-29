@@ -16,7 +16,10 @@ impl EventHandler {
     pub fn next(&self) -> Result<Event, std::io::Error> {
         match event::poll(self.tick_rate)? {
             true => event::read(),
-            false => Err(std::io::Error::new(std::io::ErrorKind::WouldBlock, "no event")),
+            false => Err(std::io::Error::new(
+                std::io::ErrorKind::WouldBlock,
+                "no event",
+            )),
         }
     }
 
@@ -32,7 +35,8 @@ impl EventHandler {
     /// Check if the key event is a quit key (Ctrl+Q or Ctrl+C).
     /// Quit requires a CONTROL modifier so plain characters stay available as text input.
     pub fn is_quit_key(key: &KeyEvent) -> bool {
-        key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL)
+        key.modifiers
+            .contains(crossterm::event::KeyModifiers::CONTROL)
             && matches!(
                 key.code,
                 crossterm::event::KeyCode::Char('q')

@@ -1,9 +1,8 @@
 use ratatui::{
+    Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
-    text::{Line, Span},
     widgets::{Block, Borders, Gauge, Paragraph},
-    Frame,
 };
 
 /// Progress widget displaying install progress with gauge and status message.
@@ -39,7 +38,11 @@ impl ProgressWidget {
             .split(area);
 
         let gauge = Gauge::default()
-            .block(Block::default().borders(Borders::ALL).title(Self::GAUGE_TITLE))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(Self::GAUGE_TITLE),
+            )
             .gauge_style(Style::default().fg(Color::Green).bg(Color::Black))
             .ratio(self.progress)
             .label(format!("{:.1}%", self.progress * 100.0));
@@ -48,14 +51,22 @@ impl ProgressWidget {
 
         let message = Paragraph::new(self.message.as_str())
             .style(Style::default().fg(Color::White))
-            .block(Block::default().borders(Borders::ALL).title(Self::STATUS_TITLE))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(Self::STATUS_TITLE),
+            )
             .wrap(ratatui::widgets::Wrap { trim: true });
 
         frame.render_widget(message, chunks[1]);
 
         let help = Paragraph::new(Self::HELP_TEXT)
             .style(Style::default().fg(Color::DarkGray))
-            .block(Block::default().borders(Borders::ALL).title(Self::CONTROLS_TITLE));
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(Self::CONTROLS_TITLE),
+            );
         frame.render_widget(help, chunks[2]);
     }
 }
@@ -74,5 +85,6 @@ impl ProgressWidget {
     const GAUGE_TITLE: &'static str = "Progress";
     const STATUS_TITLE: &'static str = "Status";
     const CONTROLS_TITLE: &'static str = "Controls";
-    const HELP_TEXT: &'static str = "Press Esc to return to model list (install continues in background)";
+    const HELP_TEXT: &'static str =
+        "Press Esc to return to the model table (install continues in background)";
 }

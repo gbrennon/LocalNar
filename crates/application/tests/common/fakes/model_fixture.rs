@@ -1,6 +1,7 @@
 use domain::{
-    ByteLength, Checksum, InstalledModel, ModelArtifact, ModelFileName, ModelRepository,
-    ModelRepositoryId, ModelSpec, RemoteModelFile, SearchQuery,
+    ByteLength, Checksum, ContextLength, InstalledModel, ModelArtifact, ModelFileName, ModelInfo,
+    ModelProfile, ModelRepository, ModelRepositoryId, ModelSpec, ParameterCount, RemoteModelFile,
+    SearchQuery,
 };
 
 /// Canonical values every install scenario is written against.
@@ -37,9 +38,22 @@ impl ModelFixture {
         )
     }
 
+    /// What the catalog discloses about serving the fixture model.
+    pub fn profile() -> ModelProfile {
+        ModelProfile::new(
+            Some(ParameterCount::new(8_190_735_360)),
+            Some(ContextLength::new(40_960)),
+        )
+    }
+
+    /// The single candidate a searching registry describes the fixture as.
+    pub fn model_info() -> ModelInfo {
+        ModelInfo::describing(&Self::remote_file(), Self::profile())
+    }
+
     /// The staged bytes a downloader hands back for the fixture file.
     pub fn artifact() -> ModelArtifact {
-        ModelArtifact::new("/tmp/bare-ai-server/staged.gguf", ByteLength::new(4_096))
+        ModelArtifact::new("/tmp/localnar/staged.gguf", ByteLength::new(4_096))
     }
 
     /// The replica a library reports once the fixture file is on disk.
@@ -49,7 +63,7 @@ impl ModelFixture {
     pub fn installed(digest: Option<Checksum>) -> InstalledModel {
         InstalledModel::new(
             Self::spec(),
-            "/var/lib/bare-ai-server/models/Qwen3-8B-Q4_K_M.gguf",
+            "/var/lib/localnar/models/Qwen3-8B-Q4_K_M.gguf",
             ByteLength::new(4_096),
             digest,
         )

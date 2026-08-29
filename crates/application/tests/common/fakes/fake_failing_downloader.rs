@@ -17,14 +17,11 @@ impl FakeFailingDownloader {
 }
 
 impl ModelDownloaderPort for FakeFailingDownloader {
-    async fn fetch<Progress>(
+    async fn fetch(
         &self,
         _remote: &RemoteModelFile,
-        _progress: &Progress,
-    ) -> Result<ModelArtifact, ModelDownloadError>
-    where
-        Progress: DownloadProgressPort,
-    {
+        _progress: &dyn DownloadProgressPort,
+    ) -> Result<ModelArtifact, ModelDownloadError> {
         Err(Self::error())
     }
 }

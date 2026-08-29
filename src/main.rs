@@ -1,16 +1,14 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use application::ports::inbound::search_models_port::SearchModelsPort;
-use application::ports::outbound::model_downloader_port::ModelDownloaderPort;
-use application::ports::outbound::model_library_port::ModelLibraryPort;
-use application::ports::outbound::remote_model_registry_port::RemoteModelRegistryPort;
 use application::services::SearchModelsService;
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::ExecutableCommand;
+use crossterm::terminal::{
+    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
+};
 use infrastructure::{DiskModelLibrary, HfApiRegistry, HfHubDownloader};
-use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
+use ratatui::backend::CrosstermBackend;
 
 use presentation::tui::{AppRunner, EventHandler, TuiApp};
 

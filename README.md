@@ -1,7 +1,6 @@
-# bare-ai-server
+# LocalNar
 
-Local LLM serving with [llama.cpp](https://github.com/ggerganov/llama.cpp), built from source without containers. GPU offload via **Vulkan** on NVIDIA RTX 5070 (12 GB VRAM). The repo also contains a Rust workspace that automates model download/install.
-
+LocalNar is a Rust application for discovering, downloading, organizing, and managing AI models locally, with local inference planned as a first-class capability.
 This guide covers everything from setup to using the local model as a coding agent with [pi](https://pi.dev).
 
 Current state of the automation is documented in [`docs/`](docs/); the quick overview is in [section 9](#9-rust-workspace-model-downloader-automation).
@@ -13,7 +12,7 @@ Current state of the automation is documented in [`docs/`](docs/); the quick ove
 Clone with submodules (llama.cpp is pinned as a submodule):
 
 ```
-git clone --recursive ssh://git@codeberg.org/gbrennon/bare-ai-server.git
+git clone --recursive ssh://git@codeberg.org/gbrennon/localnar.git
 ```
 
 If you already cloned without `--recursive`, or the submodule is out of date:
@@ -93,7 +92,7 @@ The Rust workspace is being built to automate exactly this step; see [section 9]
 ## 3. Starting the server
 
 ```sh
-cd ~/repos/gbrennon/bare-ai-server
+cd ~/repos/gbrennon/localnar
 CTX_SIZE=32768 ./run-server.sh qwen3-8b
 ```
 
@@ -252,7 +251,7 @@ Then check `/tmp/pi-out.log` and the directory for files.
 
 ```sh
 # Start server (keep this running in a terminal)
-cd ~/repos/gbrennon/bare-ai-server && CTX_SIZE=32768 ./run-server.sh qwen3-8b
+cd ~/repos/gbrennon/localnar && CTX_SIZE=32768 ./run-server.sh qwen3-8b
 
 # Verify
 curl http://127.0.0.1:8080/health

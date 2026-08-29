@@ -54,14 +54,11 @@ struct FakeDownloadTransport {
 }
 
 impl HubDownloadTransport for FakeDownloadTransport {
-    async fn download_file<Progress>(
+    async fn download_file(
         &self,
         remote: &RemoteModelFile,
-        progress: &Progress,
-    ) -> Result<ModelArtifact, application::errors::ModelDownloadError>
-    where
-        Progress: DownloadProgressPort,
-    {
+        progress: &dyn DownloadProgressPort,
+    ) -> Result<ModelArtifact, application::errors::ModelDownloadError> {
         let staged_file = self.staged_dir.path().join(remote.file().as_str());
         tokio::fs::write(&staged_file, &self.payload)
             .await

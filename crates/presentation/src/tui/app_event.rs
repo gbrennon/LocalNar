@@ -1,10 +1,10 @@
-use domain::RemoteModelFile;
+use domain::ModelInfo;
 
 /// Events that can be sent between the TUI components and async tasks.
 #[derive(Debug, Clone)]
 pub enum AppEvent {
-    /// Search completed with results
-    SearchCompleted(Vec<RemoteModelFile>),
+    /// Search completed with one described model per catalog entry
+    SearchCompleted(Vec<ModelInfo>),
     /// Search failed with error message
     SearchFailed(String),
     /// Install started

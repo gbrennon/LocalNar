@@ -1,4 +1,4 @@
-use domain::{RemoteModelFile, SearchQuery};
+use domain::{ModelInfo, SearchQuery};
 
 use crate::errors::search_models_error::SearchModelsError;
 use crate::ports::inbound::search_models_port::SearchModelsPort;
@@ -29,10 +29,7 @@ impl<Registry> SearchModelsPort for SearchModelsService<Registry>
 where
     Registry: RemoteModelRegistryPort,
 {
-    async fn execute(
-        &self,
-        query: &SearchQuery,
-    ) -> Result<Vec<RemoteModelFile>, SearchModelsError> {
+    async fn execute(&self, query: &SearchQuery) -> Result<Vec<ModelInfo>, SearchModelsError> {
         Ok(self.registry.search_models(query).await?)
     }
 }

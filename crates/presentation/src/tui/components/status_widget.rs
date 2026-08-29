@@ -1,9 +1,8 @@
 use ratatui::{
+    Frame,
     layout::Rect,
     style::{Color, Style},
-    text::Line,
     widgets::{Block, Borders, Paragraph},
-    Frame,
 };
 
 /// Status widget displaying status messages with error/success coloring.
