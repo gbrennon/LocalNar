@@ -26,28 +26,32 @@ pub struct ReqwestHubTransport {
 
 impl ReqwestHubTransport {
     /// Builds an HTTP transport for the given endpoint and optional authorization token.
-    pub fn new(endpoint: impl Into<String>, token: Option<String>) -> Self {
-        Self {
+    pub fn new(
+        endpoint: impl Into<String>,
+        token: Option<String>,
+    ) -> Result<Self, RegistryReadError> {
+        let client = Client::builder()
+            .build()
+            .map_err(|err| RegistryReadError::Unreachable {
+                repository: String::new(),
+                cause: format!("failed to build HTTP client: {err}"),
+            })?;
+
+        Ok(Self {
             endpoint: endpoint.into(),
-            client: Client::builder().build().unwrap_or_default(),
+            client,
             token: token.filter(|t| !t.trim().is_empty()),
-        }
+        })
     }
 
     /// Resolves configuration from `HF_ENDPOINT` and `HF_TOKEN` environment variables.
-    pub fn from_env() -> Self {
+    pub fn from_env() -> Result<Self, RegistryReadError> {
         let endpoint =
             std::env::var("HF_ENDPOINT").unwrap_or_else(|_| DEFAULT_ENDPOINT.to_string());
         let token = std::env::var("HF_TOKEN")
             .ok()
             .filter(|t| !t.trim().is_empty());
         Self::new(endpoint, token)
-    }
-}
-
-impl Default for ReqwestHubTransport {
-    fn default() -> Self {
-        Self::from_env()
     }
 }
 
@@ -115,14 +119,8 @@ impl<Transport: HubTransport> HfApiRegistry<Transport> {
 
 impl HfApiRegistry<ReqwestHubTransport> {
     /// Resolves configuration from environment variables.
-    pub fn from_env() -> Self {
-        Self::new(ReqwestHubTransport::from_env())
-    }
-}
-
-impl Default for HfApiRegistry<ReqwestHubTransport> {
-    fn default() -> Self {
-        Self::from_env()
+    pub fn from_env() -> Result<Self, RegistryReadError> {
+        Ok(Self::new(ReqwestHubTransport::from_env()?))
     }
 }
 
