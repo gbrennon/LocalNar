@@ -155,6 +155,12 @@ impl TuiApp {
             return;
         }
 
+        // Global quit handling - works in all modes
+        if EventHandler::is_quit_key(&key) {
+            self.event_sender.send(AppEvent::Quit).ok();
+            return;
+        }
+
         match self.mode {
             AppMode::Search => self.handle_search_keys(key).await,
             AppMode::ModelList => self.handle_model_list_keys(key).await,
@@ -259,7 +265,7 @@ impl TuiApp {
     }
 
     fn handle_help_keys(&mut self, key: KeyEvent) {
-        if EventHandler::is_quit_key(&key) || matches!(key.code, KeyCode::Esc | KeyCode::Char('h') | KeyCode::Char('H')) {
+        if matches!(key.code, KeyCode::Esc | KeyCode::Char('h') | KeyCode::Char('H')) {
             self.mode = self.previous_mode.unwrap_or(AppMode::Search);
         }
     }
