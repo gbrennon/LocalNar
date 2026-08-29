@@ -1,9 +1,9 @@
 use ratatui::{
+    Frame,
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
-    Frame,
 };
 
 use crate::tui::components::help_section::HelpSection;
@@ -15,20 +15,20 @@ pub struct HelpWidget {
 }
 
 impl HelpWidget {
-    pub const TITLE: &'static str = "bare-ai-server TUI";
+    pub const TITLE: &'static str = "LocalNar TUI";
 
     /// Create a new help widget.
     pub fn new() -> Self {
-        Self {
-            title: Self::TITLE,
-        }
+        Self { title: Self::TITLE }
     }
 
     /// Render the help widget.
     pub fn draw(&self, frame: &mut Frame, area: Rect) {
         let mut help_lines = vec![Line::from(vec![Span::styled(
             self.title,
-            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
         )])];
         help_lines.push(Line::from(""));
 

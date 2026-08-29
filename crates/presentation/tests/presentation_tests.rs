@@ -251,10 +251,7 @@ fn the_selected_model_is_actionable_as_an_install_intent() {
 
     let selected = widget.selected_model().expect("a selected model");
 
-    assert_eq!(
-        selected.spec().file().as_str(),
-        "gemma-3-270m-Q8_0.gguf"
-    );
+    assert_eq!(selected.spec().file().as_str(), "gemma-3-270m-Q8_0.gguf");
     assert_eq!(
         selected.spec().repository().identifier().as_str(),
         "ggml-org/gemma-3-270m-GGUF"
