@@ -9,15 +9,9 @@ use crate::ports::outbound::download_progress_port::DownloadProgressPort;
 /// committed to the durable library; verification and storage are separate
 /// ports so infrastructure stays swappable.
 pub trait ModelDownloaderPort: Send + Sync {
-    /// Transfers `remote` into a freshly created, staged artifact.
-    ///
-    /// The adapter reports to `progress` as bytes land. It may report as often
-    /// as it likes; throttling is the consumer's concern.
-    async fn fetch<Progress>(
+    async fn fetch(
         &self,
         remote: &RemoteModelFile,
-        progress: &Progress,
-    ) -> Result<ModelArtifact, ModelDownloadError>
-    where
-        Progress: DownloadProgressPort;
+        progress: &dyn DownloadProgressPort,
+    ) -> Result<ModelArtifact, ModelDownloadError>;
 }
