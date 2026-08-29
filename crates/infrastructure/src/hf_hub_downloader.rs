@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use application::errors::ModelDownloadError;
 use application::ports::outbound::{DownloadProgress, DownloadProgressPort, ModelDownloaderPort};
 use domain::{ByteLength, ModelArtifact, RemoteModelFile};
-use hf_hub::api::tokio::{ApiBuilder, Progress as HfProgress};
+use hf_hub::api::tokio::{ApiBuilder, ApiRepo, Progress as HfProgress};
 use hf_hub::{Repo, RepoType};
 use tokio::sync::mpsc;
 
@@ -127,26 +127,12 @@ impl HubDownloadTransport for HfHubTokioTransport {
                 cause: err.to_string(),
             })?;
 
-        let mut builder = ApiBuilder::new()
-            .with_cache_dir(self.staging_dir.clone())
-            .with_endpoint(self.endpoint.clone())
-            .with_progress(false);
-
-        if let Some(token) = &self.token {
-            builder = builder.with_token(Some(token.clone()));
-        }
-
-        let api = builder
-            .build()
-            .map_err(|err| ModelDownloadError::Transport {
-                file: remote.file().to_string(),
-                cause: err.to_string(),
-            })?;
-
-        let repo_id = remote.repository().identifier().as_str().to_string();
-        let revision = remote.repository().revision().as_str().to_string();
-        let repo = Repo::with_revision(repo_id, RepoType::Model, revision);
-        let api_repo = api.repo(repo);
+        let api_repo = build_api_repo(
+            &self.endpoint,
+            self.token.as_deref(),
+            &self.staging_dir,
+            remote,
+        )?;
 
         let (tx, mut rx) = mpsc::unbounded_channel::<DownloadProgress>();
         let bridge = ProgressBridge::new(tx);
@@ -167,24 +153,63 @@ impl HubDownloadTransport for HfHubTokioTransport {
             })?
             .map_err(|err| map_api_error(&err, remote.file().as_str()))?;
 
-        let metadata = tokio::fs::metadata(&download_result).await.map_err(|err| {
-            ModelDownloadError::Transport {
-                file: remote.file().to_string(),
-                cause: err.to_string(),
-            }
+        validate_download_size(&download_result, remote.size(), remote.file().as_str()).await
+    }
+}
+
+fn build_api_repo(
+    endpoint: &str,
+    token: Option<&str>,
+    staging_dir: &Path,
+    remote: &RemoteModelFile,
+) -> Result<ApiRepo, ModelDownloadError> {
+    let mut builder = ApiBuilder::new()
+        .with_cache_dir(staging_dir.to_path_buf())
+        .with_endpoint(endpoint.to_string())
+        .with_progress(false);
+
+    if let Some(token_val) = token {
+        builder = builder.with_token(Some(token_val.to_string()));
+    }
+
+    let api = builder
+        .build()
+        .map_err(|err| ModelDownloadError::Transport {
+            file: remote.file().to_string(),
+            cause: err.to_string(),
         })?;
 
-        let received_size = ByteLength::new(metadata.len());
-        if remote.size() != ByteLength::ZERO && received_size != remote.size() {
-            return Err(ModelDownloadError::SizeMismatch {
-                file: remote.file().to_string(),
-                expected: remote.size(),
-                received: received_size,
-            });
-        }
+    let repo_id = remote.repository().identifier().as_str().to_string();
+    let revision = remote.repository().revision().as_str().to_string();
+    let repo = Repo::with_revision(repo_id, RepoType::Model, revision);
+    Ok(api.repo(repo))
+}
 
-        Ok(ModelArtifact::new(download_result, received_size))
+async fn validate_download_size(
+    downloaded_path: &Path,
+    expected_size: ByteLength,
+    file_name: &str,
+) -> Result<ModelArtifact, ModelDownloadError> {
+    let metadata = tokio::fs::metadata(downloaded_path).await.map_err(|err| {
+        ModelDownloadError::Transport {
+            file: file_name.to_string(),
+            cause: err.to_string(),
+        }
+    })?;
+
+    let received_size = ByteLength::new(metadata.len());
+    if expected_size != ByteLength::ZERO && received_size != expected_size {
+        return Err(ModelDownloadError::SizeMismatch {
+            file: file_name.to_string(),
+            expected: expected_size,
+            received: received_size,
+        });
     }
+
+    Ok(ModelArtifact::new(
+        downloaded_path.to_path_buf(),
+        received_size,
+    ))
 }
 
 /// Model downloader using Hugging Face Hub tokio client.

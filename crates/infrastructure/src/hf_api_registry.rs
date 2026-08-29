@@ -175,36 +175,7 @@ impl<Transport: HubTransport> RemoteModelRegistryPort for HfApiRegistry<Transpor
                     other => other,
                 })?;
 
-        let matching_sibling = repo_info
-            .siblings
-            .as_deref()
-            .unwrap_or_default()
-            .iter()
-            .find(|sibling| sibling.rfilename == file.as_str())
-            .ok_or_else(|| RegistryReadError::FileNotFound {
-                repository: repository.to_string(),
-                file: file.to_string(),
-            })?;
-
-        let size = matching_sibling
-            .lfs
-            .as_ref()
-            .and_then(|lfs| lfs.size)
-            .or(matching_sibling.size)
-            .unwrap_or(0);
-
-        let checksum = matching_sibling
-            .lfs
-            .as_ref()
-            .and_then(|lfs| lfs.sha256.as_deref())
-            .and_then(|digest_str| Checksum::parse(digest_str).ok());
-
-        Ok(RemoteModelFile::new(
-            repository.clone(),
-            file.clone(),
-            ByteLength::new(size),
-            checksum,
-        ))
+        extract_matching_file(repository, file, repo_info)
     }
 
     async fn search_models(
@@ -212,44 +183,81 @@ impl<Transport: HubTransport> RemoteModelRegistryPort for HfApiRegistry<Transpor
         query: &SearchQuery,
     ) -> Result<Vec<RemoteModelFile>, RegistryReadError> {
         let path = format!("api/models?search={}&full=true&limit=10", query.as_str());
-
         let results: Vec<SearchModelItemResponse> = self.transport.get_json(&path).await?;
+        Ok(extract_search_files(results))
+    }
+}
 
-        let mut files = Vec::new();
+fn extract_matching_file(
+    repository: &ModelRepository,
+    file: &ModelFileName,
+    repo_info: RepoDetailsResponse,
+) -> Result<RemoteModelFile, RegistryReadError> {
+    let matching = repo_info
+        .siblings
+        .as_deref()
+        .unwrap_or_default()
+        .iter()
+        .find(|sibling| sibling.rfilename == file.as_str())
+        .ok_or_else(|| RegistryReadError::FileNotFound {
+            repository: repository.to_string(),
+            file: file.to_string(),
+        })?;
 
-        for item in results {
-            let Ok(repo_id) = ModelRepositoryId::parse(&item.id) else {
+    let size = matching
+        .lfs
+        .as_ref()
+        .and_then(|lfs| lfs.size)
+        .or(matching.size)
+        .unwrap_or(0);
+
+    let checksum = matching
+        .lfs
+        .as_ref()
+        .and_then(|lfs| lfs.sha256.as_deref())
+        .and_then(|digest_str| Checksum::parse(digest_str).ok());
+
+    Ok(RemoteModelFile::new(
+        repository.clone(),
+        file.clone(),
+        ByteLength::new(size),
+        checksum,
+    ))
+}
+
+fn extract_search_files(results: Vec<SearchModelItemResponse>) -> Vec<RemoteModelFile> {
+    let mut files = Vec::new();
+    for item in results {
+        let Ok(repo_id) = ModelRepositoryId::parse(&item.id) else {
+            continue;
+        };
+        let repository = ModelRepository::new(repo_id, ModelRevision::default());
+
+        for sibling in item.siblings.unwrap_or_default() {
+            let Ok(file_name) = ModelFileName::new(&sibling.rfilename) else {
                 continue;
             };
-            let repository = ModelRepository::new(repo_id, ModelRevision::default());
 
-            for sibling in item.siblings.unwrap_or_default() {
-                let Ok(file_name) = ModelFileName::new(&sibling.rfilename) else {
-                    continue;
-                };
+            let size = sibling
+                .lfs
+                .as_ref()
+                .and_then(|lfs| lfs.size)
+                .or(sibling.size)
+                .unwrap_or(0);
 
-                let size = sibling
-                    .lfs
-                    .as_ref()
-                    .and_then(|lfs| lfs.size)
-                    .or(sibling.size)
-                    .unwrap_or(0);
+            let checksum = sibling
+                .lfs
+                .as_ref()
+                .and_then(|lfs| lfs.sha256.as_deref())
+                .and_then(|digest_str| Checksum::parse(digest_str).ok());
 
-                let checksum = sibling
-                    .lfs
-                    .as_ref()
-                    .and_then(|lfs| lfs.sha256.as_deref())
-                    .and_then(|digest_str| Checksum::parse(digest_str).ok());
-
-                files.push(RemoteModelFile::new(
-                    repository.clone(),
-                    file_name,
-                    ByteLength::new(size),
-                    checksum,
-                ));
-            }
+            files.push(RemoteModelFile::new(
+                repository.clone(),
+                file_name,
+                ByteLength::new(size),
+                checksum,
+            ));
         }
-
-        Ok(files)
     }
+    files
 }
