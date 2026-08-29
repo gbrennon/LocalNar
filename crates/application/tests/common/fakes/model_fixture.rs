@@ -53,7 +53,7 @@ impl ModelFixture {
 
     /// The staged bytes a downloader hands back for the fixture file.
     pub fn artifact() -> ModelArtifact {
-        ModelArtifact::new("/tmp/bare-ai-server/staged.gguf", ByteLength::new(4_096))
+        ModelArtifact::new("/tmp/localnar/staged.gguf", ByteLength::new(4_096))
     }
 
     /// The replica a library reports once the fixture file is on disk.
@@ -63,7 +63,7 @@ impl ModelFixture {
     pub fn installed(digest: Option<Checksum>) -> InstalledModel {
         InstalledModel::new(
             Self::spec(),
-            "/var/lib/bare-ai-server/models/Qwen3-8B-Q4_K_M.gguf",
+            "/var/lib/localnar/models/Qwen3-8B-Q4_K_M.gguf",
             ByteLength::new(4_096),
             digest,
         )

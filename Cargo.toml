@@ -1,5 +1,5 @@
 [package]
-name = "bare-ai-server"
+name = "localnar"
 edition.workspace = true
 version.workspace = true
 

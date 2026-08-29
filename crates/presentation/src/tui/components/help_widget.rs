@@ -15,7 +15,7 @@ pub struct HelpWidget {
 }
 
 impl HelpWidget {
-    pub const TITLE: &'static str = "bare-ai-server TUI";
+    pub const TITLE: &'static str = "LocalNar TUI";
 
     /// Create a new help widget.
     pub fn new() -> Self {

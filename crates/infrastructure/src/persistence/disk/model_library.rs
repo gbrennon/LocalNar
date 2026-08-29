@@ -23,7 +23,7 @@ impl DiskModelLibrary {
 
     /// Resolves the default model cache directory from the environment or user cache.
     pub fn from_env() -> Self {
-        let path = std::env::var("BARE_AI_MODELS_DIR")
+        let path = std::env::var("LOCALNAR_MODELS_DIR")
             .map(PathBuf::from)
             .unwrap_or_else(|_| Self::default_root());
         Self::new(path)
@@ -37,7 +37,7 @@ impl DiskModelLibrary {
     fn default_root() -> PathBuf {
         dirs_path()
             .join(".cache")
-            .join("bare-ai-server")
+            .join("localnar")
             .join("models")
     }
 
