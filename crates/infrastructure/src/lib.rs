@@ -8,6 +8,7 @@
 
 pub mod persistence;
 pub mod remote;
+pub mod adapters;
 
 pub use persistence::DiskModelLibrary;
 pub use remote::{
