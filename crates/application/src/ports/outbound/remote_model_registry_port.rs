@@ -20,8 +20,6 @@ pub trait RemoteModelRegistryPort: Send + Sync {
     /// so an implementation must answer with one `ModelInfo` per entry and never
     /// with one per published file. An entry it cannot describe as a single
     /// installable candidate is left out rather than reported partially.
-    async fn search_models(
-        &self,
-        query: &SearchQuery,
-    ) -> Result<Vec<ModelInfo>, RegistryReadError>;
+    async fn search_models(&self, query: &SearchQuery)
+    -> Result<Vec<ModelInfo>, RegistryReadError>;
 }

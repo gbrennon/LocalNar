@@ -53,7 +53,10 @@ mod model_profile_tests {
             Some(ContextLength::new(40_960)),
         );
 
-        assert_eq!(profile.parameters(), Some(ParameterCount::new(8_190_735_360)));
+        assert_eq!(
+            profile.parameters(),
+            Some(ParameterCount::new(8_190_735_360))
+        );
         assert_eq!(profile.context_length(), Some(ContextLength::new(40_960)));
     }
 

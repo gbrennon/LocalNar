@@ -1,4 +1,4 @@
-use ratatui::{layout::{Constraint, Direction, Layout, Rect}};
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
 
 /// Layout helper utilities for TUI rendering.
 #[derive(Debug, Default, Clone, Copy)]

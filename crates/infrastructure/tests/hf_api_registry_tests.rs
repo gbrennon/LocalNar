@@ -195,7 +195,10 @@ async fn search_rows_carry_the_serving_profile_the_catalog_disclosed() {
     let registry = HfApiRegistry::new(readable_catalog());
 
     let rows = registry.search_models(&query()).await.expect("search");
-    let profile = rows.first().expect("the catalog matched two models").profile();
+    let profile = rows
+        .first()
+        .expect("the catalog matched two models")
+        .profile();
 
     assert_eq!(
         profile.parameters(),
@@ -262,7 +265,10 @@ async fn search_when_a_catalog_entry_discloses_no_gguf_metadata_then_no_profile_
     ]));
 
     let rows = registry.search_models(&query()).await.expect("search");
-    let profile = rows.first().expect("the catalog matched one model").profile();
+    let profile = rows
+        .first()
+        .expect("the catalog matched one model")
+        .profile();
 
     assert_eq!(profile.parameters(), None);
     assert_eq!(profile.context_length(), None);

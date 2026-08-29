@@ -37,7 +37,9 @@ impl ProgressBus {
 
     /// Get a sender for use with DownloadProgressPort.
     pub fn sender(&self) -> ProgressBusSender {
-        ProgressBusSender { sender: self.sender.clone() }
+        ProgressBusSender {
+            sender: self.sender.clone(),
+        }
     }
 }
 
@@ -54,13 +56,18 @@ impl ProgressBusSender {
     }
 }
 
-impl application::ports::outbound::download_progress_port::DownloadProgressPort for ProgressBusSender {
+impl application::ports::outbound::download_progress_port::DownloadProgressPort
+    for ProgressBusSender
+{
     fn report(&self, progress: DownloadProgress) {
         let event = match progress {
-            DownloadProgress::Started { total } => ProgressEvent::Started { total: total.bytes() },
-            DownloadProgress::Advanced { transferred, total } => {
-                ProgressEvent::Advanced { transferred: transferred.bytes(), total: total.bytes() }
-            }
+            DownloadProgress::Started { total } => ProgressEvent::Started {
+                total: total.bytes(),
+            },
+            DownloadProgress::Advanced { transferred, total } => ProgressEvent::Advanced {
+                transferred: transferred.bytes(),
+                total: total.bytes(),
+            },
             DownloadProgress::Finished => ProgressEvent::Finished,
         };
         let _ = self.sender.send(event);
@@ -83,9 +90,18 @@ mod tests {
         let event = receiver.recv().await.expect("should receive event");
         assert!(matches!(event, ProgressEvent::Started { total: 1000 }));
 
-        bus.emit(ProgressEvent::Advanced { transferred: 500, total: 1000 });
+        bus.emit(ProgressEvent::Advanced {
+            transferred: 500,
+            total: 1000,
+        });
         let event = receiver.recv().await.expect("should receive event");
-        assert!(matches!(event, ProgressEvent::Advanced { transferred: 500, total: 1000 }));
+        assert!(matches!(
+            event,
+            ProgressEvent::Advanced {
+                transferred: 500,
+                total: 1000
+            }
+        ));
     }
 
     #[tokio::test]
@@ -94,7 +110,9 @@ mod tests {
         let sender = bus.sender();
         let mut receiver = bus.subscribe();
 
-        sender.report(DownloadProgress::Started { total: ByteLength::new(1000) });
+        sender.report(DownloadProgress::Started {
+            total: ByteLength::new(1000),
+        });
         let event = receiver.recv().await.expect("should receive event");
         assert!(matches!(event, ProgressEvent::Started { total: 1000 }));
 
@@ -103,6 +121,12 @@ mod tests {
             total: ByteLength::new(1000),
         });
         let event = receiver.recv().await.expect("should receive event");
-        assert!(matches!(event, ProgressEvent::Advanced { transferred: 500, total: 1000 }));
+        assert!(matches!(
+            event,
+            ProgressEvent::Advanced {
+                transferred: 500,
+                total: 1000
+            }
+        ));
     }
 }

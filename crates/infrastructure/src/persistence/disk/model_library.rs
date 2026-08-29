@@ -35,10 +35,7 @@ impl DiskModelLibrary {
     }
 
     fn default_root() -> PathBuf {
-        dirs_path()
-            .join(".cache")
-            .join("localnar")
-            .join("models")
+        dirs_path().join(".cache").join("localnar").join("models")
     }
 
     fn model_file_path(&self, model: &ModelSpec) -> PathBuf {

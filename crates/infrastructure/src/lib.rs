@@ -6,9 +6,9 @@
 
 #![allow(async_fn_in_trait)]
 
+pub mod adapters;
 pub mod persistence;
 pub mod remote;
-pub mod adapters;
 
 pub use persistence::DiskModelLibrary;
 pub use remote::{
