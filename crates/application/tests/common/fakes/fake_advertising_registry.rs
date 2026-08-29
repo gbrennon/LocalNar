@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use application::errors::RegistryReadError;
 use application::ports::outbound::RemoteModelRegistryPort;
-use domain::{ModelFileName, ModelRepository, RemoteModelFile};
+use domain::{ModelFileName, ModelRepository, RemoteModelFile, SearchQuery};
 
 use crate::common::fakes::model_fixture::ModelFixture;
 
@@ -15,5 +15,12 @@ impl RemoteModelRegistryPort for FakeAdvertisingRegistry {
         _file: &ModelFileName,
     ) -> Result<RemoteModelFile, RegistryReadError> {
         Ok(ModelFixture::remote_file())
+    }
+
+    async fn search_models(
+        &self,
+        _query: &SearchQuery,
+    ) -> Result<Vec<RemoteModelFile>, RegistryReadError> {
+        panic!("an install scenario must not search the catalog")
     }
 }
