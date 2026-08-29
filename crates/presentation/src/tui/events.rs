@@ -29,12 +29,16 @@ impl EventHandler {
         }
     }
 
-    /// Check if the key event is a quit key (q/Q or Ctrl+C).
+    /// Check if the key event is a quit key (Ctrl+Q or Ctrl+C).
+    /// Quit requires a CONTROL modifier so plain characters stay available as text input.
     pub fn is_quit_key(key: &KeyEvent) -> bool {
-        matches!(key.code, crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Char('Q'))
-            || matches!(
+        key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL)
+            && matches!(
                 key.code,
-                crossterm::event::KeyCode::Char('c') | crossterm::event::KeyCode::Char('C')
-            ) && key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL)
+                crossterm::event::KeyCode::Char('q')
+                    | crossterm::event::KeyCode::Char('Q')
+                    | crossterm::event::KeyCode::Char('c')
+                    | crossterm::event::KeyCode::Char('C')
+            )
     }
 }
