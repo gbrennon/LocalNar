@@ -272,9 +272,9 @@ impl TuiApp {
         if matches!(key.code, KeyCode::Esc | KeyCode::Char('h') | KeyCode::Char('H')) {
             self.mode = self.previous_mode.unwrap_or(AppMode::Search);
         } else if matches!(key.code, KeyCode::Tab) {
-            self.mode = AppMode::ModelList;
-        } else if matches!(key.code, KeyCode::BackTab) {
             self.mode = AppMode::Search;
+        } else if matches!(key.code, KeyCode::BackTab) {
+            self.mode = AppMode::ModelList;
         }
     }
     /// Render the TUI application.
@@ -377,7 +377,7 @@ impl TuiApp {
     const INSTALL_PROGRESS_HEADER: &'static str = "Installing Model... (Esc to return)";
     const INSTALL_PROGRESS_TITLE: &'static str = "Install Progress";
 
-    const HELP_HEADER: &'static str = "Help (Esc/h/q to close)";
+    const HELP_HEADER: &'static str = "Help (Esc/h to close)";
     const HELP_TITLE: &'static str = "Help";
 
     const SEARCH_HELP_TEXT: &'static str = "Enter search query and press Enter to search models.\nTab to switch to model list view.\nEsc for help.";

@@ -34,7 +34,7 @@ impl HelpSection {
 
     const GENERAL_LINES: &[HelpLine] = &[
         HelpLine::KeyBinding { key: "h / ?", description: "Toggle help" },
-        HelpLine::KeyBinding { key: "q / Ctrl+C", description: "Quit application" },
+        HelpLine::KeyBinding { key: "Ctrl+Q / Ctrl+C", description: "Quit application" },
     ];
 
     const SEARCH_MODE: Self = Self {
@@ -77,7 +77,7 @@ impl HelpSection {
                 HelpLine::Plain(text) => lines.push(Line::from(*text)),
                 HelpLine::KeyBinding { key, description } => {
                     lines.push(Line::from(vec![
-                        Span::styled(format!("  {key:<14}"), Style::default().fg(Color::Cyan)),
+                        Span::styled(format!("  {key:<16}"), Style::default().fg(Color::Cyan)),
                         Span::styled(format!(" - {description}"), Style::default().fg(Color::White)),
                     ]));
                 }
