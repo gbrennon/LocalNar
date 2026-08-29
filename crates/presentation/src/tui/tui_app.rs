@@ -207,6 +207,9 @@ impl TuiApp {
             KeyCode::Tab => {
                 self.mode = AppMode::ModelList;
             }
+            KeyCode::BackTab => {
+                self.mode = AppMode::Help;
+            }
             _ => {}
         }
     }
@@ -246,10 +249,11 @@ impl TuiApp {
             KeyCode::Char('h') | KeyCode::Char('H') => {
                 self.mode = AppMode::Help;
             }
-            KeyCode::Char('r') | KeyCode::Char('R') => {
-                self.model_list_widget.clear();
+            KeyCode::Tab => {
+                self.mode = AppMode::Help;
+            }
+            KeyCode::BackTab => {
                 self.mode = AppMode::Search;
-                self.search_widget.focus();
             }
             _ => {}
         }
@@ -267,9 +271,12 @@ impl TuiApp {
     fn handle_help_keys(&mut self, key: KeyEvent) {
         if matches!(key.code, KeyCode::Esc | KeyCode::Char('h') | KeyCode::Char('H')) {
             self.mode = self.previous_mode.unwrap_or(AppMode::Search);
+        } else if matches!(key.code, KeyCode::Tab) {
+            self.mode = AppMode::ModelList;
+        } else if matches!(key.code, KeyCode::BackTab) {
+            self.mode = AppMode::Search;
         }
     }
-
     /// Render the TUI application.
     pub fn draw(&mut self, frame: &mut Frame) {
         let area = frame.area();
