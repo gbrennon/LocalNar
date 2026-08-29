@@ -13,14 +13,11 @@ const DEFAULT_ENDPOINT: &str = "https://huggingface.co";
 
 /// Transport contract for fetching files from Hugging Face Hub.
 pub trait HubDownloadTransport: Send + Sync {
-    /// Transfers `remote` file bytes to staging, reporting progress to `progress`.
-    async fn download_file<Progress>(
+    async fn download_file(
         &self,
         remote: &RemoteModelFile,
-        progress: &Progress,
-    ) -> Result<ModelArtifact, ModelDownloadError>
-    where
-        Progress: DownloadProgressPort;
+        progress: &dyn DownloadProgressPort,
+    ) -> Result<ModelArtifact, ModelDownloadError>;
 }
 
 /// Production downloader transport backed by `hf-hub`.
@@ -112,14 +109,11 @@ impl HfProgress for ProgressBridge {
 }
 
 impl HubDownloadTransport for HfHubTokioTransport {
-    async fn download_file<Progress>(
+    async fn download_file(
         &self,
         remote: &RemoteModelFile,
-        progress: &Progress,
-    ) -> Result<ModelArtifact, ModelDownloadError>
-    where
-        Progress: DownloadProgressPort,
-    {
+        progress: &dyn DownloadProgressPort,
+    ) -> Result<ModelArtifact, ModelDownloadError> {
         tokio::fs::create_dir_all(&self.staging_dir)
             .await
             .map_err(|err| ModelDownloadError::Transport {
@@ -244,14 +238,11 @@ impl Default for HfHubDownloader<HfHubTokioTransport> {
 }
 
 impl<Transport: HubDownloadTransport> ModelDownloaderPort for HfHubDownloader<Transport> {
-    async fn fetch<Progress>(
+    async fn fetch(
         &self,
         remote: &RemoteModelFile,
-        progress: &Progress,
-    ) -> Result<ModelArtifact, ModelDownloadError>
-    where
-        Progress: DownloadProgressPort,
-    {
+        progress: &dyn DownloadProgressPort,
+    ) -> Result<ModelArtifact, ModelDownloadError> {
         self.transport.download_file(remote, progress).await
     }
 }
