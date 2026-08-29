@@ -6,21 +6,32 @@ use domain::{
 };
 use reqwest::Client;
 use serde::Deserialize;
+use serde::de::DeserializeOwned;
 
 const DEFAULT_ENDPOINT: &str = "https://huggingface.co";
 
-/// Hugging Face Hub catalog adapter for resolving files and searching models.
+/// Transport contract for retrieving raw JSON from the Hugging Face Hub catalog.
+pub trait HubTransport: Send + Sync {
+    /// Performs a GET request against `path` and deserializes the JSON response.
+    async fn get_json<T: DeserializeOwned>(&self, path: &str) -> Result<T, RegistryReadError>;
+}
+
+/// Production HTTP transport for the Hugging Face Hub catalog.
 #[derive(Debug, Clone)]
-pub struct HfApiRegistry {
+pub struct ReqwestHubTransport {
     endpoint: String,
     client: Client,
     token: Option<String>,
 }
 
-impl HfApiRegistry {
-    /// Builds a registry with default endpoint and environment credentials.
-    pub fn new() -> Self {
-        Self::from_env()
+impl ReqwestHubTransport {
+    /// Builds an HTTP transport for the given endpoint and optional authorization token.
+    pub fn new(endpoint: impl Into<String>, token: Option<String>) -> Self {
+        Self {
+            endpoint: endpoint.into(),
+            client: Client::builder().build().unwrap_or_default(),
+            token: token.filter(|t| !t.trim().is_empty()),
+        }
     }
 
     /// Resolves configuration from `HF_ENDPOINT` and `HF_TOKEN` environment variables.
@@ -30,43 +41,88 @@ impl HfApiRegistry {
         let token = std::env::var("HF_TOKEN")
             .ok()
             .filter(|t| !t.trim().is_empty());
-        Self {
-            endpoint,
-            client: Client::builder().build().unwrap_or_default(),
-            token,
-        }
-    }
-
-    /// Overrides the API endpoint URL.
-    pub fn with_endpoint(mut self, endpoint: impl Into<String>) -> Self {
-        self.endpoint = endpoint.into();
-        self
-    }
-
-    /// Sets an optional authorization token.
-    pub fn with_token(mut self, token: Option<String>) -> Self {
-        self.token = token.filter(|t| !t.trim().is_empty());
-        self
-    }
-
-    /// Sets a custom reqwest client.
-    pub fn with_client(mut self, client: Client) -> Self {
-        self.client = client;
-        self
-    }
-
-    fn auth_request(&self, request: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
-        if let Some(token) = &self.token {
-            request.bearer_auth(token)
-        } else {
-            request
-        }
+        Self::new(endpoint, token)
     }
 }
 
-impl Default for HfApiRegistry {
+impl Default for ReqwestHubTransport {
     fn default() -> Self {
-        Self::new()
+        Self::from_env()
+    }
+}
+
+impl HubTransport for ReqwestHubTransport {
+    async fn get_json<T: DeserializeOwned>(&self, path: &str) -> Result<T, RegistryReadError> {
+        let url = format!(
+            "{}/{}",
+            self.endpoint.trim_end_matches('/'),
+            path.trim_start_matches('/')
+        );
+
+        let mut request = self.client.get(&url);
+        if let Some(token) = &self.token {
+            request = request.bearer_auth(token);
+        }
+
+        let response = request
+            .send()
+            .await
+            .map_err(|err| RegistryReadError::Unreachable {
+                repository: path.to_string(),
+                cause: err.to_string(),
+            })?;
+
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(RegistryReadError::FileNotFound {
+                repository: path.to_string(),
+                file: String::new(),
+            });
+        }
+
+        if !response.status().is_success() {
+            return Err(RegistryReadError::Unreachable {
+                repository: path.to_string(),
+                cause: format!("HTTP status {}", response.status()),
+            });
+        }
+
+        response
+            .json()
+            .await
+            .map_err(|_| RegistryReadError::Malformed {
+                repository: path.to_string(),
+            })
+    }
+}
+
+/// Hugging Face Hub catalog adapter for resolving files and searching models.
+#[derive(Debug, Clone)]
+pub struct HfApiRegistry<Transport = ReqwestHubTransport> {
+    transport: Transport,
+}
+
+impl<Transport: HubTransport> HfApiRegistry<Transport> {
+    /// Builds a registry with an injected transport.
+    pub fn new(transport: Transport) -> Self {
+        Self { transport }
+    }
+
+    /// Returns a reference to the inner transport.
+    pub fn transport(&self) -> &Transport {
+        &self.transport
+    }
+}
+
+impl HfApiRegistry<ReqwestHubTransport> {
+    /// Resolves configuration from environment variables.
+    pub fn from_env() -> Self {
+        Self::new(ReqwestHubTransport::from_env())
+    }
+}
+
+impl Default for HfApiRegistry<ReqwestHubTransport> {
+    fn default() -> Self {
+        Self::from_env()
     }
 }
 
@@ -94,49 +150,29 @@ struct SearchModelItemResponse {
     siblings: Option<Vec<RepoSiblingResponse>>,
 }
 
-impl RemoteModelRegistryPort for HfApiRegistry {
+impl<Transport: HubTransport> RemoteModelRegistryPort for HfApiRegistry<Transport> {
     async fn resolve_model_file(
         &self,
         repository: &ModelRepository,
         file: &ModelFileName,
     ) -> Result<RemoteModelFile, RegistryReadError> {
-        let url = format!(
-            "{}/api/models/{}/{}/revision/{}?blobs=true",
-            self.endpoint,
+        let path = format!(
+            "api/models/{}/{}/revision/{}?blobs=true",
             repository.identifier().owner(),
             repository.identifier().name(),
             repository.revision().as_str()
         );
 
-        let request = self.auth_request(self.client.get(&url));
-        let response = request
-            .send()
-            .await
-            .map_err(|err| RegistryReadError::Unreachable {
-                repository: repository.to_string(),
-                cause: err.to_string(),
-            })?;
-
-        if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(RegistryReadError::FileNotFound {
-                repository: repository.to_string(),
-                file: file.to_string(),
-            });
-        }
-
-        if !response.status().is_success() {
-            return Err(RegistryReadError::Unreachable {
-                repository: repository.to_string(),
-                cause: format!("HTTP status {}", response.status()),
-            });
-        }
-
         let repo_info: RepoDetailsResponse =
-            response
-                .json()
+            self.transport
+                .get_json(&path)
                 .await
-                .map_err(|_| RegistryReadError::Malformed {
-                    repository: repository.to_string(),
+                .map_err(|err| match err {
+                    RegistryReadError::FileNotFound { .. } => RegistryReadError::FileNotFound {
+                        repository: repository.to_string(),
+                        file: file.to_string(),
+                    },
+                    other => other,
                 })?;
 
         let matching_sibling = repo_info
@@ -175,35 +211,9 @@ impl RemoteModelRegistryPort for HfApiRegistry {
         &self,
         query: &SearchQuery,
     ) -> Result<Vec<RemoteModelFile>, RegistryReadError> {
-        let url = format!("{}/api/models", self.endpoint);
-        let request = self.auth_request(self.client.get(&url)).query(&[
-            ("search", query.as_str()),
-            ("full", "true"),
-            ("limit", "10"),
-        ]);
+        let path = format!("api/models?search={}&full=true&limit=10", query.as_str());
 
-        let response = request
-            .send()
-            .await
-            .map_err(|err| RegistryReadError::Unreachable {
-                repository: query.as_str().to_string(),
-                cause: err.to_string(),
-            })?;
-
-        if !response.status().is_success() {
-            return Err(RegistryReadError::Unreachable {
-                repository: query.as_str().to_string(),
-                cause: format!("HTTP status {}", response.status()),
-            });
-        }
-
-        let results: Vec<SearchModelItemResponse> =
-            response
-                .json()
-                .await
-                .map_err(|_| RegistryReadError::Malformed {
-                    repository: query.as_str().to_string(),
-                })?;
+        let results: Vec<SearchModelItemResponse> = self.transport.get_json(&path).await?;
 
         let mut files = Vec::new();
 
@@ -241,22 +251,5 @@ impl RemoteModelRegistryPort for HfApiRegistry {
         }
 
         Ok(files)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn default_registry_points_to_huggingface() {
-        let registry = HfApiRegistry::new();
-        assert_eq!(registry.endpoint, DEFAULT_ENDPOINT);
-    }
-
-    #[test]
-    fn custom_endpoint_overrides_default() {
-        let registry = HfApiRegistry::new().with_endpoint("http://localhost:8080");
-        assert_eq!(registry.endpoint, "http://localhost:8080");
     }
 }

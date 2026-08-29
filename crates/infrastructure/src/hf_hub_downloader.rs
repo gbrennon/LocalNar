@@ -11,21 +11,37 @@ use tokio::sync::mpsc;
 
 const DEFAULT_ENDPOINT: &str = "https://huggingface.co";
 
-/// Model downloader using Hugging Face Hub tokio client.
+/// Transport contract for fetching files from Hugging Face Hub.
+pub trait HubDownloadTransport: Send + Sync {
+    /// Transfers `remote` file bytes to staging, reporting progress to `progress`.
+    async fn download_file<Progress>(
+        &self,
+        remote: &RemoteModelFile,
+        progress: &Progress,
+    ) -> Result<ModelArtifact, ModelDownloadError>
+    where
+        Progress: DownloadProgressPort;
+}
+
+/// Production downloader transport backed by `hf-hub`.
 #[derive(Debug, Clone)]
-pub struct HfHubDownloader {
+pub struct HfHubTokioTransport {
     staging_dir: PathBuf,
     endpoint: String,
     token: Option<String>,
 }
 
-impl HfHubDownloader {
-    /// Builds a downloader that stages files under `staging_dir`.
-    pub fn new(staging_dir: impl Into<PathBuf>) -> Self {
+impl HfHubTokioTransport {
+    /// Builds a transport that stages files under `staging_dir`.
+    pub fn new(
+        staging_dir: impl Into<PathBuf>,
+        endpoint: impl Into<String>,
+        token: Option<String>,
+    ) -> Self {
         Self {
             staging_dir: staging_dir.into(),
-            endpoint: DEFAULT_ENDPOINT.to_string(),
-            token: None,
+            endpoint: endpoint.into(),
+            token: token.filter(|t| !t.trim().is_empty()),
         }
     }
 
@@ -40,38 +56,16 @@ impl HfHubDownloader {
             .ok()
             .filter(|t| !t.trim().is_empty());
 
-        Self {
-            staging_dir,
-            endpoint,
-            token,
-        }
+        Self::new(staging_dir, endpoint, token)
     }
 
-    /// Overrides the staging directory.
-    pub fn with_staging_dir(mut self, dir: impl Into<PathBuf>) -> Self {
-        self.staging_dir = dir.into();
-        self
-    }
-
-    /// Overrides the Hub endpoint URL.
-    pub fn with_endpoint(mut self, endpoint: impl Into<String>) -> Self {
-        self.endpoint = endpoint.into();
-        self
-    }
-
-    /// Sets an optional authorization token.
-    pub fn with_token(mut self, token: Option<String>) -> Self {
-        self.token = token.filter(|t| !t.trim().is_empty());
-        self
-    }
-
-    /// Returns the configured staging directory.
+    /// Returns the configured staging directory path.
     pub fn staging_dir(&self) -> &Path {
         &self.staging_dir
     }
 }
 
-impl Default for HfHubDownloader {
+impl Default for HfHubTokioTransport {
     fn default() -> Self {
         Self::from_env()
     }
@@ -117,8 +111,8 @@ impl HfProgress for ProgressBridge {
     }
 }
 
-impl ModelDownloaderPort for HfHubDownloader {
-    async fn fetch<Progress>(
+impl HubDownloadTransport for HfHubTokioTransport {
+    async fn download_file<Progress>(
         &self,
         remote: &RemoteModelFile,
         progress: &Progress,
@@ -193,6 +187,50 @@ impl ModelDownloaderPort for HfHubDownloader {
     }
 }
 
+/// Model downloader using Hugging Face Hub tokio client.
+#[derive(Debug, Clone)]
+pub struct HfHubDownloader<Transport = HfHubTokioTransport> {
+    transport: Transport,
+}
+
+impl<Transport: HubDownloadTransport> HfHubDownloader<Transport> {
+    /// Builds a downloader with an injected transport.
+    pub fn new(transport: Transport) -> Self {
+        Self { transport }
+    }
+
+    /// Returns a reference to the inner transport.
+    pub fn transport(&self) -> &Transport {
+        &self.transport
+    }
+}
+
+impl HfHubDownloader<HfHubTokioTransport> {
+    /// Resolves configuration from environment variables.
+    pub fn from_env() -> Self {
+        Self::new(HfHubTokioTransport::from_env())
+    }
+}
+
+impl Default for HfHubDownloader<HfHubTokioTransport> {
+    fn default() -> Self {
+        Self::from_env()
+    }
+}
+
+impl<Transport: HubDownloadTransport> ModelDownloaderPort for HfHubDownloader<Transport> {
+    async fn fetch<Progress>(
+        &self,
+        remote: &RemoteModelFile,
+        progress: &Progress,
+    ) -> Result<ModelArtifact, ModelDownloadError>
+    where
+        Progress: DownloadProgressPort,
+    {
+        self.transport.download_file(remote, progress).await
+    }
+}
+
 fn map_api_error(err: &hf_hub::api::tokio::ApiError, file_name: &str) -> ModelDownloadError {
     match err {
         hf_hub::api::tokio::ApiError::RequestError(reqwest_err) => {
@@ -222,23 +260,4 @@ fn default_staging_dir() -> PathBuf {
         .join(".cache")
         .join("bare-ai-server")
         .join("staging")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn downloader_initializes_with_staging_dir() {
-        let downloader = HfHubDownloader::new("/tmp/staging");
-        assert_eq!(downloader.staging_dir(), Path::new("/tmp/staging"));
-        assert_eq!(downloader.endpoint, DEFAULT_ENDPOINT);
-    }
-
-    #[test]
-    fn custom_endpoint_overrides_in_downloader() {
-        let downloader =
-            HfHubDownloader::new("/tmp/staging").with_endpoint("http://custom-hub:8080");
-        assert_eq!(downloader.endpoint, "http://custom-hub:8080");
-    }
 }
