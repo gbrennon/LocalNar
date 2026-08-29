@@ -8,3 +8,7 @@ license.workspace = true
 
 [dependencies]
 domain.workspace = true
+
+[[test]]
+name = "services"
+path = "tests/services/mod.rs"
