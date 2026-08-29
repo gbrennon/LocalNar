@@ -1,0 +1,224 @@
+use crate::model_file_name::ModelFileName;
+use crate::quantization::Quantization;
+use crate::remote_model_file::RemoteModelFile;
+
+/// The rule that reduces everything a repository offers to one candidate file.
+pub struct ModelWeightChoice;
+
+impl ModelWeightChoice {
+    const WEIGHT_EXTENSION: &'static str = ".gguf";
+    const PREFERRED_BIT_WIDTH: u8 = 4;
+    const SHARD_MARKER: &'static str = "of";
+    const UNKNOWN_PRECISION_DISTANCE: u8 = u8::MAX;
+
+    /// The single offered file that stands for the repository, if any qualifies.
+    ///
+    /// Only a whole weight file qualifies: documentation, configuration, and any
+    /// one part of a multi-part weight are useless on their own, so a repository
+    /// that offers nothing else yields no candidate at all rather than a row
+    /// that cannot be installed.
+    ///
+    /// Among the qualifying files the precision nearest four bits wins, since
+    /// four bits is the narrowest width that keeps a model usable while wider
+    /// ones only cost disk; an equal distance is settled in favor of the wider
+    /// precision, then the smaller file, then the file name, so the choice never
+    /// depends on the order the catalog happened to list files in.
+    pub fn among(offered: &[RemoteModelFile]) -> Option<&RemoteModelFile> {
+        offered
+            .iter()
+            .filter(|offer| Self::is_whole_weight(offer.file()))
+            .min_by(|left, right| Self::preference(left).cmp(&Self::preference(right)))
+    }
+
+    fn preference(offer: &RemoteModelFile) -> (u8, bool, u64, &str) {
+        let (distance, narrower_than_preferred) = match Quantization::of_file(offer.file()) {
+            Some(quantization) => (
+                quantization.bit_width().abs_diff(Self::PREFERRED_BIT_WIDTH),
+                quantization.bit_width() < Self::PREFERRED_BIT_WIDTH,
+            ),
+            None => (Self::UNKNOWN_PRECISION_DISTANCE, true),
+        };
+
+        (
+            distance,
+            narrower_than_preferred,
+            offer.size().bytes(),
+            offer.file().as_str(),
+        )
+    }
+
+    fn is_whole_weight(file: &ModelFileName) -> bool {
+        let name = file.as_str();
+        let Some(stem_length) = name.len().checked_sub(Self::WEIGHT_EXTENSION.len()) else {
+            return false;
+        };
+
+        name.is_char_boundary(stem_length)
+            && name[stem_length..].eq_ignore_ascii_case(Self::WEIGHT_EXTENSION)
+            && !Self::is_shard(&name[..stem_length])
+    }
+
+    fn is_shard(stem: &str) -> bool {
+        let tokens: Vec<&str> = stem.split('-').collect();
+        tokens.windows(3).any(|window| {
+            Self::is_ordinal(window[0])
+                && window[1] == Self::SHARD_MARKER
+                && Self::is_ordinal(window[2])
+        })
+    }
+
+    fn is_ordinal(token: &str) -> bool {
+        !token.is_empty() && token.bytes().all(|byte| byte.is_ascii_digit())
+    }
+}
+
+#[cfg(test)]
+mod model_weight_choice_tests {
+    use crate::byte_length::ByteLength;
+    use crate::model_file_name::ModelFileName;
+    use crate::model_repository::ModelRepository;
+    use crate::model_repository_id::ModelRepositoryId;
+    use crate::model_weight_choice::ModelWeightChoice;
+    use crate::remote_model_file::RemoteModelFile;
+
+    fn offered(files: &[(&str, u64)]) -> Vec<RemoteModelFile> {
+        let identifier = ModelRepositoryId::parse("unsloth/Qwen3-8B-GGUF").expect("valid id");
+        let repository = ModelRepository::at_default_revision(identifier);
+
+        files
+            .iter()
+            .map(|(name, size)| {
+                RemoteModelFile::new(
+                    repository.clone(),
+                    ModelFileName::new(*name).expect("valid file name"),
+                    ByteLength::new(*size),
+                    None,
+                )
+            })
+            .collect()
+    }
+
+    fn chosen(files: &[(&str, u64)]) -> Option<String> {
+        let offered = offered(files);
+        ModelWeightChoice::among(&offered).map(|file| file.file().to_string())
+    }
+
+    #[test]
+    fn documentation_and_configuration_never_qualify() {
+        assert_eq!(
+            chosen(&[
+                (".gitattributes", 3_083),
+                ("README.md", 12_000),
+                ("config.json", 900),
+                ("Qwen3-8B-Q4_K_M.gguf", 5_027_784_064),
+            ]),
+            Some("Qwen3-8B-Q4_K_M.gguf".to_owned())
+        );
+    }
+
+    #[test]
+    fn a_repository_without_weights_yields_no_candidate() {
+        assert_eq!(chosen(&[("README.md", 12_000), ("config.json", 900)]), None);
+    }
+
+    #[test]
+    fn the_precision_nearest_four_bits_wins() {
+        assert_eq!(
+            chosen(&[
+                ("Qwen3-8B-BF16.gguf", 16_388_044_384),
+                ("Qwen3-8B-Q8_0.gguf", 8_710_000_000),
+                ("Qwen3-8B-Q4_K_M.gguf", 5_027_784_064),
+                ("Qwen3-8B-Q2_K.gguf", 3_281_733_440),
+            ]),
+            Some("Qwen3-8B-Q4_K_M.gguf".to_owned())
+        );
+    }
+
+    #[test]
+    fn an_equal_distance_from_four_bits_favors_the_wider_precision() {
+        assert_eq!(
+            chosen(&[
+                ("Qwen3-8B-Q3_K_M.gguf", 4_017_000_000),
+                ("Qwen3-8B-Q5_K_M.gguf", 5_850_000_000),
+            ]),
+            Some("Qwen3-8B-Q5_K_M.gguf".to_owned())
+        );
+    }
+
+    #[test]
+    fn an_equal_precision_is_settled_by_the_smaller_file() {
+        assert_eq!(
+            chosen(&[
+                ("Qwen3-8B-Q4_K_M.gguf", 5_027_784_064),
+                ("Qwen3-8B-Q4_K_S.gguf", 4_802_000_000),
+            ]),
+            Some("Qwen3-8B-Q4_K_S.gguf".to_owned())
+        );
+    }
+
+    #[test]
+    fn a_known_precision_is_preferred_over_an_untagged_weight() {
+        assert_eq!(
+            chosen(&[
+                ("model.gguf", 4_000_000_000),
+                ("Qwen3-8B-Q8_0.gguf", 8_710_000_000),
+            ]),
+            Some("Qwen3-8B-Q8_0.gguf".to_owned())
+        );
+    }
+
+    #[test]
+    fn an_untagged_weight_is_still_a_candidate_when_it_is_the_only_one() {
+        assert_eq!(
+            chosen(&[("README.md", 12_000), ("model.gguf", 4_000_000_000)]),
+            Some("model.gguf".to_owned())
+        );
+    }
+
+    #[test]
+    fn one_part_of_a_multi_part_weight_never_qualifies() {
+        assert_eq!(
+            chosen(&[
+                ("Qwen3-235B-Q4_K_M-00001-of-00003.gguf", 15_000_000_000),
+                ("Qwen3-235B-Q4_K_M-00002-of-00003.gguf", 15_000_000_000),
+                ("Qwen3-235B-Q8_0.gguf", 250_000_000_000),
+            ]),
+            Some("Qwen3-235B-Q8_0.gguf".to_owned())
+        );
+    }
+
+    #[test]
+    fn a_repository_offering_only_multi_part_weights_yields_no_candidate() {
+        assert_eq!(
+            chosen(&[
+                ("Qwen3-235B-Q4_K_M-00001-of-00003.gguf", 15_000_000_000),
+                ("Qwen3-235B-Q4_K_M-00002-of-00003.gguf", 15_000_000_000),
+            ]),
+            None
+        );
+    }
+
+    #[test]
+    fn the_extension_is_matched_regardless_of_case() {
+        assert_eq!(
+            chosen(&[("Qwen3-8B-Q4_K_M.GGUF", 5_027_784_064)]),
+            Some("Qwen3-8B-Q4_K_M.GGUF".to_owned())
+        );
+    }
+
+    #[test]
+    fn the_choice_does_not_depend_on_the_listing_order() {
+        let ascending = chosen(&[
+            ("Qwen3-8B-Q2_K.gguf", 3_281_733_440),
+            ("Qwen3-8B-Q4_K_M.gguf", 5_027_784_064),
+            ("Qwen3-8B-BF16.gguf", 16_388_044_384),
+        ]);
+        let descending = chosen(&[
+            ("Qwen3-8B-BF16.gguf", 16_388_044_384),
+            ("Qwen3-8B-Q4_K_M.gguf", 5_027_784_064),
+            ("Qwen3-8B-Q2_K.gguf", 3_281_733_440),
+        ]);
+
+        assert_eq!(ascending, descending);
+    }
+}
