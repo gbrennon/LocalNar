@@ -5,3 +5,18 @@ edition.workspace = true
 version.workspace = true
 authors.workspace = true
 license.workspace = true
+
+[dependencies]
+domain.workspace = true
+application.workspace = true
+tokio.workspace = true
+hf-hub.workspace = true
+sha2.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+
+
