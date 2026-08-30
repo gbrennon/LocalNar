@@ -1,7 +1,6 @@
-# Local Bare Llama
+# LocalNar Scripts
 
 Run a local llama.cpp server and use it as a pi coding agent. No containers, no API keys. GPU + system RAM split support. Servers bind to `0.0.0.0` and print the LAN URL on startup, so other machines on the network can consume the model (e.g. `http://192.168.0.14:8080`).
-
 ## Quick start
 
 ```sh
