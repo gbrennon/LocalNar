@@ -35,7 +35,7 @@ impl ModelTableWidget {
     }
 
     /// Replaces the described models, selecting the first of them.
-    pub fn set_models(&mut self, models: Vec<ModelInfo>) {
+    pub fn show(&mut self, models: Vec<ModelInfo>) {
         self.state
             .select((!models.is_empty()).then_some(Self::FIRST_ROW));
         self.models = models;
