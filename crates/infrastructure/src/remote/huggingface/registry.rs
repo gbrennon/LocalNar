@@ -10,6 +10,18 @@ use serde::Deserialize;
 use serde::de::DeserializeOwned;
 
 const DEFAULT_ENDPOINT: &str = "https://huggingface.co";
+const INSTALLABLE_EXTENSIONS: [&str; 2] = ["gguf", "safetensors"];
+
+fn is_installable_format(file_name: &ModelFileName) -> bool {
+    file_name
+        .as_str()
+        .rsplit_once('.')
+        .is_some_and(|(_, extension)| {
+            INSTALLABLE_EXTENSIONS
+                .iter()
+                .any(|ext| extension.eq_ignore_ascii_case(ext))
+        })
+}
 
 /// Transport contract for retrieving raw JSON from the Hugging Face Hub catalog.
 pub trait HubTransport: Send + Sync {
@@ -155,6 +167,7 @@ impl<Transport: HubTransport> HfApiRegistry<Transport> {
             .unwrap_or_default()
             .iter()
             .filter_map(|sibling| sibling.to_remote_file(repository))
+            .filter(|file| is_installable_format(file.file()))
             .collect())
     }
 
@@ -271,25 +284,24 @@ struct LargeFileResponse {
 #[derive(Debug, Deserialize)]
 struct CatalogEntryResponse {
     id: String,
-    gguf: Option<GgufMetadataResponse>,
+    #[serde(rename = "gguf")]
+    model_metadata: Option<ModelMetadataResponse>,
 }
 
 impl CatalogEntryResponse {
     fn to_profile(&self) -> ModelProfile {
-        self.gguf
+        self.model_metadata
             .as_ref()
-            .map(GgufMetadataResponse::to_profile)
+            .map(ModelMetadataResponse::to_profile)
             .unwrap_or(ModelProfile::UNDISCLOSED)
     }
 }
-
 #[derive(Debug, Deserialize)]
-struct GgufMetadataResponse {
+struct ModelMetadataResponse {
     total: Option<u64>,
     context_length: Option<u32>,
 }
-
-impl GgufMetadataResponse {
+impl ModelMetadataResponse {
     fn to_profile(&self) -> ModelProfile {
         ModelProfile::new(
             self.total.map(ParameterCount::new),

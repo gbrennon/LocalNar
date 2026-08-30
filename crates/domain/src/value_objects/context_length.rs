@@ -37,7 +37,7 @@ impl fmt::Display for ContextLength {
 
 #[cfg(test)]
 mod context_length_tests {
-    use crate::context_length::ContextLength;
+    use crate::value_objects::ContextLength;
 
     #[test]
     fn whole_kilo_windows_render_without_decimals() {

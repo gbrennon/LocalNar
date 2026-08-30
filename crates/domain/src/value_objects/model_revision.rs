@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::domain_error::DomainError;
+use crate::errors::DomainError;
 
 /// A concrete branch, tag, or commit of a repository to resolve against.
 ///
@@ -46,8 +46,8 @@ impl fmt::Display for ModelRevision {
 
 #[cfg(test)]
 mod model_revision_tests {
-    use crate::domain_error::DomainError;
-    use crate::model_revision::ModelRevision;
+    use crate::errors::DomainError;
+    use crate::value_objects::ModelRevision;
 
     #[test]
     fn default_revision_is_main() {

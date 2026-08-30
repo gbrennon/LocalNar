@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::domain_error::DomainError;
+use crate::errors::DomainError;
 
 /// A single capability label a model is marked with.
 ///
@@ -34,8 +34,8 @@ impl fmt::Display for ModelTag {
 
 #[cfg(test)]
 mod model_tag_tests {
-    use crate::domain_error::DomainError;
-    use crate::model_tag::ModelTag;
+    use crate::errors::DomainError;
+    use crate::value_objects::ModelTag;
 
     #[test]
     fn a_capability_label_is_accepted_verbatim() {

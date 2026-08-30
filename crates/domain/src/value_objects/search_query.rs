@@ -1,4 +1,4 @@
-use crate::domain_error::DomainError;
+use crate::errors::DomainError;
 
 /// A free-text phrase an operator types to discover downloadable models.
 ///
@@ -27,8 +27,8 @@ impl SearchQuery {
 
 #[cfg(test)]
 mod search_query_tests {
-    use crate::domain_error::DomainError;
-    use crate::search_query::SearchQuery;
+    use crate::errors::DomainError;
+    use crate::value_objects::SearchQuery;
 
     #[test]
     fn a_phrase_is_trimmed() {
