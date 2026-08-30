@@ -1,12 +1,12 @@
 use std::path::{Path, PathBuf};
 
 use domain::{
-    ByteLength, Checksum, ContextLength, InstalledModel, ModelArtifact, ModelFileName, ModelInfo,
-    ModelProfile, ModelRepository, ModelRepositoryId, ModelSpec, ParameterCount, RemoteModelFile,
-    SearchQuery,
+    ByteLength, Checksum, ContextLength, DiscardedStray, InstalledModel, ManagedModel,
+    ModelArtifact, ModelFileName, ModelInfo, ModelProfile, ModelRepository, ModelRepositoryId,
+    ModelSpec, ModelState, ParameterCount, RemoteModelFile, RemovedModel, SearchQuery,
 };
 
-/// Canonical values every install scenario is written against.
+/// Canonical values every install and management scenario is written against.
 pub struct ModelFixture;
 
 impl ModelFixture {
@@ -84,6 +84,95 @@ impl ModelFixture {
             ByteLength::new(4_096),
             digest,
         )
+    }
+
+    /// The second install intent, so a stocked library holds more than one model.
+    pub fn companion_spec() -> ModelSpec {
+        let identifier = ModelRepositoryId::parse("unsloth/Qwen3-8B-GGUF").expect("valid id");
+        ModelSpec::new(
+            ModelRepository::at_default_revision(identifier),
+            ModelFileName::new("Qwen3-8B-Q8_0.gguf").expect("valid file name"),
+        )
+    }
+
+    /// The replica a library reports for the companion model.
+    ///
+    /// It carries no digest, so it stands for a replica nothing ever proved,
+    /// and it occupies a different amount of space than the fixture model.
+    pub fn companion_installed() -> InstalledModel {
+        InstalledModel::new(
+            Self::companion_spec(),
+            Self::nowhere("installed/Qwen3-8B-Q8_0.gguf"),
+            ByteLength::new(8_192),
+            None,
+        )
+    }
+
+    /// The directory a library keeps its fixture models under.
+    pub fn library_root() -> PathBuf {
+        Self::nowhere("installed")
+    }
+
+    /// The reading a replica whose bytes disagree with its digest comes back in.
+    pub fn mismatched_state() -> ModelState {
+        ModelState::IntegrityMismatch {
+            expected: Self::expected_digest(),
+            actual: Self::actual_digest(),
+        }
+    }
+
+    /// The entry a library holds for a replica proven against its digest.
+    pub fn verified_entry() -> ManagedModel {
+        ManagedModel::new(
+            Self::installed(Some(Self::expected_digest())),
+            ModelState::Verified,
+        )
+    }
+
+    /// The entry a library holds for a replica nothing ever proved.
+    pub fn unproven_entry() -> ManagedModel {
+        ManagedModel::new(Self::companion_installed(), ModelState::Downloaded)
+    }
+
+    /// The entry a library holds for a replica that no longer hashes as recorded.
+    pub fn broken_entry() -> ManagedModel {
+        ManagedModel::new(
+            Self::installed(Some(Self::expected_digest())),
+            Self::mismatched_state(),
+        )
+    }
+
+    /// The record of discarding the fixture replica from the library.
+    ///
+    /// It reports the place the bytes used to occupy and the space they gave
+    /// back, which is the whole size of the fixture replica.
+    pub fn removed() -> RemovedModel {
+        RemovedModel::new(
+            Self::spec(),
+            Self::nowhere("installed/Qwen3-8B-Q4_K_M.gguf"),
+            ByteLength::new(4_096),
+        )
+    }
+
+    /// A recorded digest whose model file went away by other means.
+    pub fn discarded_digest_record() -> DiscardedStray {
+        DiscardedStray::new(
+            Self::nowhere("installed/Qwen3-8B-Q4_K_M.gguf.sha256"),
+            ByteLength::new(64),
+        )
+    }
+
+    /// The same leftover kept for the companion model.
+    pub fn discarded_companion_digest_record() -> DiscardedStray {
+        DiscardedStray::new(
+            Self::nowhere("installed/Qwen3-8B-Q8_0.gguf.sha256"),
+            ByteLength::new(64),
+        )
+    }
+
+    /// A directory the library was left with once its last model went.
+    pub fn discarded_emptied_directory() -> DiscardedStray {
+        DiscardedStray::new(Self::nowhere("installed/emptied"), ByteLength::ZERO)
     }
 
     /// The phrase an operator types to find the fixture model.
