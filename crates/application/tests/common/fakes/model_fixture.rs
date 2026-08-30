@@ -27,6 +27,7 @@ impl ModelFixture {
         ModelSpec::new(
             ModelRepository::at_default_revision(identifier),
             ModelFileName::new("Qwen3-8B-Q4_K_M.gguf").expect("valid file name"),
+            vec![],
         )
     }
 

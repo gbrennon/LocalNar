@@ -1,7 +1,6 @@
 use std::fmt;
 
-use crate::model_repository_id::ModelRepositoryId;
-use crate::model_revision::ModelRevision;
+use crate::value_objects::{ModelRepositoryId, ModelRevision};
 
 /// A named upstream repository pinned to one concrete revision.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -46,9 +45,7 @@ impl fmt::Display for ModelRepository {
 
 #[cfg(test)]
 mod model_repository_tests {
-    use crate::model_repository::ModelRepository;
-    use crate::model_repository_id::ModelRepositoryId;
-    use crate::model_revision::ModelRevision;
+    use crate::value_objects::{ModelRepository, ModelRepositoryId, ModelRevision};
 
     #[test]
     fn repository_renders_as_identifier_at_revision() {

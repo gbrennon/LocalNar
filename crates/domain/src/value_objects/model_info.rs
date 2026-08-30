@@ -1,9 +1,6 @@
-use crate::byte_length::ByteLength;
-use crate::model_profile::ModelProfile;
-use crate::model_repository_id::ModelRepositoryId;
-use crate::model_spec::ModelSpec;
-use crate::quantization::Quantization;
-use crate::remote_model_file::RemoteModelFile;
+use crate::value_objects::{
+    ByteLength, ModelProfile, ModelRepositoryId, ModelSpec, Quantization, RemoteModelFile,
+};
 
 /// One catalog entry described as a single candidate an operator can act on.
 ///
@@ -26,7 +23,7 @@ impl ModelInfo {
         Self {
             spec: weight.to_spec(),
             size: weight.size(),
-            quantization: Quantization::of_file(weight.file()),
+            quantization: Quantization::for_file(weight.file()),
             profile,
         }
     }
@@ -59,15 +56,10 @@ impl ModelInfo {
 
 #[cfg(test)]
 mod model_info_tests {
-    use crate::byte_length::ByteLength;
-    use crate::context_length::ContextLength;
-    use crate::model_file_name::ModelFileName;
-    use crate::model_info::ModelInfo;
-    use crate::model_profile::ModelProfile;
-    use crate::model_repository::ModelRepository;
-    use crate::model_repository_id::ModelRepositoryId;
-    use crate::parameter_count::ParameterCount;
-    use crate::remote_model_file::RemoteModelFile;
+    use crate::value_objects::{
+        ByteLength, ContextLength, ModelFileName, ModelInfo, ModelProfile, ModelRepository,
+        ModelRepositoryId, ParameterCount, RemoteModelFile,
+    };
 
     fn weight(file_name: &str, size: u64) -> RemoteModelFile {
         let identifier = ModelRepositoryId::parse("unsloth/Qwen3-8B-GGUF").expect("valid id");

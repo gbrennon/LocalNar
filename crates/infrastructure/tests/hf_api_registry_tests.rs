@@ -346,3 +346,37 @@ async fn resolve_model_file_propagates_a_transport_failure() {
 
     assert_eq!(failure, FakeUnreachableTransport::error());
 }
+
+const MIXED_REVISION_JSON: &str = r#"{
+    "id": "unsloth/Qwen3-8B-GGUF",
+    "siblings": [
+        { "rfilename": "README.md", "size": 12000 },
+        { "rfilename": "config.json", "size": 900 },
+        { "rfilename": "Qwen3-8B-Q4_K_M.gguf", "size": 5027784064, "lfs": { "size": 5027784064, "sha256": "a94a8fe5ccb19ba61c4c0873d391e987982fbbd3fdf96d1b0f6a55a0f9f0f7e8" } }
+    ]
+}"#;
+
+const MIXED_REVISION_PATH: &str = "api/models/unsloth/Qwen3-8B-GGUF/revision/main?blobs=true";
+
+#[tokio::test]
+async fn non_installable_formats_are_filtered_out_before_the_domain_sees_them() {
+    let registry = HfApiRegistry::new(FakeCatalogTransport::answering(&[(
+        MIXED_REVISION_PATH,
+        MIXED_REVISION_JSON,
+    )]));
+    let repository = unsloth_repository();
+    let readme = ModelFileName::new("README.md").expect("valid file name");
+
+    let failure = registry
+        .resolve_model_file(&repository, &readme)
+        .await
+        .expect_err("README.md must be filtered before the domain");
+
+    assert_eq!(
+        failure,
+        RegistryReadError::FileNotFound {
+            repository: repository.to_string(),
+            file: readme.to_string(),
+        }
+    );
+}

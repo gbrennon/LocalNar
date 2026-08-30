@@ -1,8 +1,4 @@
-use crate::byte_length::ByteLength;
-use crate::checksum::Checksum;
-use crate::model_file_name::ModelFileName;
-use crate::model_repository::ModelRepository;
-use crate::model_spec::ModelSpec;
+use crate::value_objects::{ByteLength, Checksum, ModelFileName, ModelRepository, ModelSpec};
 
 /// One file offered by a remote repository.
 ///
@@ -49,7 +45,7 @@ impl RemoteModelFile {
     /// A search result is therefore directly actionable: the operator picks a
     /// row and the intent follows from it, with nothing further to supply.
     pub fn to_spec(&self) -> ModelSpec {
-        ModelSpec::new(self.repository.clone(), self.file.clone())
+        ModelSpec::new(self.repository.clone(), self.file.clone(), vec![])
     }
 
     /// The digest the registry advertised, when it disclosed one.
