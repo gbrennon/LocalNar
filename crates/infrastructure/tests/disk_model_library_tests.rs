@@ -13,7 +13,7 @@ fn sample_spec() -> ModelSpec {
     let revision = ModelRevision::new("main").expect("valid revision");
     let repository = ModelRepository::new(repo_id, revision);
     let file = ModelFileName::new("Qwen3-8B-Q4_K_M.gguf").expect("valid file");
-    ModelSpec::new(repository, file)
+    ModelSpec::new(repository, file, vec![])
 }
 
 fn compute_digest(bytes: &[u8]) -> Checksum {
