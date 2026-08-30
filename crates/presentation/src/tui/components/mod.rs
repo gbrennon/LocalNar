@@ -1,6 +1,9 @@
 mod help_line;
 mod help_section;
 mod help_widget;
+mod library_row;
+mod library_table_widget;
+mod model_details;
 mod model_row;
 mod model_table_widget;
 mod progress_widget;
@@ -8,6 +11,9 @@ mod search_widget;
 mod status_widget;
 
 pub use help_widget::HelpWidget;
+pub use library_row::LibraryRow;
+pub use library_table_widget::LibraryTableWidget;
+pub use model_details::ModelDetails;
 pub use model_row::ModelRow;
 pub use model_table_widget::ModelTableWidget;
 pub use progress_widget::ProgressWidget;
