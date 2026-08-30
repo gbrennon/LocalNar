@@ -35,6 +35,10 @@ impl HelpSection {
             description: "Install selected model",
         },
         HelpLine::KeyBinding {
+            key: "l",
+            description: "Manage installed models",
+        },
+        HelpLine::KeyBinding {
             key: "Esc",
             description: "Return to search",
         },
@@ -49,7 +53,43 @@ impl HelpSection {
         description: "Return to model table (install continues)",
     }];
 
+    const LIBRARY_MODE_LINES: &[HelpLine] = &[
+        HelpLine::Plain("Total control over the models this machine holds"),
+        HelpLine::KeyBinding {
+            key: "↑/↓",
+            description: "Navigate installed models",
+        },
+        HelpLine::KeyBinding {
+            key: "Enter / i",
+            description: "Inspect selected model in full",
+        },
+        HelpLine::KeyBinding {
+            key: "v",
+            description: "Verify selected model against its digest",
+        },
+        HelpLine::KeyBinding {
+            key: "d",
+            description: "Delete selected model (asks to confirm)",
+        },
+        HelpLine::KeyBinding {
+            key: "p",
+            description: "Prune leftovers that stand for no model",
+        },
+        HelpLine::KeyBinding {
+            key: "r",
+            description: "Re-read the library",
+        },
+        HelpLine::KeyBinding {
+            key: "Esc",
+            description: "Close details, or return to model table",
+        },
+    ];
+
     const GENERAL_LINES: &[HelpLine] = &[
+        HelpLine::KeyBinding {
+            key: "Tab / Shift+Tab",
+            description: "Cycle search, models, library, help",
+        },
         HelpLine::KeyBinding {
             key: "h / ?",
             description: "Toggle help",
@@ -75,21 +115,27 @@ impl HelpSection {
         lines: Self::INSTALL_PROGRESS_MODE_LINES,
     };
 
+    const LIBRARY_MODE: Self = Self {
+        title: "Library Mode",
+        lines: Self::LIBRARY_MODE_LINES,
+    };
+
     const GENERAL: Self = Self {
         title: "General",
         lines: Self::GENERAL_LINES,
     };
 
     /// All help sections in display order.
-    pub const ALL: [&'static Self; 4] = [
+    pub const ALL: [&'static Self; 5] = [
         &Self::SEARCH_MODE,
         &Self::MODEL_TABLE_MODE,
         &Self::INSTALL_PROGRESS_MODE,
+        &Self::LIBRARY_MODE,
         &Self::GENERAL,
     ];
 
-    /// Convert section to renderable lines.
-    pub fn to_lines(&self) -> Vec<Line<'static>> {
+    /// Renders the section title and every line beneath it.
+    pub fn to_lines(self) -> Vec<Line<'static>> {
         let mut lines = vec![Line::from(vec![Span::styled(
             self.title,
             Style::default()
@@ -108,14 +154,6 @@ impl HelpSection {
                             Style::default().fg(Color::White),
                         ),
                     ]));
-                }
-                HelpLine::Header(text) => {
-                    lines.push(Line::from(vec![Span::styled(
-                        *text,
-                        Style::default()
-                            .fg(Color::Yellow)
-                            .add_modifier(Modifier::BOLD),
-                    )]));
                 }
             }
         }

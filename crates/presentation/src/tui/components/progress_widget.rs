@@ -24,8 +24,8 @@ impl ProgressWidget {
         self.message = String::new();
     }
 
-    /// Set the current progress and status message.
-    pub fn set_progress(&mut self, progress: f64, message: String) {
+    /// Advances the transfer to `progress`, saying what it is doing.
+    pub fn advance(&mut self, progress: f64, message: String) {
         self.progress = progress.clamp(0.0, 1.0);
         self.message = message;
     }
