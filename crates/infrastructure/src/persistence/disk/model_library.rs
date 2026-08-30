@@ -38,7 +38,12 @@ impl DiskModelLibrary {
         dirs_path().join(".cache").join("localnar").join("models")
     }
 
-    fn model_file_path(&self, model: &ModelSpec) -> PathBuf {
+    /// Builds the path at which the replica of `model` lives.
+    ///
+    /// Sibling adapters that manage the library read the very hierarchy this
+    /// builds, so the layout is decided here alone and never restated
+    /// elsewhere.
+    pub(super) fn model_file_path(&self, model: &ModelSpec) -> PathBuf {
         self.root
             .join(model.repository().identifier().owner())
             .join(model.repository().identifier().name())
@@ -46,12 +51,43 @@ impl DiskModelLibrary {
             .join(model.file().as_str())
     }
 
-    fn checksum_file_path(&self, model: &ModelSpec) -> PathBuf {
-        self.root
-            .join(model.repository().identifier().owner())
-            .join(model.repository().identifier().name())
-            .join(model.repository().revision().as_str())
-            .join(format!("{}.sha256", model.file().as_str()))
+    /// Builds the path of the note recording the proven digest of `model`.
+    pub(super) fn checksum_file_path(&self, model: &ModelSpec) -> PathBuf {
+        Self::sidecar_of(&self.model_file_path(model))
+    }
+
+    /// The suffix that turns a replica's path into the path of its digest note.
+    pub(super) const CHECKSUM_SIDECAR_SUFFIX: &'static str = ".sha256";
+
+    /// Builds the path of the note recording the proven digest of `replica`.
+    pub(super) fn sidecar_of(replica: &Path) -> PathBuf {
+        let mut sidecar = replica.as_os_str().to_owned();
+        sidecar.push(Self::CHECKSUM_SIDECAR_SUFFIX);
+        PathBuf::from(sidecar)
+    }
+
+    /// Names the replica a digest note belongs to, or nothing when `path` is no
+    /// such note.
+    ///
+    /// A note is named after the replica it describes, so the replica's path is
+    /// recovered from the note's own rather than searched for. A path carrying
+    /// no note suffix describes no replica and answers nothing.
+    pub(super) fn companion_of(path: &Path) -> Option<PathBuf> {
+        path.to_str()?
+            .strip_suffix(Self::CHECKSUM_SIDECAR_SUFFIX)
+            .map(PathBuf::from)
+    }
+
+    /// Reads the digest the library recorded at `sidecar_path`, if it recorded
+    /// one.
+    ///
+    /// The note is the library's own record of bytes it already proved, so a
+    /// note that is absent, unreadable, or unparseable all say the same thing:
+    /// nothing was proved. Answering nothing rather than failing leaves an
+    /// unproven replica readable.
+    pub(super) async fn recorded_digest(sidecar_path: &Path) -> Option<Checksum> {
+        let recorded = tokio::fs::read_to_string(sidecar_path).await.ok()?;
+        Checksum::parse(recorded.trim()).ok()
     }
 
     /// Frees `path` of whatever entry occupies it, so the library alone decides
@@ -172,12 +208,9 @@ impl ModelLibraryPort for DiskModelLibrary {
             return Ok(ModelState::Missing);
         }
 
-        let checksum_path = self.checksum_file_path(model);
-        let sidecar_exists = tokio::fs::try_exists(&checksum_path).await.unwrap_or(false);
-
-        if sidecar_exists
-            && let Ok(content) = tokio::fs::read_to_string(&checksum_path).await
-            && Checksum::parse(content.trim()).is_ok()
+        if Self::recorded_digest(&self.checksum_file_path(model))
+            .await
+            .is_some()
         {
             return Ok(ModelState::Verified);
         }
@@ -282,16 +315,7 @@ impl ModelLibraryPort for DiskModelLibrary {
                 })?;
 
         let size = ByteLength::new(metadata.len());
-        let checksum_path = self.checksum_file_path(model);
-        let digest = if tokio::fs::try_exists(&checksum_path).await.unwrap_or(false) {
-            if let Ok(content) = tokio::fs::read_to_string(&checksum_path).await {
-                Checksum::parse(content.trim()).ok()
-            } else {
-                None
-            }
-        } else {
-            None
-        };
+        let digest = Self::recorded_digest(&self.checksum_file_path(model)).await;
 
         Ok(InstalledModel::new(model.clone(), path, size, digest))
     }
