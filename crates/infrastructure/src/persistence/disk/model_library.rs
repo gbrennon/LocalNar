@@ -57,6 +57,68 @@ impl DiskModelLibrary {
             .join(format!("{}.sha256", model.file().as_str()))
     }
 
+    /// Frees `path` of whatever entry occupies it, so the library alone decides
+    /// what lives there.
+    ///
+    /// An entry left by an earlier install is discarded rather than written
+    /// through. A symlink is the case that matters: downloaders stage their
+    /// files as links into their own cache, so an install that once moved such
+    /// a link into the library leaves a relative target that no longer resolves
+    /// from here. Writing through that link would either fail against the
+    /// vanished target or push the model bytes outside the library and overwrite
+    /// whatever the link pointed at, and in both cases the model stays
+    /// unreachable at the path the library reads. An absent path is already
+    /// vacant and reports success.
+    async fn vacate(path: &Path, model: &ModelSpec) -> Result<(), LibraryError> {
+        let occupant = match tokio::fs::symlink_metadata(path).await {
+            Ok(occupant) => occupant,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(err) => {
+                return Err(LibraryError::Unwritable {
+                    model: model.to_string(),
+                    cause: err.to_string(),
+                });
+            }
+        };
+
+        let removal = if occupant.is_dir() {
+            tokio::fs::remove_dir_all(path).await
+        } else {
+            tokio::fs::remove_file(path).await
+        };
+
+        removal.map_err(|err| LibraryError::Unwritable {
+            model: model.to_string(),
+            cause: err.to_string(),
+        })
+    }
+
+    /// Proves that `path` now holds a readable file of its own.
+    ///
+    /// A commit that answers `Downloaded` promises the bytes are installed, and
+    /// callers act on that promise by asking the library to verify or serve
+    /// them. Reporting the promise without evidence turns a storage fault into a
+    /// verdict about upstream, so a destination that resolves to nothing is
+    /// reported as the write failure it is.
+    async fn confirm_committed(path: &Path, model: &ModelSpec) -> Result<(), LibraryError> {
+        let committed =
+            tokio::fs::metadata(path)
+                .await
+                .map_err(|err| LibraryError::Unwritable {
+                    model: model.to_string(),
+                    cause: err.to_string(),
+                })?;
+
+        if committed.is_file() {
+            return Ok(());
+        }
+
+        Err(LibraryError::Unwritable {
+            model: model.to_string(),
+            cause: format!("`{}` is not a regular file", path.display()),
+        })
+    }
+
     async fn compute_sha256(
         &self,
         path: &Path,
@@ -145,7 +207,8 @@ impl ModelLibraryPort for DiskModelLibrary {
         let _ = tokio::fs::remove_file(&checksum_path).await;
 
         let staged = artifact.staged_at();
-        if staged != destination && tokio::fs::rename(staged, &destination).await.is_err() {
+        if staged != destination {
+            Self::vacate(&destination, model).await?;
             tokio::fs::copy(staged, &destination).await.map_err(|err| {
                 LibraryError::Unwritable {
                     model: model.to_string(),
@@ -154,6 +217,8 @@ impl ModelLibraryPort for DiskModelLibrary {
             })?;
             let _ = tokio::fs::remove_file(staged).await;
         }
+
+        Self::confirm_committed(&destination, model).await?;
 
         Ok(ModelState::Downloaded)
     }
@@ -291,6 +356,48 @@ mod tests {
         assert_eq!(installed_state, ModelState::Downloaded);
     }
 
+    /// Regression: a downloader (hf-hub) stages its artifact as a symlink into
+    /// its own cache. Moving that link into the library would leave a dangling
+    /// reference whose relative target no longer resolves, making the committed
+    /// model read as `Missing`. Commit must materialize real bytes instead.
+    #[tokio::test]
+    async fn commit_of_symlink_artifact_materializes_real_file() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        let library = DiskModelLibrary::new(temp_dir.path());
+        let spec = test_spec();
+
+        let staged_dir = TempDir::new().expect("staged dir");
+        // A relative symlink, like hf-hub creates between its snapshot and blob.
+        let blob = staged_dir.path().join("blob.bin");
+        tokio::fs::write(&blob, b"hf model weights bytes")
+            .await
+            .expect("write blob");
+        let staged_symlink = staged_dir.path().join("downloaded.gguf");
+        std::os::unix::fs::symlink("blob.bin", &staged_symlink).expect("symlink");
+
+        let artifact = ModelArtifact::new(
+            &staged_symlink,
+            ByteLength::new(b"hf model weights bytes".len() as u64),
+        );
+        let state = library
+            .commit_artifact(&spec, &artifact)
+            .await
+            .expect("commit");
+        assert_eq!(state, ModelState::Downloaded);
+
+        // The committed model must be discoverable (not a dangling link).
+        let installed_state = library
+            .installed_state(&spec)
+            .await
+            .expect("installed state");
+        assert_eq!(installed_state, ModelState::Downloaded);
+
+        // And must hold the real bytes under the library root.
+        let located = library.locate(&spec).await.expect("locate");
+        let bytes = tokio::fs::read(located.path()).await.expect("read model");
+        assert_eq!(bytes, b"hf model weights bytes");
+    }
+
     #[tokio::test]
     async fn verify_integrity_with_matching_checksum_marks_verified() {
         let temp_dir = TempDir::new().expect("temp dir");
@@ -399,5 +506,211 @@ mod tests {
 
         let result = library.locate(&spec).await;
         assert!(matches!(result, Err(LibraryError::Unreadable { .. })));
+    }
+
+    /// Regression: an install interrupted by an earlier defect can leave a
+    /// symlink at the destination whose relative target does not resolve from
+    /// the library. A later commit must take the destination over and install
+    /// real bytes rather than fail against the stale link.
+    #[tokio::test]
+    async fn commit_over_a_dangling_destination_symlink_installs_real_bytes() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        let library = DiskModelLibrary::new(temp_dir.path());
+        let spec = test_spec();
+
+        let destination = library.model_file_path(&spec);
+        tokio::fs::create_dir_all(destination.parent().expect("parent"))
+            .await
+            .expect("create parent");
+        std::os::unix::fs::symlink("../../blobs/vanished", &destination).expect("stale symlink");
+
+        let staged_dir = TempDir::new().expect("staged dir");
+        let staged_file = staged_dir.path().join("downloaded.gguf");
+        tokio::fs::write(&staged_file, b"freshly downloaded weights")
+            .await
+            .expect("write staged");
+
+        let artifact = ModelArtifact::new(
+            &staged_file,
+            ByteLength::new(b"freshly downloaded weights".len() as u64),
+        );
+
+        let state = library
+            .commit_artifact(&spec, &artifact)
+            .await
+            .expect("commit over stale link");
+        assert_eq!(state, ModelState::Downloaded);
+
+        let installed_state = library
+            .installed_state(&spec)
+            .await
+            .expect("installed state");
+        assert_eq!(installed_state, ModelState::Downloaded);
+
+        let bytes = tokio::fs::read(&destination).await.expect("read model");
+        assert_eq!(bytes, b"freshly downloaded weights");
+    }
+
+    /// Regression: a symlink at the destination must never redirect the commit.
+    /// Following it would write the model bytes outside the library root and
+    /// clobber whatever the link happened to point at.
+    #[tokio::test]
+    async fn commit_never_writes_through_a_destination_symlink() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        let library = DiskModelLibrary::new(temp_dir.path());
+        let spec = test_spec();
+
+        let outside_dir = TempDir::new().expect("outside dir");
+        let bystander = outside_dir.path().join("unrelated.bin");
+        tokio::fs::write(&bystander, b"unrelated file contents")
+            .await
+            .expect("write bystander");
+
+        let destination = library.model_file_path(&spec);
+        tokio::fs::create_dir_all(destination.parent().expect("parent"))
+            .await
+            .expect("create parent");
+        std::os::unix::fs::symlink(&bystander, &destination).expect("escaping symlink");
+
+        let staged_dir = TempDir::new().expect("staged dir");
+        let staged_file = staged_dir.path().join("downloaded.gguf");
+        tokio::fs::write(&staged_file, b"model weights")
+            .await
+            .expect("write staged");
+
+        let artifact = ModelArtifact::new(&staged_file, ByteLength::new(13));
+        library
+            .commit_artifact(&spec, &artifact)
+            .await
+            .expect("commit over escaping link");
+
+        let bystander_bytes = tokio::fs::read(&bystander).await.expect("read bystander");
+        assert_eq!(bystander_bytes, b"unrelated file contents");
+
+        let installed_bytes = tokio::fs::read(&destination).await.expect("read model");
+        assert_eq!(installed_bytes, b"model weights");
+    }
+
+    /// Regression: reporting `Downloaded` for a destination that holds nothing
+    /// makes the caller blame upstream for bytes the library lost.
+    #[tokio::test]
+    async fn commit_of_an_artifact_already_at_the_destination_keeps_it() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        let library = DiskModelLibrary::new(temp_dir.path());
+        let spec = test_spec();
+
+        let destination = library.model_file_path(&spec);
+        tokio::fs::create_dir_all(destination.parent().expect("parent"))
+            .await
+            .expect("create parent");
+        tokio::fs::write(&destination, b"already in place")
+            .await
+            .expect("write destination");
+
+        let artifact = ModelArtifact::new(&destination, ByteLength::new(16));
+        let state = library
+            .commit_artifact(&spec, &artifact)
+            .await
+            .expect("commit in place");
+        assert_eq!(state, ModelState::Downloaded);
+
+        let bytes = tokio::fs::read(&destination).await.expect("read model");
+        assert_eq!(bytes, b"already in place");
+    }
+
+    #[tokio::test]
+    async fn commit_of_an_absent_artifact_at_the_destination_reports_unwritable() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        let library = DiskModelLibrary::new(temp_dir.path());
+        let spec = test_spec();
+
+        let destination = library.model_file_path(&spec);
+        let artifact = ModelArtifact::new(&destination, ByteLength::new(16));
+
+        let result = library.commit_artifact(&spec, &artifact).await;
+        assert!(matches!(result, Err(LibraryError::Unwritable { .. })));
+
+        let state = library.installed_state(&spec).await.expect("state");
+        assert_eq!(state, ModelState::Missing);
+    }
+
+    #[tokio::test]
+    async fn commit_of_an_absent_staged_artifact_reports_unwritable() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        let library = DiskModelLibrary::new(temp_dir.path());
+        let spec = test_spec();
+
+        let staged_dir = TempDir::new().expect("staged dir");
+        let artifact = ModelArtifact::new(
+            staged_dir.path().join("never-downloaded.gguf"),
+            ByteLength::new(10),
+        );
+
+        let result = library.commit_artifact(&spec, &artifact).await;
+        assert!(matches!(result, Err(LibraryError::Unwritable { .. })));
+
+        let state = library.installed_state(&spec).await.expect("state");
+        assert_eq!(state, ModelState::Missing);
+    }
+
+    #[tokio::test]
+    async fn commit_replaces_an_already_verified_model_and_clears_its_digest() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        let library = DiskModelLibrary::new(temp_dir.path());
+        let spec = test_spec();
+
+        let first_payload = b"first installed payload";
+        let staged_dir = TempDir::new().expect("staged dir");
+        let first_staged = staged_dir.path().join("first.bin");
+        tokio::fs::write(&first_staged, first_payload)
+            .await
+            .expect("write first");
+
+        let mut hasher = Sha256::new();
+        hasher.update(first_payload);
+        let first_digest = Checksum::from_bytes(hasher.finalize().into());
+
+        library
+            .commit_artifact(
+                &spec,
+                &ModelArtifact::new(&first_staged, ByteLength::new(first_payload.len() as u64)),
+            )
+            .await
+            .expect("first commit");
+        library
+            .verify_integrity(&spec, Some(first_digest))
+            .await
+            .expect("first verify");
+        assert_eq!(
+            library.installed_state(&spec).await.expect("state"),
+            ModelState::Verified
+        );
+
+        let second_payload = b"second installed payload";
+        let second_staged = staged_dir.path().join("second.bin");
+        tokio::fs::write(&second_staged, second_payload)
+            .await
+            .expect("write second");
+
+        let state = library
+            .commit_artifact(
+                &spec,
+                &ModelArtifact::new(&second_staged, ByteLength::new(second_payload.len() as u64)),
+            )
+            .await
+            .expect("second commit");
+        assert_eq!(state, ModelState::Downloaded);
+        assert_eq!(
+            library.installed_state(&spec).await.expect("state"),
+            ModelState::Downloaded
+        );
+
+        let bytes = tokio::fs::read(library.model_file_path(&spec))
+            .await
+            .expect("read model");
+        assert_eq!(bytes, second_payload);
+
+        let located = library.locate(&spec).await.expect("locate");
+        assert_eq!(located.digest(), None);
     }
 }
