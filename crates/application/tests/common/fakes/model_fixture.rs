@@ -1,3 +1,5 @@
+use std::path::{Path, PathBuf};
+
 use domain::{
     ByteLength, Checksum, ContextLength, InstalledModel, ModelArtifact, ModelFileName, ModelInfo,
     ModelProfile, ModelRepository, ModelRepositoryId, ModelSpec, ParameterCount, RemoteModelFile,
@@ -8,6 +10,17 @@ use domain::{
 pub struct ModelFixture;
 
 impl ModelFixture {
+    /// The root every fixture location hangs off.
+    ///
+    /// Relative and self-describing, so a fixture path can never name a real
+    /// staging directory or model library even by accident.
+    const FIXTURE_ROOT: &'static str = "fixture-only";
+
+    /// A fixture location that no filesystem is expected to hold.
+    fn nowhere(relative: &str) -> PathBuf {
+        Path::new(Self::FIXTURE_ROOT).join(relative)
+    }
+
     /// The install intent under test.
     pub fn spec() -> ModelSpec {
         let identifier = ModelRepositoryId::parse("unsloth/Qwen3-8B-GGUF").expect("valid id");
@@ -52,18 +65,22 @@ impl ModelFixture {
     }
 
     /// The staged bytes a downloader hands back for the fixture file.
+    ///
+    /// The location is a label the fakes only ever compare, never open, so it
+    /// names a place that cannot exist rather than a real staging directory.
     pub fn artifact() -> ModelArtifact {
-        ModelArtifact::new("/tmp/localnar/staged.gguf", ByteLength::new(4_096))
+        ModelArtifact::new(Self::nowhere("staged.gguf"), ByteLength::new(4_096))
     }
 
     /// The replica a library reports once the fixture file is on disk.
     ///
     /// `digest` carries the proof of integrity, which is absent when upstream
-    /// advertised no checksum to compare against.
+    /// advertised no checksum to compare against. As with the staged artifact,
+    /// the location is only ever compared.
     pub fn installed(digest: Option<Checksum>) -> InstalledModel {
         InstalledModel::new(
             Self::spec(),
-            "/var/lib/localnar/models/Qwen3-8B-Q4_K_M.gguf",
+            Self::nowhere("installed/Qwen3-8B-Q4_K_M.gguf"),
             ByteLength::new(4_096),
             digest,
         )
