@@ -136,3 +136,132 @@ async fn install_model_service_end_to_end_with_injected_fakes() {
     assert!(installed.is_verified());
     assert!(installed.path().exists());
 }
+
+/// A transport that stages the way `hf-hub` really does.
+///
+/// The bytes land in a content-addressed `blobs` directory and the artifact
+/// points at a snapshot entry that is only a symlink, whose target is relative
+/// to the snapshot directory. Staging this shape is what makes an install that
+/// relocates the link, rather than the bytes, leave an unusable reference.
+struct FakeCacheStagingTransport {
+    payload: Vec<u8>,
+    cache_dir: TempDir,
+}
+
+impl FakeCacheStagingTransport {
+    const COMMIT: &'static str = "c8b5954a88c2775c546b92593eda40ea041d3176";
+
+    fn with_payload(payload: &[u8]) -> Self {
+        Self {
+            payload: payload.to_vec(),
+            cache_dir: TempDir::new().expect("cache dir"),
+        }
+    }
+
+    fn blob_name(&self) -> String {
+        compute_sha256(&self.payload).to_hex()
+    }
+}
+
+impl HubDownloadTransport for FakeCacheStagingTransport {
+    async fn download_file(
+        &self,
+        remote: &RemoteModelFile,
+        progress: &dyn DownloadProgressPort,
+    ) -> Result<ModelArtifact, application::errors::ModelDownloadError> {
+        let blobs = self.cache_dir.path().join("blobs");
+        let snapshot = self.cache_dir.path().join("snapshots").join(Self::COMMIT);
+        tokio::fs::create_dir_all(&blobs).await.expect("blobs dir");
+        tokio::fs::create_dir_all(&snapshot)
+            .await
+            .expect("snapshot dir");
+
+        let blob = blobs.join(self.blob_name());
+        tokio::fs::write(&blob, &self.payload)
+            .await
+            .expect("write blob");
+
+        let staged = snapshot.join(remote.file().as_str());
+        std::os::unix::fs::symlink(format!("../../blobs/{}", self.blob_name()), &staged)
+            .expect("snapshot symlink");
+
+        let total = ByteLength::new(self.payload.len() as u64);
+        progress.report(DownloadProgress::Started { total });
+        progress.report(DownloadProgress::Finished);
+
+        Ok(ModelArtifact::new(staged, total))
+    }
+}
+
+fn revision_json(file: &str, payload: &[u8]) -> String {
+    format!(
+        r#"{{
+            "id": "e2e-org/test-llm",
+            "siblings": [
+                {{
+                    "rfilename": "{file}",
+                    "size": {len},
+                    "lfs": {{ "sha256": "{sha}", "size": {len} }}
+                }}
+            ]
+        }}"#,
+        len = payload.len(),
+        sha = compute_sha256(payload).to_hex()
+    )
+}
+
+fn test_spec(file: &str) -> ModelSpec {
+    ModelSpec::new(
+        ModelRepository::new(
+            ModelRepositoryId::parse("e2e-org/test-llm").expect("valid id"),
+            ModelRevision::new("main").expect("valid rev"),
+        ),
+        ModelFileName::new(file).expect("valid file"),
+    )
+}
+
+fn destination_of(root: &std::path::Path, spec: &ModelSpec) -> std::path::PathBuf {
+    root.join(spec.repository().identifier().owner())
+        .join(spec.repository().identifier().name())
+        .join(spec.repository().revision().as_str())
+        .join(spec.file().as_str())
+}
+
+/// The reported failure: an install that relocated the downloader's staged
+/// symlink left the library holding a relative target that does not resolve
+/// from there, so the model read as missing and the service settled on blaming
+/// upstream for bytes it had already received. Installing again must take the
+/// destination over and land servable bytes.
+#[tokio::test]
+async fn install_recovers_a_library_holding_a_dangling_entry() {
+    let payload = b"replacement-model-weights-gguf";
+    let models_dir = TempDir::new().expect("models dir");
+    let spec = test_spec("model-q4.gguf");
+
+    let destination = destination_of(models_dir.path(), &spec);
+    std::fs::create_dir_all(destination.parent().expect("parent")).expect("create parent");
+    std::os::unix::fs::symlink("../../blobs/vanished", &destination).expect("stale entry");
+
+    let service = InstallModelService::new(
+        HfApiRegistry::new(FakeHubTransport {
+            response_json: revision_json("model-q4.gguf", payload),
+        }),
+        HfHubDownloader::new(FakeCacheStagingTransport::with_payload(payload)),
+        DiskModelLibrary::new(models_dir.path()),
+        ProgressSpy::default(),
+    );
+
+    let installed = service.execute(&spec).await.expect("installation recovers");
+
+    assert!(installed.is_verified());
+    assert_eq!(installed.digest(), Some(compute_sha256(payload)));
+    assert!(
+        std::fs::symlink_metadata(&destination)
+            .expect("committed entry")
+            .is_file()
+    );
+    assert_eq!(
+        tokio::fs::read(&destination).await.expect("read model"),
+        payload
+    );
+}
