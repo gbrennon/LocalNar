@@ -6,7 +6,6 @@ use tokio::sync::mpsc;
 /// Bridge between infrastructure progress bus and TUI event channel.
 /// Subscribes to infrastructure ProgressEvent and converts to TUI AppEvent.
 pub struct ProgressReporterBridge {
-    sender: mpsc::UnboundedSender<AppEvent>,
     _receiver_handle: tokio::task::JoinHandle<()>,
 }
 
@@ -14,19 +13,17 @@ impl ProgressReporterBridge {
     /// Create a new bridge connecting the infrastructure progress bus to the TUI event channel.
     pub fn new(bus: &ProgressBus, sender: mpsc::UnboundedSender<AppEvent>) -> Self {
         let mut receiver = bus.subscribe();
-        let sender_clone = sender.clone();
 
         let receiver_handle = tokio::spawn(async move {
             while let Ok(event) = receiver.recv().await {
                 let app_event = Self::convert_event(event);
-                if sender_clone.send(app_event).is_err() {
-                    break; // Channel closed, exit
+                if sender.send(app_event).is_err() {
+                    break;
                 }
             }
         });
 
         Self {
-            sender,
             _receiver_handle: receiver_handle,
         }
     }

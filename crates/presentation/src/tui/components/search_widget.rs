@@ -5,12 +5,11 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 
-/// Search input widget with cursor handling and focus management.
+/// Search input widget with cursor handling.
 #[derive(Debug, Default)]
 pub struct SearchWidget {
     query: String,
     cursor_position: usize,
-    focused: bool,
 }
 
 impl SearchWidget {
@@ -19,7 +18,6 @@ impl SearchWidget {
         Self {
             query: String::new(),
             cursor_position: 0,
-            focused: true,
         }
     }
 
@@ -49,31 +47,9 @@ impl SearchWidget {
         }
     }
 
-    /// Set focus to the widget.
-    pub fn focus(&mut self) {
-        self.focused = true;
-    }
-
-    /// Remove focus from the widget.
-    pub fn unfocus(&mut self) {
-        self.focused = false;
-    }
-
-    /// Get the current query string.
-    pub fn query(&self) -> &str {
-        &self.query
-    }
-
     /// Render the search widget.
     pub fn draw(&self, frame: &mut Frame, area: Rect) {
-        let focused_border_style = Style::default().fg(Color::Yellow);
-        let unfocused_border_style = Style::default().fg(Color::Gray);
-
-        let border_style = if self.focused {
-            focused_border_style
-        } else {
-            unfocused_border_style
-        };
+        let border_style = Style::default().fg(Color::Yellow);
 
         let input = format!("{}{}", Self::PROMPT_PREFIX, self.query);
         let paragraph = Paragraph::new(input)
@@ -87,12 +63,10 @@ impl SearchWidget {
 
         frame.render_widget(paragraph, area);
 
-        if self.focused {
-            frame.set_cursor_position((
-                area.x + Self::CURSOR_X_OFFSET + self.cursor_position as u16,
-                area.y + Self::CURSOR_Y_OFFSET,
-            ));
-        }
+        frame.set_cursor_position((
+            area.x + Self::CURSOR_X_OFFSET + self.cursor_position as u16,
+            area.y + Self::CURSOR_Y_OFFSET,
+        ));
     }
 }
 
