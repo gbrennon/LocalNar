@@ -1,7 +1,5 @@
 #![allow(dead_code)]
-use std::sync::Arc;
-use std::task::Wake;
-use std::thread::Thread;
+use std::{sync::Arc, task::Wake, thread::Thread};
 
 /// A waker that resumes the thread blocked on a future.
 pub struct Unparker(Thread);

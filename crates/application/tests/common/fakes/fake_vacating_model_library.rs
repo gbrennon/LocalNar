@@ -1,8 +1,7 @@
 #![allow(dead_code)]
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use application::errors::LibraryError;
-use application::ports::outbound::ModelLibraryPort;
+use application::{errors::LibraryError, ports::outbound::ModelLibraryPort};
 use domain::{Checksum, InstalledModel, ModelArtifact, ModelSpec, ModelState};
 
 /// A library that holds a replica until something discards it.

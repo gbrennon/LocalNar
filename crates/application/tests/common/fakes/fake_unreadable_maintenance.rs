@@ -1,6 +1,5 @@
 #![allow(dead_code)]
-use application::errors::LibraryError;
-use application::ports::outbound::LibraryMaintenancePort;
+use application::{errors::LibraryError, ports::outbound::LibraryMaintenancePort};
 use domain::DiscardedStray;
 
 /// Maintenance of a library that cannot be walked to find its leftovers.

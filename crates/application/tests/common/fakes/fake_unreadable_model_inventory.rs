@@ -1,6 +1,5 @@
 #![allow(dead_code)]
-use application::errors::LibraryError;
-use application::ports::outbound::ModelInventoryPort;
+use application::{errors::LibraryError, ports::outbound::ModelInventoryPort};
 use domain::ModelInventory;
 
 /// An inventory whose library location cannot be read at all.

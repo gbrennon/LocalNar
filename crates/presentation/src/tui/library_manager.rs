@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
-use application::ports::inbound::{
-    InspectModelPort, ListInstalledModelsPort, PruneLibraryPort, RemoveModelPort, VerifyModelPort,
-};
-use application::services::{
-    InspectModelService, ListInstalledModelsService, PruneLibraryService, RemoveModelService,
-    VerifyModelService,
+use application::{
+    ports::inbound::{
+        InspectModelPort, ListInstalledModelsPort, PruneLibraryPort, RemoveModelPort,
+        VerifyModelPort,
+    },
+    services::{
+        InspectModelService, ListInstalledModelsService, PruneLibraryService, RemoveModelService,
+        VerifyModelService,
+    },
 };
 use domain::ModelSpec;
 use infrastructure::DiskModelLibrary;

@@ -1,0 +1,15 @@
+pre-commit:
+  parallel: false
+  commands:
+    format:
+      glob: "*.{rs,toml}"
+      run: just fmt
+    lint-fix:
+      glob: "*.rs"
+      run: just lint-fix
+    lint-scripts:
+      glob: "*.sh"
+      run: just lint-scripts
+    lint-workflows:
+      glob: ".forgejo/workflows/*.yml"
+      run: just lint-workflows

@@ -34,8 +34,7 @@ impl fmt::Display for ModelTag {
 
 #[cfg(test)]
 mod model_tag_tests {
-    use crate::errors::DomainError;
-    use crate::value_objects::ModelTag;
+    use crate::{errors::DomainError, value_objects::ModelTag};
 
     #[test]
     fn a_capability_label_is_accepted_verbatim() {

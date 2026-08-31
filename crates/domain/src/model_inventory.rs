@@ -1,8 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::ByteLength;
-use crate::ManagedModel;
-use crate::ModelSpec;
+use crate::{ByteLength, ManagedModel, ModelSpec};
 
 /// Everything the local library holds, read as one answer.
 ///
@@ -83,15 +81,10 @@ impl ModelInventory {
 #[cfg(test)]
 mod model_inventory_tests {
     use super::ModelInventory;
-    use crate::ByteLength;
-    use crate::Checksum;
-    use crate::InstalledModel;
-    use crate::ManagedModel;
-    use crate::ModelFileName;
-    use crate::ModelRepository;
-    use crate::ModelRepositoryId;
-    use crate::ModelSpec;
-    use crate::ModelState;
+    use crate::{
+        ByteLength, Checksum, InstalledModel, ManagedModel, ModelFileName, ModelRepository,
+        ModelRepositoryId, ModelSpec, ModelState,
+    };
 
     fn spec(file: &str) -> ModelSpec {
         ModelSpec::new(

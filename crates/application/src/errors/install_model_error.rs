@@ -1,9 +1,9 @@
-use std::error::Error;
-use std::fmt;
+use std::{error::Error, fmt};
 
-use crate::errors::library_error::LibraryError;
-use crate::errors::model_download_error::ModelDownloadError;
-use crate::errors::registry_read_error::RegistryReadError;
+use crate::errors::{
+    library_error::LibraryError, model_download_error::ModelDownloadError,
+    registry_read_error::RegistryReadError,
+};
 
 /// Failures that can end an install use case run.
 ///

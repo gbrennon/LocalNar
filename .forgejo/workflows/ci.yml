@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - release/**
+  pull_request:
+    branches:
+      - main
+      - develop
+      - release/**
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  test:
+    name: Test
+    runs-on: codeberg-medium
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.forgejo/actions/install-just
+
+      - uses: ./.forgejo/actions/install-rust
+
+      - name: Run tests
+        run: |
+          export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+          just test
+
+  lint:
+    name: Lint
+    runs-on: codeberg-medium
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.forgejo/actions/install-just
+
+      - uses: ./.forgejo/actions/install-rust
+
+      - name: Check formatting
+        run: |
+          export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+          just fmt-check
+
+      - name: Lint
+        run: |
+          export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+          just lint
+
+  validate:
+    name: Validate
+    runs-on: codeberg-medium
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.forgejo/actions/install-just
+
+      - uses: ./.forgejo/actions/install-lint-tools
+
+      - name: Lint shell scripts
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          just lint-scripts
+
+      - name: Lint workflows
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          just lint-workflows

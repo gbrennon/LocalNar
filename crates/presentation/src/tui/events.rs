@@ -1,5 +1,6 @@
-use crossterm::event::{self, Event, KeyEvent};
 use std::time::Duration;
+
+use crossterm::event::{self, Event, KeyEvent};
 
 /// Event handler for crossterm events with configurable tick rate.
 pub struct EventHandler {

@@ -43,8 +43,7 @@ impl fmt::Display for ModelRepositoryId {
 
 #[cfg(test)]
 mod model_repository_id_tests {
-    use crate::errors::DomainError;
-    use crate::value_objects::ModelRepositoryId;
+    use crate::{errors::DomainError, value_objects::ModelRepositoryId};
 
     #[test]
     fn a_two_segment_repository_identifier_parses() {

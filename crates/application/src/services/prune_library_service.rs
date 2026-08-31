@@ -1,8 +1,12 @@
 use domain::DiscardedStray;
 
-use crate::errors::prune_library_error::PruneLibraryError;
-use crate::ports::inbound::prune_library_port::PruneLibraryPort;
-use crate::ports::outbound::library_maintenance_port::LibraryMaintenancePort;
+use crate::{
+    errors::prune_library_error::PruneLibraryError,
+    ports::{
+        inbound::prune_library_port::PruneLibraryPort,
+        outbound::library_maintenance_port::LibraryMaintenancePort,
+    },
+};
 
 /// The use case that clears what the library keeps that is not a model.
 ///

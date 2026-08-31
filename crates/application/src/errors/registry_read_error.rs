@@ -1,5 +1,4 @@
-use std::error::Error;
-use std::fmt;
+use std::{error::Error, fmt};
 
 /// Failures that can occur while reading the upstream catalog of a repository.
 #[derive(Debug, Clone, PartialEq, Eq)]

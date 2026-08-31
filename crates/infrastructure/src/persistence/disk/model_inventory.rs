@@ -1,11 +1,9 @@
 //! Reading the whole of what the filesystem-backed library holds.
 
-use application::errors::LibraryError;
-use application::ports::outbound::ModelInventoryPort;
+use application::{errors::LibraryError, ports::outbound::ModelInventoryPort};
 use domain::ModelInventory;
 
-use super::inventory_walk::InventoryWalk;
-use super::model_library::DiskModelLibrary;
+use super::{inventory_walk::InventoryWalk, model_library::DiskModelLibrary};
 
 impl ModelInventoryPort for DiskModelLibrary {
     /// Describes the library's location and every replica it holds.

@@ -1,12 +1,20 @@
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::{
+    path::{Path, PathBuf},
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
+};
 
-use application::errors::ModelDownloadError;
-use application::ports::outbound::{DownloadProgress, DownloadProgressPort, ModelDownloaderPort};
+use application::{
+    errors::ModelDownloadError,
+    ports::outbound::{DownloadProgress, DownloadProgressPort, ModelDownloaderPort},
+};
 use domain::{ByteLength, ModelArtifact, RemoteModelFile};
-use hf_hub::api::tokio::{ApiBuilder, ApiRepo, Progress as HfProgress};
-use hf_hub::{Repo, RepoType};
+use hf_hub::{
+    Repo, RepoType,
+    api::tokio::{ApiBuilder, ApiRepo, Progress as HfProgress},
+};
 use tokio::sync::mpsc;
 
 const DEFAULT_ENDPOINT: &str = "https://huggingface.co";

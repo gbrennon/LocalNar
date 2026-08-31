@@ -1,10 +1,6 @@
 use std::path::Path;
 
-use crate::ByteLength;
-use crate::Checksum;
-use crate::InstalledModel;
-use crate::ModelSpec;
-use crate::ModelState;
+use crate::{ByteLength, Checksum, InstalledModel, ModelSpec, ModelState};
 
 /// A replica the local library holds, read together with its current state.
 ///
@@ -83,14 +79,10 @@ impl ManagedModel {
 #[cfg(test)]
 mod managed_model_tests {
     use super::ManagedModel;
-    use crate::ByteLength;
-    use crate::Checksum;
-    use crate::InstalledModel;
-    use crate::ModelFileName;
-    use crate::ModelRepository;
-    use crate::ModelRepositoryId;
-    use crate::ModelSpec;
-    use crate::ModelState;
+    use crate::{
+        ByteLength, Checksum, InstalledModel, ModelFileName, ModelRepository, ModelRepositoryId,
+        ModelSpec, ModelState,
+    };
 
     fn spec() -> ModelSpec {
         ModelSpec::new(

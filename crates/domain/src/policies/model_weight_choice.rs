@@ -1,5 +1,7 @@
-use crate::specifications::{Specification, WholeWeightFile};
-use crate::value_objects::{Quantization, RemoteModelFile};
+use crate::{
+    specifications::{Specification, WholeWeightFile},
+    value_objects::{Quantization, RemoteModelFile},
+};
 
 /// The rule that reduces everything a repository offers to one candidate file.
 pub struct ModelWeightChoice;
@@ -46,9 +48,11 @@ impl ModelWeightChoice {
 
 #[cfg(test)]
 mod model_weight_choice_tests {
-    use crate::policies::ModelWeightChoice;
-    use crate::value_objects::{
-        ByteLength, ModelFileName, ModelRepository, ModelRepositoryId, RemoteModelFile,
+    use crate::{
+        policies::ModelWeightChoice,
+        value_objects::{
+            ByteLength, ModelFileName, ModelRepository, ModelRepositoryId, RemoteModelFile,
+        },
     };
 
     fn offered(files: &[(&str, u64)]) -> Vec<RemoteModelFile> {

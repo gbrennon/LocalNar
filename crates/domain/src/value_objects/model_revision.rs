@@ -46,8 +46,7 @@ impl fmt::Display for ModelRevision {
 
 #[cfg(test)]
 mod model_revision_tests {
-    use crate::errors::DomainError;
-    use crate::value_objects::ModelRevision;
+    use crate::{errors::DomainError, value_objects::ModelRevision};
 
     #[test]
     fn default_revision_is_main() {

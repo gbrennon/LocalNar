@@ -1,14 +1,18 @@
-use application::errors::PruneLibraryError;
-use application::ports::inbound::PruneLibraryPort;
-use application::ports::outbound::LibraryMaintenancePort;
-use application::services::PruneLibraryService;
+use application::{
+    errors::PruneLibraryError,
+    ports::{inbound::PruneLibraryPort, outbound::LibraryMaintenancePort},
+    services::PruneLibraryService,
+};
 use domain::{ByteLength, DiscardedStray};
 
-use crate::common::block_on::BlockOn;
-use crate::common::fakes::fake_clean_maintenance::FakeCleanMaintenance;
-use crate::common::fakes::fake_sweeping_maintenance::FakeSweepingMaintenance;
-use crate::common::fakes::fake_unreadable_maintenance::FakeUnreadableMaintenance;
-use crate::common::fakes::model_fixture::ModelFixture;
+use crate::common::{
+    block_on::BlockOn,
+    fakes::{
+        fake_clean_maintenance::FakeCleanMaintenance,
+        fake_sweeping_maintenance::FakeSweepingMaintenance,
+        fake_unreadable_maintenance::FakeUnreadableMaintenance, model_fixture::ModelFixture,
+    },
+};
 
 /// Runs a sweep against one maintenance double.
 struct PruneHarness;

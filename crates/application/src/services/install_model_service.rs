@@ -1,11 +1,16 @@
 use domain::{InstalledModel, ModelSpec, ModelState};
 
-use crate::errors::install_model_error::InstallModelError;
-use crate::ports::inbound::InstallModelPort;
-use crate::ports::outbound::download_progress_port::DownloadProgressPort;
-use crate::ports::outbound::model_downloader_port::ModelDownloaderPort;
-use crate::ports::outbound::model_library_port::ModelLibraryPort;
-use crate::ports::outbound::remote_model_registry_port::RemoteModelRegistryPort;
+use crate::{
+    errors::install_model_error::InstallModelError,
+    ports::{
+        inbound::InstallModelPort,
+        outbound::{
+            download_progress_port::DownloadProgressPort,
+            model_downloader_port::ModelDownloaderPort, model_library_port::ModelLibraryPort,
+            remote_model_registry_port::RemoteModelRegistryPort,
+        },
+    },
+};
 
 /// The use case that brings one model into its installed, verified state.
 ///

@@ -1,9 +1,12 @@
 use domain::{ModelSpec, ModelState, RemovedModel};
 
-use crate::errors::remove_model_error::RemoveModelError;
-use crate::ports::inbound::remove_model_port::RemoveModelPort;
-use crate::ports::outbound::model_eviction_port::ModelEvictionPort;
-use crate::ports::outbound::model_library_port::ModelLibraryPort;
+use crate::{
+    errors::remove_model_error::RemoveModelError,
+    ports::{
+        inbound::remove_model_port::RemoveModelPort,
+        outbound::{model_eviction_port::ModelEvictionPort, model_library_port::ModelLibraryPort},
+    },
+};
 
 /// The use case that discards one model from the local library.
 ///

@@ -1,7 +1,8 @@
-use crate::tui::app_event::AppEvent;
 use domain::ByteLength;
 use infrastructure::adapters::{ProgressBus, ProgressEvent};
 use tokio::sync::mpsc;
+
+use crate::tui::app_event::AppEvent;
 
 /// Bridge between infrastructure progress bus and TUI event channel.
 /// Subscribes to infrastructure ProgressEvent and converts to TUI AppEvent.

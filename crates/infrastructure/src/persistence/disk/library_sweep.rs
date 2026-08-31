@@ -1,13 +1,11 @@
 //! Clearing the leftovers a library's directory tree accumulates.
 
-use std::cmp::Reverse;
-use std::path::Path;
+use std::{cmp::Reverse, path::Path};
 
 use application::errors::LibraryError;
 use domain::{ByteLength, DiscardedStray};
 
-use super::library_tree::LibraryTree;
-use super::model_library::DiskModelLibrary;
+use super::{library_tree::LibraryTree, model_library::DiskModelLibrary};
 
 /// Discards everything beneath a root that stands for no model.
 ///

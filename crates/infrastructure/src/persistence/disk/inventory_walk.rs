@@ -8,8 +8,7 @@ use domain::{
     ModelRevision, ModelSpec, ModelState,
 };
 
-use super::library_tree::LibraryTree;
-use super::model_library::DiskModelLibrary;
+use super::{library_tree::LibraryTree, model_library::DiskModelLibrary};
 
 /// Reads every replica the `<owner>/<name>/<revision>/<file>` hierarchy under a
 /// root holds.

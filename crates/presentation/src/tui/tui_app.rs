@@ -1,12 +1,15 @@
 use std::sync::Arc;
 
-use application::ports::inbound::search_models_port::SearchModelsPort;
-use application::services::{InstallModelService, SearchModelsService};
+use application::{
+    ports::inbound::search_models_port::SearchModelsPort,
+    services::{InstallModelService, SearchModelsService},
+};
 use crossterm::event::{KeyCode, KeyEvent};
 use domain::{DiscardedStray, ManagedModel, ModelSpec, SearchQuery};
-use infrastructure::adapters::ProgressBus;
-use infrastructure::remote::huggingface::downloader::HfHubTokioTransport;
-use infrastructure::{DiskModelLibrary, HfApiRegistry, HfHubDownloader, ReqwestHubTransport};
+use infrastructure::{
+    DiskModelLibrary, HfApiRegistry, HfHubDownloader, ReqwestHubTransport, adapters::ProgressBus,
+    remote::huggingface::downloader::HfHubTokioTransport,
+};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -15,16 +18,18 @@ use ratatui::{
 };
 use tokio::sync::mpsc;
 
-use crate::tui::app_event::AppEvent;
-use crate::tui::app_mode::AppMode;
-use crate::tui::components::{
-    HelpWidget, LibraryTableWidget, ModelDetails, ModelTableWidget, ProgressWidget, SearchWidget,
-    StatusWidget,
+use crate::tui::{
+    app_event::AppEvent,
+    app_mode::AppMode,
+    components::{
+        HelpWidget, LibraryTableWidget, ModelDetails, ModelTableWidget, ProgressWidget,
+        SearchWidget, StatusWidget,
+    },
+    events::EventHandler,
+    layout_helper::LayoutHelper,
+    library_manager::LibraryManager,
+    progress_reporter::ProgressReporterBridge,
 };
-use crate::tui::events::EventHandler;
-use crate::tui::layout_helper::LayoutHelper;
-use crate::tui::library_manager::LibraryManager;
-use crate::tui::progress_reporter::ProgressReporterBridge;
 
 /// Main TUI application struct managing the model downloader interface.
 ///

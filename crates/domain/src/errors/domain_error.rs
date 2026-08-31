@@ -1,5 +1,4 @@
-use std::error::Error;
-use std::fmt;
+use std::{error::Error, fmt};
 
 /// Mistakes raised by domain rules while building or interpreting model values.
 ///

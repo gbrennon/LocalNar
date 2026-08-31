@@ -1,15 +1,19 @@
-use application::errors::InspectModelError;
-use application::ports::inbound::InspectModelPort;
-use application::ports::outbound::ModelLibraryPort;
-use application::services::InspectModelService;
+use application::{
+    errors::InspectModelError,
+    ports::{inbound::InspectModelPort, outbound::ModelLibraryPort},
+    services::InspectModelService,
+};
 use domain::ManagedModel;
 
-use crate::common::block_on::BlockOn;
-use crate::common::fakes::fake_missing_model_library::FakeMissingModelLibrary;
-use crate::common::fakes::fake_unproven_model_library::FakeUnprovenModelLibrary;
-use crate::common::fakes::fake_unreadable_model_library::FakeUnreadableModelLibrary;
-use crate::common::fakes::fake_verified_model_library::FakeVerifiedModelLibrary;
-use crate::common::fakes::model_fixture::ModelFixture;
+use crate::common::{
+    block_on::BlockOn,
+    fakes::{
+        fake_missing_model_library::FakeMissingModelLibrary,
+        fake_unproven_model_library::FakeUnprovenModelLibrary,
+        fake_unreadable_model_library::FakeUnreadableModelLibrary,
+        fake_verified_model_library::FakeVerifiedModelLibrary, model_fixture::ModelFixture,
+    },
+};
 
 /// Runs an inspection against one library double.
 struct InspectHarness;

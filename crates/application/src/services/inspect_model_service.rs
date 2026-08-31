@@ -1,8 +1,12 @@
 use domain::{ManagedModel, ModelSpec, ModelState};
 
-use crate::errors::inspect_model_error::InspectModelError;
-use crate::ports::inbound::inspect_model_port::InspectModelPort;
-use crate::ports::outbound::model_library_port::ModelLibraryPort;
+use crate::{
+    errors::inspect_model_error::InspectModelError,
+    ports::{
+        inbound::inspect_model_port::InspectModelPort,
+        outbound::model_library_port::ModelLibraryPort,
+    },
+};
 
 /// The use case that describes one locally installed model in full.
 ///
