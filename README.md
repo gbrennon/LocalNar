@@ -89,13 +89,14 @@ The gate, conventions, and branch/commit rules are documented in
 
 ## The name
 
-`LocalNar` is `local` welded onto the Loc-Nar: the green glowing orb from
-*Heavy Metal* (1981) that surfaces in every era the anthology visits, promises
-everything, and consumes whoever covets it. The soundtrack knows it too -
-Sammy Hagar's "Heavy Metal", Don Felder's "Heavy Metal (Takin' a Ride)", and
-Blue Oyster Cult's "Veteran of the Psychic Wars" playing Taarna in. A stack of
-quantized weights is a fair modern likeness - enormous, seductive, and much
-better kept somewhere you can prove what it is.
+`LocalNar` is `local` welded onto the Loc-Nar: the green orb at the center of
+*Heavy Metal* (1981), the animated anthology film adapted from the *Heavy
+Metal* magazine - the American edition of the French comics anthology *Métal
+hurlant*. The film's framing story hands the orb from era to era: it announces
+itself as the sum of all evils, corrupts each world it touches, and meets its
+end when Taarna, last of the Taarakians, flies her sword into its volcano. A
+stack of quantized weights is a fair modern likeness - enormous, seductive,
+and much better kept somewhere you can prove what it is.
 
 The orb had a chronicler before this repository did. "March of the Black
 Monolith", written for the Brazilian black metal band Black Cascade, sings the

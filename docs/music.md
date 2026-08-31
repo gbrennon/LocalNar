@@ -2,9 +2,11 @@
 
 The song the repository name answers to. Written for **Black Cascade**, a
 Brazilian black metal band, and sung from the Loc-Nar's side of the story: the
-same orb the film *Heavy Metal* (1981) built its anthology around, here given
-the first-person treatment. The bracket in "Unknow[Loc-nar] is my name" is the
-lyric's own reveal - `Unknow[n]` with the missing piece named.
+green orb of the framing story in *Heavy Metal* (1981), the animated anthology
+film adapted from the *Heavy Metal* magazine - the American edition of the
+French comics anthology *Métal hurlant* - here given the first-person
+treatment. The bracket in "Unknow[Loc-nar] is my name" is the lyric's own
+reveal - `Unknow[n]` with the missing piece named.
 
 ## Lyrics
 
