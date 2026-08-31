@@ -1,5 +1,11 @@
 # LocalNar
 
+> [!NOTE]
+> **GitHub Mirror** - If you are viewing this on GitHub, please be aware that
+> this repository is a read-only mirror. Issues, pull requests, and all project
+> activity are tracked on Codeberg:
+> [https://codeberg.org/gbrennon/LocalNar](https://codeberg.org/gbrennon/LocalNar)
+
 > Locally manage LLMs. Look at me: I am the sum of all evil.
 
 <!-- The orb was smaller in 1981. Yours is 4.7 GiB, quantized, and on your own disk. -->
