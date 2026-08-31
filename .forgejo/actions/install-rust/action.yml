@@ -1,0 +1,50 @@
+name: Install Rust
+description: Install a Rust toolchain with rustfmt and clippy, and restore the cargo cache.
+
+inputs:
+  toolchain:
+    description: Rust toolchain to install and set as default.
+    default: stable
+
+runs:
+  using: composite
+  steps:
+    - name: Install Rust toolchain
+      shell: bash
+      env:
+        RUST_TOOLCHAIN: ${{ inputs.toolchain }}
+      run: |
+        set -euo pipefail
+
+        rust_toolchain="${RUST_TOOLCHAIN:-stable}"
+
+        export PATH="$HOME/.cargo/bin:$PATH"
+        echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+        if ! command -v rustup >/dev/null 2>&1; then
+          curl -fsSL --proto '=https' --tlsv1.2 -o /tmp/rustup-init.sh https://sh.rustup.rs
+          sh /tmp/rustup-init.sh -y --default-toolchain "$rust_toolchain" --profile minimal
+          rm -f /tmp/rustup-init.sh
+        fi
+
+        rustup toolchain install "$rust_toolchain" --profile minimal
+        rustup default "$rust_toolchain"
+        rustup component add rustfmt clippy
+        rustc --version
+        cargo --version
+
+    - name: Cache cargo registry and git checkouts
+      uses: https://data.forgejo.org/actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
+        restore-keys: ${{ runner.os }}-cargo-registry-
+
+    - name: Cache cargo build artifacts
+      uses: https://data.forgejo.org/actions/cache@v4
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-target-${{ inputs.toolchain }}-${{ hashFiles('**/Cargo.toml') }}
+        restore-keys: ${{ runner.os }}-cargo-target-${{ inputs.toolchain }}-

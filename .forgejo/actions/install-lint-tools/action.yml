@@ -1,0 +1,46 @@
+name: Install lint tools
+description: Install shellcheck and actionlint into the runner PATH.
+
+runs:
+  using: composite
+  steps:
+    - name: Install shellcheck
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        if command -v shellcheck >/dev/null 2>&1; then
+          shellcheck --version
+          exit 0
+        fi
+
+        sudo_cmd=""
+        if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+          sudo_cmd="sudo"
+        fi
+
+        $sudo_cmd apt-get update -qq
+        $sudo_cmd apt-get install -y shellcheck
+        shellcheck --version
+
+    - name: Install actionlint
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        mkdir -p "$HOME/.local/bin"
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        export PATH="$HOME/.local/bin:$PATH"
+
+        if command -v actionlint >/dev/null 2>&1; then
+          actionlint --version
+          exit 0
+        fi
+
+        curl -fsSL --proto '=https' --tlsv1.2 \
+          https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash \
+          -o /tmp/download-actionlint.bash
+        bash /tmp/download-actionlint.bash latest /tmp
+        install -m 0755 /tmp/actionlint "$HOME/.local/bin/actionlint"
+        rm -f /tmp/download-actionlint.bash /tmp/actionlint
+        actionlint --version
