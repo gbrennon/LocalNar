@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::byte_length::ByteLength;
+use crate::ByteLength;
 
 /// An entry the library kept that stood for no model, and was discarded.
 ///
@@ -49,7 +49,7 @@ impl DiscardedStray {
 #[cfg(test)]
 mod discarded_stray_tests {
     use super::DiscardedStray;
-    use crate::byte_length::ByteLength;
+    use crate::ByteLength;
 
     #[test]
     fn a_discarded_leftover_names_its_place_and_reclaimed_space() {

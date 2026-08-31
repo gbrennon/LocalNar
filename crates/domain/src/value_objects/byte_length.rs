@@ -36,7 +36,7 @@ impl fmt::Display for ByteLength {
 
 #[cfg(test)]
 mod byte_length_tests {
-    use crate::byte_length::ByteLength;
+    use crate::value_objects::ByteLength;
 
     #[test]
     fn zero_is_the_smallest_length() {

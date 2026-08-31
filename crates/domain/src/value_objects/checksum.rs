@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::domain_error::DomainError;
+use crate::errors::DomainError;
 
 const DIGEST_BYTES: usize = 32;
 const HEX_DIGITS: usize = DIGEST_BYTES * 2;
@@ -64,8 +64,8 @@ impl fmt::Debug for Checksum {
 
 #[cfg(test)]
 mod checksum_tests {
-    use crate::checksum::Checksum;
-    use crate::domain_error::DomainError;
+    use crate::errors::DomainError;
+    use crate::value_objects::Checksum;
 
     const SAMPLE_HEX: &str = "a94a8fe5ccb19ba61c4c0873d391e987982fbbd3fdf96d1b0f6a55a0f9f0f7e8";
 

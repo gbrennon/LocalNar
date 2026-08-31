@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::byte_length::ByteLength;
+use crate::value_objects::ByteLength;
 
 /// A byte stream that a downloader has produced but that has not yet been
 /// committed to the durable model library.

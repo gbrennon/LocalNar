@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::domain_error::DomainError;
+use crate::errors::DomainError;
 
 /// The single, plain name of one file inside a model repository.
 ///
@@ -37,8 +37,8 @@ impl fmt::Display for ModelFileName {
 
 #[cfg(test)]
 mod model_file_name_tests {
-    use crate::domain_error::DomainError;
-    use crate::model_file_name::ModelFileName;
+    use crate::errors::DomainError;
+    use crate::value_objects::ModelFileName;
 
     #[test]
     fn a_plain_relative_file_name_is_accepted() {

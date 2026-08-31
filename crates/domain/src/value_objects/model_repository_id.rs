@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::domain_error::DomainError;
+use crate::errors::DomainError;
 
 /// The namespaced upstream collection that publishes model files, for example
 /// `unsloth/Qwen3-8B-GGUF`.
@@ -43,8 +43,8 @@ impl fmt::Display for ModelRepositoryId {
 
 #[cfg(test)]
 mod model_repository_id_tests {
-    use crate::domain_error::DomainError;
-    use crate::model_repository_id::ModelRepositoryId;
+    use crate::errors::DomainError;
+    use crate::value_objects::ModelRepositoryId;
 
     #[test]
     fn a_two_segment_repository_identifier_parses() {

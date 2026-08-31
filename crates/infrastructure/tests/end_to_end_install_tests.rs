@@ -126,6 +126,7 @@ async fn install_model_service_end_to_end_with_injected_fakes() {
             ModelRevision::new("main").expect("valid rev"),
         ),
         ModelFileName::new("model-q4.gguf").expect("valid file"),
+        vec![],
     );
 
     let installed = service.execute(&spec).await.expect("installation succeeds");
@@ -217,6 +218,7 @@ fn test_spec(file: &str) -> ModelSpec {
             ModelRevision::new("main").expect("valid rev"),
         ),
         ModelFileName::new(file).expect("valid file"),
+        vec![],
     )
 }
 

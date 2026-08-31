@@ -1,4 +1,4 @@
-use crate::checksum::Checksum;
+use crate::value_objects::Checksum;
 
 /// The observer state of one model with respect to the durable local library.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -15,5 +15,3 @@ pub enum ModelState {
         actual: Checksum,
     },
 }
-
-impl ModelState {}
