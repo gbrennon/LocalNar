@@ -1,5 +1,4 @@
-use application::errors::RegistryReadError;
-use application::ports::outbound::RemoteModelRegistryPort;
+use application::{errors::RegistryReadError, ports::outbound::RemoteModelRegistryPort};
 use domain::{
     ByteLength, Checksum, ContextLength, ModelFileName, ModelRepository, ModelRepositoryId,
     ModelRevision, ParameterCount, SearchQuery,

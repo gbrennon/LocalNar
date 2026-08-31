@@ -1,8 +1,12 @@
 use std::sync::Mutex;
 
-use application::ports::inbound::InstallModelPort;
-use application::ports::outbound::{DownloadProgress, DownloadProgressPort};
-use application::services::InstallModelService;
+use application::{
+    ports::{
+        inbound::InstallModelPort,
+        outbound::{DownloadProgress, DownloadProgressPort},
+    },
+    services::InstallModelService,
+};
 use domain::{
     ByteLength, Checksum, ModelArtifact, ModelFileName, ModelRepository, ModelRepositoryId,
     ModelRevision, ModelSpec, RemoteModelFile,

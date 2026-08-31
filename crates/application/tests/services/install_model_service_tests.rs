@@ -1,27 +1,33 @@
-use application::errors::InstallModelError;
-use application::ports::inbound::InstallModelPort;
-use application::ports::outbound::{
-    DownloadProgress, ModelDownloaderPort, ModelLibraryPort, RemoteModelRegistryPort,
+use application::{
+    errors::InstallModelError,
+    ports::{
+        inbound::InstallModelPort,
+        outbound::{
+            DownloadProgress, ModelDownloaderPort, ModelLibraryPort, RemoteModelRegistryPort,
+        },
+    },
+    services::InstallModelService,
 };
-use application::services::InstallModelService;
 use domain::InstalledModel;
 
-use crate::common::block_on::BlockOn;
-use crate::common::fakes::fake_absent_model_library::FakeAbsentModelLibrary;
-use crate::common::fakes::fake_advertising_registry::FakeAdvertisingRegistry;
-use crate::common::fakes::fake_corrupt_model_library::FakeCorruptModelLibrary;
-use crate::common::fakes::fake_downloaded_model_library::FakeDownloadedModelLibrary;
-use crate::common::fakes::fake_failing_downloader::FakeFailingDownloader;
-use crate::common::fakes::fake_missing_model_library::FakeMissingModelLibrary;
-use crate::common::fakes::fake_recording_progress::FakeRecordingProgress;
-use crate::common::fakes::fake_silent_progress::FakeSilentProgress;
-use crate::common::fakes::fake_staging_downloader::FakeStagingDownloader;
-use crate::common::fakes::fake_stubborn_model_library::FakeStubbornModelLibrary;
-use crate::common::fakes::fake_unreachable_registry::FakeUnreachableRegistry;
-use crate::common::fakes::fake_unreadable_model_library::FakeUnreadableModelLibrary;
-use crate::common::fakes::fake_unverifiable_model_library::FakeUnverifiableModelLibrary;
-use crate::common::fakes::fake_verified_model_library::FakeVerifiedModelLibrary;
-use crate::common::fakes::model_fixture::ModelFixture;
+use crate::common::{
+    block_on::BlockOn,
+    fakes::{
+        fake_absent_model_library::FakeAbsentModelLibrary,
+        fake_advertising_registry::FakeAdvertisingRegistry,
+        fake_corrupt_model_library::FakeCorruptModelLibrary,
+        fake_downloaded_model_library::FakeDownloadedModelLibrary,
+        fake_failing_downloader::FakeFailingDownloader,
+        fake_missing_model_library::FakeMissingModelLibrary,
+        fake_recording_progress::FakeRecordingProgress, fake_silent_progress::FakeSilentProgress,
+        fake_staging_downloader::FakeStagingDownloader,
+        fake_stubborn_model_library::FakeStubbornModelLibrary,
+        fake_unreachable_registry::FakeUnreachableRegistry,
+        fake_unreadable_model_library::FakeUnreadableModelLibrary,
+        fake_unverifiable_model_library::FakeUnverifiableModelLibrary,
+        fake_verified_model_library::FakeVerifiedModelLibrary, model_fixture::ModelFixture,
+    },
+};
 
 /// Runs an install against one combination of port doubles.
 struct InstallHarness;

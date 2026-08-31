@@ -1,7 +1,9 @@
 use domain::{ModelArtifact, RemoteModelFile};
 
-use crate::errors::model_download_error::ModelDownloadError;
-use crate::ports::outbound::download_progress_port::DownloadProgressPort;
+use crate::{
+    errors::model_download_error::ModelDownloadError,
+    ports::outbound::download_progress_port::DownloadProgressPort,
+};
 
 /// Outbound contract for transmitting the bytes of a resolved remote file.
 ///

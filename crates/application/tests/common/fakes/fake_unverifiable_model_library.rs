@@ -1,8 +1,8 @@
 #![allow(dead_code)]
-use crate::common::fakes::model_fixture::ModelFixture;
-use application::errors::LibraryError;
-use application::ports::outbound::ModelLibraryPort;
+use application::{errors::LibraryError, ports::outbound::ModelLibraryPort};
 use domain::{Checksum, InstalledModel, ModelArtifact, ModelSpec, ModelState};
+
+use crate::common::fakes::model_fixture::ModelFixture;
 
 /// A library holding a replica that no checksum was ever advertised for.
 ///

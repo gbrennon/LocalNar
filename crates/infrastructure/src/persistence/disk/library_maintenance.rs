@@ -1,11 +1,9 @@
 //! Clearing what the filesystem-backed library keeps that is not a model.
 
-use application::errors::LibraryError;
-use application::ports::outbound::LibraryMaintenancePort;
+use application::{errors::LibraryError, ports::outbound::LibraryMaintenancePort};
 use domain::DiscardedStray;
 
-use super::library_sweep::LibrarySweep;
-use super::model_library::DiskModelLibrary;
+use super::{library_sweep::LibrarySweep, model_library::DiskModelLibrary};
 
 impl LibraryMaintenancePort for DiskModelLibrary {
     /// Discards every leftover the library keeps that stands for no model.

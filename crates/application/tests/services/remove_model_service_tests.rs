@@ -1,17 +1,24 @@
-use application::errors::RemoveModelError;
-use application::ports::inbound::RemoveModelPort;
-use application::ports::outbound::{ModelEvictionPort, ModelLibraryPort};
-use application::services::RemoveModelService;
+use application::{
+    errors::RemoveModelError,
+    ports::{
+        inbound::RemoveModelPort,
+        outbound::{ModelEvictionPort, ModelLibraryPort},
+    },
+    services::RemoveModelService,
+};
 use domain::{ByteLength, RemovedModel};
 
-use crate::common::block_on::BlockOn;
-use crate::common::fakes::fake_evicting_library::FakeEvictingLibrary;
-use crate::common::fakes::fake_missing_model_library::FakeMissingModelLibrary;
-use crate::common::fakes::fake_refusing_eviction::FakeRefusingEviction;
-use crate::common::fakes::fake_unreachable_eviction::FakeUnreachableEviction;
-use crate::common::fakes::fake_vacating_model_library::FakeVacatingModelLibrary;
-use crate::common::fakes::fake_verified_model_library::FakeVerifiedModelLibrary;
-use crate::common::fakes::model_fixture::ModelFixture;
+use crate::common::{
+    block_on::BlockOn,
+    fakes::{
+        fake_evicting_library::FakeEvictingLibrary,
+        fake_missing_model_library::FakeMissingModelLibrary,
+        fake_refusing_eviction::FakeRefusingEviction,
+        fake_unreachable_eviction::FakeUnreachableEviction,
+        fake_vacating_model_library::FakeVacatingModelLibrary,
+        fake_verified_model_library::FakeVerifiedModelLibrary, model_fixture::ModelFixture,
+    },
+};
 
 /// Runs a removal against one combination of library and eviction doubles.
 struct RemoveHarness;

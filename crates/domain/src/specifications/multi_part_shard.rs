@@ -1,5 +1,4 @@
-use crate::specifications::Specification;
-use crate::value_objects::ModelFileName;
+use crate::{specifications::Specification, value_objects::ModelFileName};
 
 /// The rule that a file name marks it as one part of a weight split across files.
 pub struct MultiPartShard;
@@ -33,8 +32,10 @@ impl Specification<ModelFileName> for MultiPartShard {
 
 #[cfg(test)]
 mod multi_part_shard_tests {
-    use crate::specifications::{MultiPartShard, Specification};
-    use crate::value_objects::ModelFileName;
+    use crate::{
+        specifications::{MultiPartShard, Specification},
+        value_objects::ModelFileName,
+    };
 
     fn is_one_part(name: &str) -> bool {
         let file = ModelFileName::new(name).expect("valid file name");

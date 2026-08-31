@@ -1,5 +1,4 @@
-use std::error::Error;
-use std::fmt;
+use std::{error::Error, fmt};
 
 /// Failures that can occur while reading or writing the durable model library.
 #[derive(Debug, Clone, PartialEq, Eq)]

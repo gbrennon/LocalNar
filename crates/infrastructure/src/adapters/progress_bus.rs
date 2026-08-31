@@ -76,10 +76,12 @@ impl application::ports::outbound::download_progress_port::DownloadProgressPort
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use application::ports::outbound::download_progress::DownloadProgress;
-    use application::ports::outbound::download_progress_port::DownloadProgressPort;
+    use application::ports::outbound::{
+        download_progress::DownloadProgress, download_progress_port::DownloadProgressPort,
+    };
     use domain::ByteLength;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_progress_bus_broadcast() {

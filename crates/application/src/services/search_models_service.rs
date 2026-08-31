@@ -1,8 +1,12 @@
 use domain::{ModelInfo, SearchQuery};
 
-use crate::errors::search_models_error::SearchModelsError;
-use crate::ports::inbound::search_models_port::SearchModelsPort;
-use crate::ports::outbound::remote_model_registry_port::RemoteModelRegistryPort;
+use crate::{
+    errors::search_models_error::SearchModelsError,
+    ports::{
+        inbound::search_models_port::SearchModelsPort,
+        outbound::remote_model_registry_port::RemoteModelRegistryPort,
+    },
+};
 
 /// The use case that finds downloadable models by free text.
 ///

@@ -1,6 +1,8 @@
 #![allow(dead_code)]
-use application::errors::ModelDownloadError;
-use application::ports::outbound::{DownloadProgressPort, ModelDownloaderPort};
+use application::{
+    errors::ModelDownloadError,
+    ports::outbound::{DownloadProgressPort, ModelDownloaderPort},
+};
 use domain::{ModelArtifact, RemoteModelFile};
 
 /// A downloader whose transport always breaks mid transfer.

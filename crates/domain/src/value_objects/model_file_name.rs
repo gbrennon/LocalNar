@@ -37,8 +37,7 @@ impl fmt::Display for ModelFileName {
 
 #[cfg(test)]
 mod model_file_name_tests {
-    use crate::errors::DomainError;
-    use crate::value_objects::ModelFileName;
+    use crate::{errors::DomainError, value_objects::ModelFileName};
 
     #[test]
     fn a_plain_relative_file_name_is_accepted() {

@@ -1,14 +1,18 @@
-use application::errors::ListInstalledModelsError;
-use application::ports::inbound::ListInstalledModelsPort;
-use application::ports::outbound::ModelInventoryPort;
-use application::services::ListInstalledModelsService;
+use application::{
+    errors::ListInstalledModelsError,
+    ports::{inbound::ListInstalledModelsPort, outbound::ModelInventoryPort},
+    services::ListInstalledModelsService,
+};
 use domain::{ByteLength, ModelInventory};
 
-use crate::common::block_on::BlockOn;
-use crate::common::fakes::fake_empty_model_inventory::FakeEmptyModelInventory;
-use crate::common::fakes::fake_stocked_model_inventory::FakeStockedModelInventory;
-use crate::common::fakes::fake_unreadable_model_inventory::FakeUnreadableModelInventory;
-use crate::common::fakes::model_fixture::ModelFixture;
+use crate::common::{
+    block_on::BlockOn,
+    fakes::{
+        fake_empty_model_inventory::FakeEmptyModelInventory,
+        fake_stocked_model_inventory::FakeStockedModelInventory,
+        fake_unreadable_model_inventory::FakeUnreadableModelInventory, model_fixture::ModelFixture,
+    },
+};
 
 /// Runs a listing against one inventory double.
 struct ListHarness;

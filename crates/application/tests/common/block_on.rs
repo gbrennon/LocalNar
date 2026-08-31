@@ -1,6 +1,8 @@
 #![allow(dead_code)]
-use std::future::Future;
-use std::task::{Context, Poll, Waker};
+use std::{
+    future::Future,
+    task::{Context, Poll, Waker},
+};
 
 use crate::common::unparker::Unparker;
 

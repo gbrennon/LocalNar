@@ -1,7 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::ByteLength;
-use crate::ModelSpec;
+use crate::{ByteLength, ModelSpec};
 
 /// The record of a replica the operator discarded from the local library.
 ///
@@ -45,11 +44,7 @@ impl RemovedModel {
 #[cfg(test)]
 mod removed_model_tests {
     use super::RemovedModel;
-    use crate::ByteLength;
-    use crate::ModelFileName;
-    use crate::ModelRepository;
-    use crate::ModelRepositoryId;
-    use crate::ModelSpec;
+    use crate::{ByteLength, ModelFileName, ModelRepository, ModelRepositoryId, ModelSpec};
 
     fn spec() -> ModelSpec {
         ModelSpec::new(

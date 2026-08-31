@@ -1,13 +1,11 @@
-use application::errors::RegistryReadError;
-use application::ports::outbound::RemoteModelRegistryPort;
+use application::{errors::RegistryReadError, ports::outbound::RemoteModelRegistryPort};
 use domain::{
     ByteLength, Checksum, ContextLength, ModelFileName, ModelInfo, ModelProfile, ModelRepository,
     ModelRepositoryId, ModelWeightChoice, ParameterCount, RemoteModelFile, SearchQuery,
 };
 use futures::future::join_all;
 use reqwest::Client;
-use serde::Deserialize;
-use serde::de::DeserializeOwned;
+use serde::{Deserialize, de::DeserializeOwned};
 
 const DEFAULT_ENDPOINT: &str = "https://huggingface.co";
 const INSTALLABLE_EXTENSIONS: [&str; 2] = ["gguf", "safetensors"];

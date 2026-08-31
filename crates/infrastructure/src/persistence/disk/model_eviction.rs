@@ -1,11 +1,9 @@
 //! Discarding one replica from the filesystem-backed library.
 
-use application::errors::LibraryError;
-use application::ports::outbound::ModelEvictionPort;
+use application::{errors::LibraryError, ports::outbound::ModelEvictionPort};
 use domain::{ModelSpec, RemovedModel};
 
-use super::library_tree::LibraryTree;
-use super::model_library::DiskModelLibrary;
+use super::{library_tree::LibraryTree, model_library::DiskModelLibrary};
 
 impl ModelEvictionPort for DiskModelLibrary {
     /// Discards the replica of `model`, along with everything recorded for it.
