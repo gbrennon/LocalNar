@@ -1,16 +1,13 @@
-use std::sync::Arc;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use application::services::SearchModelsService;
-use crossterm::ExecutableCommand;
-use crossterm::terminal::{
-    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
+use crossterm::{
+    ExecutableCommand,
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use infrastructure::{DiskModelLibrary, HfApiRegistry, HfHubDownloader};
-use ratatui::Terminal;
-use ratatui::backend::CrosstermBackend;
-
 use presentation::tui::{AppRunner, EventHandler, TuiApp};
+use ratatui::{Terminal, backend::CrosstermBackend};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
