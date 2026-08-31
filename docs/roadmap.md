@@ -1,88 +1,78 @@
-# Model downloader automation - roadmap
+# LocalNar model manager - roadmap
 
-Ordered by dependency. Everything below follows the existing domain contracts in
-`crates/domain/src`; items are intentionally small and testable. The `application`,
-`infrastructure`, and `presentation` crates currently compile as empty scaffolds.
+LocalNar is a local model manager. Automating `llama.cpp` is no longer the point
+of this application; running a server against a managed model is a separate
+concern, documented as a runbook in the README.
+
+Ordered by dependency. Items are intentionally small and testable.
 
 ## Done
 
-- [x] Workspace scaffold: four crates under `crates/`, shared deps in root `Cargo.toml`.
-- [x] Domain crate: value objects, install state machine, and the three ports with
-      their error types (24 unit tests).
+- [x] Workspace: four crates under `crates/`, shared deps in root `Cargo.toml`,
+      dependency rule pointing inwards.
+- [x] Domain: value objects, the install state machine (`ModelState`), and the
+      types describing what the library holds - `ManagedModel`,
+      `ModelInventory`, `RemovedModel`, `DiscardedStray`.
+- [x] Application: seven inbound ports, seven outbound ports, one typed error
+      per use case, and one service per port.
+- [x] Infrastructure: Hugging Face registry and downloader; `DiskModelLibrary`
+      implementing the library, inventory, eviction, and maintenance ports.
+- [x] Presentation: a `ratatui` TUI with search, model table, install progress,
+      library, and help modes.
+- [x] Search a remote catalog and install a model, verifying its checksum.
+- [x] Total control over the local library: list, inspect, verify, delete with
+      confirmation, and prune leftovers.
 
 ## Planned
 
-### 1. Infrastructure adapters (`crates/infrastructure`)
+### 1. A non-interactive command surface
 
-Implement each domain port behind the existing traits. Adapters stay out of domain
-code; domain purity is preserved.
+The TUI is currently the only driver. A `clap`-based CLI over the same inbound
+ports would make the manager scriptable and testable end to end without a
+terminal.
 
-- [ ] `HfHubRegistry` implements `RemoteModelRegistry` using `hf-hub` to enumerate
-      and resolve files in a repository.
-- [ ] `HfHubDownloader` implements `ModelDownloader`, streaming a resolved
-      `RemoteModelFile` into a `tempfile`-backed staging area and producing a
-      `ModelArtifact`.
-- [ ] `FileSystemLibrary` implements `ModelLibrary`, mapping a `ModelSpec` to an
-      on-disk path, hashing committed files with `sha2`, and returning `ModelState`.
+- [ ] `localnar list` printing the inventory.
+- [ ] `localnar install <repo> <file>`, `localnar verify`, `localnar remove`,
+      `localnar prune`.
+- [ ] Reuse the existing services untouched; the CLI is a second driving adapter,
+      not a second implementation.
 
-Each adapter gets an integration test against a stub/real backing, plus unit tests
-for its pure helpers. Error map:
+### 2. Richer library reporting
 
-- registry failures -> `RegistryReadError`
-- transfer failures -> `ModelDownloadError`
-- filesystem/hash failures -> `LibraryError`
+- [ ] Report a replica's age and last verification time, which needs the library
+      to record when it proved a digest.
+- [ ] Group the inventory by repository so several revisions of one model read as
+      one entry with its variants.
 
-### 2. Application layer (`crates/application`)
+### 3. Relocating the library
 
-A small use-case/orchestration crate that wires the three ports together and
-returns a `ModelPlan` decision. Planned API:
+- [ ] Move the library root, migrating existing replicas and their digest notes
+      rather than orphaning them.
 
-```rust
-pub struct InstallModel {
-    registry: Arc<dyn RemoteModelRegistry>,
-    downloader: Arc<dyn ModelDownloader>,
-    library: Arc<dyn ModelLibrary>,
-}
+### 4. Local inference
 
-impl InstallModel {
-    pub async fn inspect(&self, spec: &ModelSpec) -> Result<ModelPlan, ?Error>;
-    pub async fn ensure_installed(&self, spec: &ModelSpec) -> Result<ModelState, ?Error>;
-}
-```
+Serving a managed model is the intended next capability, kept deliberately
+behind the manager: the manager owns what is on disk, and any runtime consumes
+that through a port rather than reaching into the filesystem itself.
 
-Behavior follows the state machine already in the domain:
-`Missing -> Fetch`, `Downloaded -> Verify`, `Verified -> Ignore`,
-`IntegrityMismatch -> Repair`. The application layer holds no I/O; it composes the
-injected ports.
+- [ ] A port describing "serve this installed model", with the runtime as an
+      adapter behind it.
 
-### 3. Presentation layer (`crates/presentation`)
+## Conventions
 
-- [ ] A `clap`-based CLI: a subcommand (e.g.
-      `install --id qwen3-8b --repo unsloth/Qwen3-8B-GGUF --file Qwen3-8B-Q4_K_M.gguf`)
-      that constructs the adapters, runs the application use case, and prints the
-      resulting `ModelPlan`/`ModelState`.
-- [ ] Optional: a `check` subcommand that only inspects installed state.
-
-### 4. Root binary
-
-Once `presentation` exposes an entry point, wire it into the root package so
-`cargo run` starts the CLI. The placeholder `src/main.rs` prints "Hello, world!"
-and is not part of the workspace; decide whether the root package delegates to
-`crates/presentation` or the bin lives there.
-
-## Cross-cutting conventions
-
-- **One type per file**, filename = snake_case of the type.
-- **Domain purity**: no I/O or SDK inside `domain`; all external work is a port/adapter.
-- **Errors** are typed per port; adapters translate dependency failures into the
-  domain error types.
-- **"downloader" naming** is always `ModelDownloader` / `ModelDownloadError`.
-- **Docstrings, no inline comments**; docs stay close to the code.
+- **One type per file**, filename = `snake_case(type)`. `mod.rs` only re-exports.
+- **Ports before adapters**: the inner layer owns the abstraction.
+- **Domain purity**: no I/O or SDK inside `domain`.
+- **No inline comments**; expressive names, with doc comments stating the
+  contract on ports and the behavior on implementations.
+- **No setters**; methods are named for what they do.
 
 ## Test conventions
 
-- Domain tests are state-based unit tests: no mocking framework, no I/O.
-- Adapter tests are integration tests against a real dependency where possible
-  (a tiny public `hf-hub` repo or a local fixture server); otherwise a fake/stub
-  that implements the port for exactly one scenario.
-- Do not mock what you own; inject fakes through the port.
+- Domain and application tests are state-based unit tests: no mocking framework,
+  no I/O, one hand-written fake per file standing for exactly one scenario.
+- Infrastructure tests are integration tests against a real filesystem via
+  `tempfile`.
+- Presentation tests render widgets against `ratatui`'s `TestBackend` and assert
+  on the rendered cells.
+- `./verify.sh` (fmt, build, test, clippy `-D warnings`) must exit 0.

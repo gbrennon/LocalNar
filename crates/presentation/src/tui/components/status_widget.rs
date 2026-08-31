@@ -19,13 +19,13 @@ impl StatusWidget {
     }
 
     /// Set a normal status message (green).
-    pub fn set_message(&mut self, message: impl Into<String>) {
+    pub fn report(&mut self, message: impl Into<String>) {
         self.message = message.into();
         self.is_error = false;
     }
 
     /// Set an error message (red).
-    pub fn set_error(&mut self, error: impl Into<String>) {
+    pub fn report_failure(&mut self, error: impl Into<String>) {
         self.message = error.into();
         self.is_error = true;
     }

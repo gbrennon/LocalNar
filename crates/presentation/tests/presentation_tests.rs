@@ -117,7 +117,7 @@ fn a_rows_cells_follow_the_order_of_the_headings() {
 fn the_table_holds_one_row_per_described_model() {
     let mut widget = ModelTableWidget::new();
 
-    widget.set_models(vec![qwen(), gemma()]);
+    widget.show(vec![qwen(), gemma()]);
 
     assert_eq!(widget.row_count(), 2);
 }
@@ -125,7 +125,7 @@ fn the_table_holds_one_row_per_described_model() {
 #[test]
 fn the_table_renders_one_row_per_described_model_under_the_headings() {
     let mut widget = ModelTableWidget::new();
-    widget.set_models(vec![qwen(), gemma()]);
+    widget.show(vec![qwen(), gemma()]);
 
     let lines = rendered_lines(&mut widget);
 
@@ -152,7 +152,7 @@ fn the_table_renders_one_row_per_described_model_under_the_headings() {
 #[test]
 fn a_rendered_row_shows_the_size_and_precision_of_its_own_model() {
     let mut widget = ModelTableWidget::new();
-    widget.set_models(vec![qwen()]);
+    widget.show(vec![qwen()]);
 
     let lines = rendered_lines(&mut widget);
 
@@ -175,7 +175,7 @@ fn an_empty_table_renders_no_model_rows() {
 fn the_first_model_is_selected_once_results_arrive() {
     let mut widget = ModelTableWidget::new();
 
-    widget.set_models(vec![qwen(), gemma()]);
+    widget.show(vec![qwen(), gemma()]);
 
     assert_eq!(widget.selected_model(), Some(&qwen()));
 }
@@ -190,9 +190,9 @@ fn nothing_is_selected_before_any_results_arrive() {
 #[test]
 fn nothing_is_selected_when_a_search_finds_no_models() {
     let mut widget = ModelTableWidget::new();
-    widget.set_models(vec![qwen()]);
+    widget.show(vec![qwen()]);
 
-    widget.set_models(Vec::new());
+    widget.show(Vec::new());
 
     assert_eq!(widget.selected_model(), None);
     assert_eq!(widget.row_count(), 0);
@@ -201,7 +201,7 @@ fn nothing_is_selected_when_a_search_finds_no_models() {
 #[test]
 fn clearing_the_table_drops_every_row_and_the_selection() {
     let mut widget = ModelTableWidget::new();
-    widget.set_models(vec![qwen(), gemma()]);
+    widget.show(vec![qwen(), gemma()]);
 
     widget.clear();
 
@@ -212,7 +212,7 @@ fn clearing_the_table_drops_every_row_and_the_selection() {
 #[test]
 fn moving_down_walks_the_rows_and_wraps_past_the_last() {
     let mut widget = ModelTableWidget::new();
-    widget.set_models(vec![qwen(), gemma()]);
+    widget.show(vec![qwen(), gemma()]);
 
     widget.next();
     assert_eq!(widget.selected_model(), Some(&gemma()));
@@ -224,7 +224,7 @@ fn moving_down_walks_the_rows_and_wraps_past_the_last() {
 #[test]
 fn moving_up_walks_the_rows_and_wraps_past_the_first() {
     let mut widget = ModelTableWidget::new();
-    widget.set_models(vec![qwen(), gemma()]);
+    widget.show(vec![qwen(), gemma()]);
 
     widget.previous();
     assert_eq!(widget.selected_model(), Some(&gemma()));
@@ -246,7 +246,7 @@ fn navigating_an_empty_table_selects_nothing() {
 #[test]
 fn the_selected_model_is_actionable_as_an_install_intent() {
     let mut widget = ModelTableWidget::new();
-    widget.set_models(vec![qwen(), gemma()]);
+    widget.show(vec![qwen(), gemma()]);
     widget.next();
 
     let selected = widget.selected_model().expect("a selected model");

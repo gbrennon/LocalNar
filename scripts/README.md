@@ -121,3 +121,62 @@ cat hello.txt  # should print: works
 | Server OOM | Use `./run-server-both.sh` (KV in RAM) |
 | PEG parser errors | `SKIP_CHAT_PARSING=1 CHAT_TEMPLATE=chatml` |
 | Wrong model | Set `PI_MODEL=Qwen3-14B-Q4_K_M` |
+| pi says "Unknown provider llama-cpp" | `pi install git:github.com/huggingface/pi-llama` |
+| pi hangs after "Done after 1 turn(s)" | Auto-update extension crash; work completed, kill pi and move on |
+| pi launch times out in shell | Shell kills the process group: `(nohup pi ... </dev/null >/tmp/pi-out.log 2>&1 &)` |
+
+---
+
+## Choosing a model for your VRAM
+
+Sizes are Q4_K_M; VRAM figures assume a 32K context.
+
+| Model | Size | Context | VRAM (32K ctx) | Notes |
+|---|---|---|---|---|
+| **Qwen3-8B** (unsloth) | 5.0 GB | 32K | ~10 GB | Sweet spot for 12 GB |
+| Qwen2.5-7B | 4.4 GB | 32K | ~9 GB | Older generation |
+| Qwen3-14B | 8.4 GB | 16K max | OOM at 32K | Best quality, tight |
+
+Qwen3-8B is the default recommendation: newest generation, good tool calling,
+fits comfortably in 12 GB.
+
+---
+
+## Using pi effectively
+
+### Fresh context every step
+
+Never ask the model to do everything in one prompt. It will either overflow the
+context and dump prose, or freeze. Drive one file per prompt, killing pi between
+steps so each starts from a clean window - which is what `pi-task.sh` does for
+you.
+
+### What a good step prompt contains
+
+1. What already exists, briefly, so the model does not invent it.
+2. The exact file paths to create.
+3. What the file should do.
+4. "Use the write tool" - never omit this.
+
+```
+Write one file: domain/src/main/scala/com/example/domain/Task.scala.
+A case class with id: UUID, title: String, status: String. Use write tool.
+```
+
+### When a step fails
+
+"Context size has been exceeded" or "The model produced output that does not
+match" both mean the model tried to generate too much in one turn. Split the step
+further - one file per prompt - and retry with a smaller ask.
+
+### pi compaction settings
+
+In `~/.pi/agent/settings.json`, compacting earlier leaves more headroom for
+output in a 32K window:
+
+```json
+"compaction": {
+    "keepRecentTokens": 12288,
+    "reserveTokens": 8192
+}
+```

@@ -1,32 +1,47 @@
-//! The model domain: what a model is, what makes one valid, and how one is chosen.
-//!
-//! Types are grouped by what they are -- values, entities, policies, errors --
-//! and re-exported flat, so callers name a type without naming its stereotype.
+mod byte_length;
+mod checksum;
+mod context_length;
+mod discarded_stray;
+mod domain_error;
+mod installed_model;
+mod managed_model;
+mod model_artifact;
+mod model_file_name;
+mod model_info;
+mod model_inventory;
+mod model_profile;
+mod model_repository;
+mod model_repository_id;
+mod model_revision;
+mod model_spec;
+mod model_state;
+mod model_weight_choice;
+mod parameter_count;
+mod quantization;
+mod remote_model_file;
+mod removed_model;
+mod search_query;
 
-mod entities;
-mod errors;
-mod policies;
-mod specifications;
-mod value_objects;
-
-pub use entities::InstalledModel;
-pub use errors::DomainError;
-pub use policies::ModelWeightChoice;
-pub use specifications::{MultiPartShard, Specification, WholeWeightFile};
-pub use value_objects::ByteLength;
-pub use value_objects::Checksum;
-pub use value_objects::ContextLength;
-pub use value_objects::ModelArtifact;
-pub use value_objects::ModelFileName;
-pub use value_objects::ModelInfo;
-pub use value_objects::ModelProfile;
-pub use value_objects::ModelRepository;
-pub use value_objects::ModelRepositoryId;
-pub use value_objects::ModelRevision;
-pub use value_objects::ModelSpec;
-pub use value_objects::ModelState;
-pub use value_objects::ModelTag;
-pub use value_objects::ParameterCount;
-pub use value_objects::Quantization;
-pub use value_objects::RemoteModelFile;
-pub use value_objects::SearchQuery;
+pub use byte_length::ByteLength;
+pub use checksum::Checksum;
+pub use context_length::ContextLength;
+pub use discarded_stray::DiscardedStray;
+pub use domain_error::DomainError;
+pub use installed_model::InstalledModel;
+pub use managed_model::ManagedModel;
+pub use model_artifact::ModelArtifact;
+pub use model_file_name::ModelFileName;
+pub use model_info::ModelInfo;
+pub use model_inventory::ModelInventory;
+pub use model_profile::ModelProfile;
+pub use model_repository::ModelRepository;
+pub use model_repository_id::ModelRepositoryId;
+pub use model_revision::ModelRevision;
+pub use model_spec::ModelSpec;
+pub use model_state::ModelState;
+pub use model_weight_choice::ModelWeightChoice;
+pub use parameter_count::ParameterCount;
+pub use quantization::Quantization;
+pub use remote_model_file::RemoteModelFile;
+pub use removed_model::RemovedModel;
+pub use search_query::SearchQuery;
