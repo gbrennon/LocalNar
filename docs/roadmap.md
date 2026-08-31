@@ -1,8 +1,8 @@
 # LocalNar model manager - roadmap
 
-LocalNar is a local model manager. Automating `llama.cpp` is no longer the point
-of this application; running a server against a managed model is a separate
-concern, documented as a runbook in the README.
+LocalNar is a local model manager: it discovers, installs, proves, and prunes
+models on this machine. Running inference is not part of it today, and no
+inference engine is vendored here.
 
 Ordered by dependency. Items are intentionally small and testable.
 
