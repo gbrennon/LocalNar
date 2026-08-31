@@ -1,0 +1,20 @@
+name: Check Branch Name
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  check-branch-name:
+    name: Check branch name
+    runs-on: codeberg-medium
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check branch name
+        env:
+          CI_EVENT_NAME: ${{ github.event_name }}
+          CI_REF: ${{ github.ref }}
+          CI_HEAD_REF: ${{ github.head_ref }}
+        run: bash scripts/check_branch_name.sh
