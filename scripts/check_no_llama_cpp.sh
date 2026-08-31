@@ -8,7 +8,8 @@ reject_forbidden_mention_in_tracked_files() {
   matches="$(git grep -in -e "$FORBIDDEN_PATTERN" -- . \
     ':(exclude)scripts/check_no_llama_cpp.sh' \
     ':(exclude)scripts/README.md' \
-    ':(exclude)README.md' || true)"
+    ':(exclude)README.md' \
+    ':(exclude).forgejo/workflows/check-no-llama-cpp.yml' || true)"
   if [ -n "$matches" ]; then
     echo "ERROR: tracked files mention llama.cpp:" >&2
     echo "$matches" >&2
