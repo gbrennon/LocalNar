@@ -50,7 +50,11 @@ crates/domain/src
 ├── errors/
 │   └── domain_error.rs             DomainError
 ├── entities/
-│   └── installed_model.rs          InstalledModel
+│   ├── installed_model.rs          InstalledModel
+│   ├── discarded_stray.rs          DiscardedStray
+│   ├── managed_model.rs            ManagedModel
+│   ├── model_inventory.rs          ModelInventory
+│   └── removed_model.rs            RemovedModel
 ├── policies/
 │   └── model_weight_choice.rs      ModelWeightChoice
 ├── specifications/
@@ -75,14 +79,12 @@ crates/domain/src
 │   ├── quantization.rs             Quantization
 │   ├── remote_model_file.rs        RemoteModelFile
 │   └── search_query.rs             SearchQuery
-├── discarded_stray.rs              DiscardedStray
-├── managed_model.rs                ManagedModel
-├── model_inventory.rs              ModelInventory
-└── removed_model.rs                RemovedModel
 ```
 
 Value objects live under `value_objects/`; yes-or-no domain rules under
-`specifications/` (combined by the one policy under `policies/`).
+`specifications/` (combined by the one policy under `policies/`); the types
+describing what the library holds and what its operations give back live under
+`entities/`.
 
 ### 2.1 Naming one model
 
