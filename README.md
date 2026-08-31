@@ -7,8 +7,10 @@
 LocalNar is a Rust application for discovering, downloading, organizing, and
 managing AI models locally. It is a model manager: it searches a remote catalog,
 installs models into a library on disk, and gives you total control over what
-that library holds. Local inference is planned; nothing here runs or ships an
-inference server.
+that library holds. Model files are enormous, easy to misplace, and easier to
+trust than verify; LocalNar keeps every revision in its place, proves what each
+file is, and deletes only what you confirm. Local inference is planned; nothing
+here runs or ships an inference server.
 
 ## Quick start
 
@@ -138,6 +140,9 @@ Conventions: one type per file with the filename as `snake_case(type)`;
 contract on a port and the behavior on an implementation; no setters - a method
 is named for what it does.
 
+Branch-name and commit-message rules live in [`scripts/`](scripts/README.md);
+CI and the lefthook pre-commit hooks enforce them.
+
 ---
 
 ## Files in this repo
@@ -151,7 +156,7 @@ is named for what it does.
 | `src/main.rs` | Binary entry point; composes the adapters and starts the TUI |
 | `verify.sh` | The gate: `cargo fmt --check`, build, test, `clippy -D warnings` |
 | `docs/` | Current-state architecture and roadmap |
-| `scripts/` | Branch-name and commit-message checks used by CI |
+| `scripts/` | Branch-name, commit-message, and no-llama.cpp checks used by CI |
 | `README.md` | This guide, one orb included |
 
 ---
