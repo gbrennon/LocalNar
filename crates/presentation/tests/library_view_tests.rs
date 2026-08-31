@@ -18,6 +18,7 @@ fn spec(repository_id: &str, file_name: &str) -> ModelSpec {
             ModelRepositoryId::parse(repository_id).expect("valid id"),
         ),
         ModelFileName::new(file_name).expect("valid file name"),
+        vec![],
     )
 }
 

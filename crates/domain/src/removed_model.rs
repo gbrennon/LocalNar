@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use crate::byte_length::ByteLength;
-use crate::model_spec::ModelSpec;
+use crate::ByteLength;
+use crate::ModelSpec;
 
 /// The record of a replica the operator discarded from the local library.
 ///
@@ -45,11 +45,11 @@ impl RemovedModel {
 #[cfg(test)]
 mod removed_model_tests {
     use super::RemovedModel;
-    use crate::byte_length::ByteLength;
-    use crate::model_file_name::ModelFileName;
-    use crate::model_repository::ModelRepository;
-    use crate::model_repository_id::ModelRepositoryId;
-    use crate::model_spec::ModelSpec;
+    use crate::ByteLength;
+    use crate::ModelFileName;
+    use crate::ModelRepository;
+    use crate::ModelRepositoryId;
+    use crate::ModelSpec;
 
     fn spec() -> ModelSpec {
         ModelSpec::new(
@@ -57,6 +57,7 @@ mod removed_model_tests {
                 ModelRepositoryId::parse("unsloth/Qwen3-8B-GGUF").expect("valid id"),
             ),
             ModelFileName::new("Qwen3-8B-Q4_K_M.gguf").expect("valid file name"),
+            vec![],
         )
     }
 
