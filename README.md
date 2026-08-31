@@ -1,10 +1,14 @@
 # LocalNar
 
+> Locally manage LLMs. Look at me: I am the sum of all evils.
+
+<!-- The orb was smaller in 1981. Yours is 4.7 GiB, quantized, and on your own disk. -->
+
 LocalNar is a Rust application for discovering, downloading, organizing, and
-managing AI models locally. Today it is a model manager: it searches a remote
-catalog, installs models into a library on disk, and gives you total control over
-what that library holds. Local inference is planned, but automating `llama.cpp`
-is no longer what this application is for.
+managing AI models locally. It is a model manager: it searches a remote catalog,
+installs models into a library on disk, and gives you total control over what
+that library holds. Local inference is planned; nothing here runs or ships an
+inference server.
 
 ## Quick start
 
@@ -66,6 +70,9 @@ space they take, and how many are verified or broken.
   checksum was ever recorded. `v` is what turns unproven into verified.
 - **broken** - the bytes no longer match the digest recorded for them.
 
+The orb in the film corrupted everyone who took it on faith. `v` replaces faith
+with arithmetic.
+
 Listing the library never hashes a file, which is what keeps it fast with
 multi-gigabyte models. Proving bytes is `v`'s job, on demand, for one model.
 
@@ -78,6 +85,8 @@ Pruning discards only what stands for no model: digest notes whose replica is
 gone, and directories left holding nothing. A model you installed is never a
 leftover, proven or not, and a file the manager did not put there is never
 touched.
+
+Taarna struck only what had earned it. So does `p`.
 
 ---
 
@@ -131,24 +140,6 @@ is named for what it does.
 
 ---
 
-## 5. Serving a model (separate concern)
-
-Running inference against a managed model is a runbook, not something this
-application automates. The scripts and their documentation live in
-[`scripts/README.md`](scripts/README.md): starting a `llama.cpp` server in fast
-or split mode, driving it from [pi](https://pi.dev) as a coding agent, choosing a
-model for your VRAM, and troubleshooting.
-
-Two things to know if you use both:
-
-- `llama.cpp` is pinned as a submodule. Clone with `--recursive`, or run
-  `git submodule update --init --recursive`.
-- The scripts read `$MODELS_DIR` (default `~/models`), while the manager installs
-  under `$LOCALNAR_MODELS_DIR` (default `~/.cache/localnar/models`). Point one at
-  the other, or pass the path explicitly.
-
----
-
 ## Files in this repo
 
 | File / dir | Purpose |
@@ -160,6 +151,17 @@ Two things to know if you use both:
 | `src/main.rs` | Binary entry point; composes the adapters and starts the TUI |
 | `verify.sh` | The gate: `cargo fmt --check`, build, test, `clippy -D warnings` |
 | `docs/` | Current-state architecture and roadmap |
-| `scripts/` | Serving runbook: llama.cpp server and pi agent scripts |
-| `llama.cpp/` | Pinned llama.cpp submodule, used by the serving runbook only |
-| `README.md` | This guide |
+| `scripts/` | Branch-name and commit-message checks used by CI |
+| `README.md` | This guide, one orb included |
+
+---
+
+## The name
+
+`LocalNar` is `local` welded onto the Loc-Nar: the green glowing orb from *Heavy
+Metal* (1981) that turns up in every era, promises everything, and consumes
+whoever covets it. A stack of quantized weights is a fair modern likeness -
+enormous, seductive, and much better kept somewhere you can prove what it is.
+
+The orb never asked permission. This one does: nothing leaves the library
+without a `y`.
