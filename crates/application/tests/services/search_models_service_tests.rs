@@ -1,12 +1,16 @@
-use application::errors::{RegistryReadError, SearchModelsError};
-use application::ports::inbound::SearchModelsPort;
-use application::services::SearchModelsService;
+use application::{
+    errors::{RegistryReadError, SearchModelsError},
+    ports::inbound::SearchModelsPort,
+    services::SearchModelsService,
+};
 
-use crate::common::block_on::BlockOn;
-use crate::common::fakes::fake_idle_registry::FakeIdleRegistry;
-use crate::common::fakes::fake_searching_registry::FakeSearchingRegistry;
-use crate::common::fakes::fake_unreachable_registry::FakeUnreachableRegistry;
-use crate::common::fakes::model_fixture::ModelFixture;
+use crate::common::{
+    block_on::BlockOn,
+    fakes::{
+        fake_idle_registry::FakeIdleRegistry, fake_searching_registry::FakeSearchingRegistry,
+        fake_unreachable_registry::FakeUnreachableRegistry, model_fixture::ModelFixture,
+    },
+};
 
 #[test]
 fn search_when_the_catalog_has_matches_then_each_model_is_one_row() {

@@ -1,7 +1,9 @@
 use std::sync::Mutex;
 
-use application::errors::ModelDownloadError;
-use application::ports::outbound::{DownloadProgress, DownloadProgressPort, ModelDownloaderPort};
+use application::{
+    errors::ModelDownloadError,
+    ports::outbound::{DownloadProgress, DownloadProgressPort, ModelDownloaderPort},
+};
 use domain::{
     ByteLength, Checksum, ModelArtifact, ModelFileName, ModelRepository, ModelRepositoryId,
     ModelRevision, RemoteModelFile,

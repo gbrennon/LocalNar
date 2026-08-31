@@ -1,6 +1,5 @@
 #![allow(dead_code)]
-use application::errors::LibraryError;
-use application::ports::outbound::ModelEvictionPort;
+use application::{errors::LibraryError, ports::outbound::ModelEvictionPort};
 use domain::{ModelSpec, RemovedModel};
 
 /// An eviction no scenario using it is allowed to reach.

@@ -1,7 +1,6 @@
 //! Reporting filesystem faults raised against a library path.
 
-use std::fmt;
-use std::path::Path;
+use std::{fmt, path::Path};
 
 use application::errors::LibraryError;
 

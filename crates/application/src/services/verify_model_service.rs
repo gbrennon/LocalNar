@@ -1,8 +1,11 @@
 use domain::{ManagedModel, ModelSpec, ModelState};
 
-use crate::errors::verify_model_error::VerifyModelError;
-use crate::ports::inbound::verify_model_port::VerifyModelPort;
-use crate::ports::outbound::model_library_port::ModelLibraryPort;
+use crate::{
+    errors::verify_model_error::VerifyModelError,
+    ports::{
+        inbound::verify_model_port::VerifyModelPort, outbound::model_library_port::ModelLibraryPort,
+    },
+};
 
 /// The use case that re-proves one locally installed model against the digest
 /// the library recorded for it.

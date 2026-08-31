@@ -1,7 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use application::errors::LibraryError;
-use application::ports::outbound::ModelLibraryPort;
+use application::{errors::LibraryError, ports::outbound::ModelLibraryPort};
 use domain::{ByteLength, Checksum, InstalledModel, ModelArtifact, ModelSpec, ModelState};
 use sha2::{Digest, Sha256};
 use tokio::io::AsyncReadExt;
@@ -329,9 +328,10 @@ fn dirs_path() -> PathBuf {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use domain::{ModelFileName, ModelRepository, ModelRepositoryId};
     use tempfile::TempDir;
+
+    use super::*;
 
     fn test_spec() -> ModelSpec {
         let identifier = ModelRepositoryId::parse("unsloth/Qwen3-8B-GGUF").expect("valid id");

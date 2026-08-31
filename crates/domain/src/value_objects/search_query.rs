@@ -27,8 +27,7 @@ impl SearchQuery {
 
 #[cfg(test)]
 mod search_query_tests {
-    use crate::errors::DomainError;
-    use crate::value_objects::SearchQuery;
+    use crate::{errors::DomainError, value_objects::SearchQuery};
 
     #[test]
     fn a_phrase_is_trimmed() {

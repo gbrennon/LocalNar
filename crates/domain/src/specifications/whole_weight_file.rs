@@ -1,5 +1,7 @@
-use crate::specifications::{MultiPartShard, Specification};
-use crate::value_objects::ModelFileName;
+use crate::{
+    specifications::{MultiPartShard, Specification},
+    value_objects::ModelFileName,
+};
 
 /// A weight file that is not split across multiple parts.
 ///
@@ -18,8 +20,10 @@ impl Specification<ModelFileName> for WholeWeightFile {
 
 #[cfg(test)]
 mod whole_weight_file_tests {
-    use crate::specifications::{Specification, WholeWeightFile};
-    use crate::value_objects::ModelFileName;
+    use crate::{
+        specifications::{Specification, WholeWeightFile},
+        value_objects::ModelFileName,
+    };
 
     fn is_whole(name: &str) -> bool {
         let file = ModelFileName::new(name).expect("valid file name");

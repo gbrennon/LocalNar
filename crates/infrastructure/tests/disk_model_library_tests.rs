@@ -1,5 +1,4 @@
-use application::errors::LibraryError;
-use application::ports::outbound::ModelLibraryPort;
+use application::{errors::LibraryError, ports::outbound::ModelLibraryPort};
 use domain::{
     ByteLength, Checksum, ModelArtifact, ModelFileName, ModelRepository, ModelRepositoryId,
     ModelRevision, ModelSpec, ModelState,

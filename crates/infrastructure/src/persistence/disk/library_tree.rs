@@ -1,8 +1,10 @@
 //! Reading and pruning the directory tree the disk library keeps.
 
-use std::fs::Metadata;
-use std::io::ErrorKind;
-use std::path::{Path, PathBuf};
+use std::{
+    fs::Metadata,
+    io::ErrorKind,
+    path::{Path, PathBuf},
+};
 
 use application::errors::LibraryError;
 use domain::ByteLength;

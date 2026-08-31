@@ -1,6 +1,5 @@
 #![allow(dead_code)]
-use application::errors::RegistryReadError;
-use application::ports::outbound::RemoteModelRegistryPort;
+use application::{errors::RegistryReadError, ports::outbound::RemoteModelRegistryPort};
 use domain::{ModelFileName, ModelInfo, ModelRepository, RemoteModelFile, SearchQuery};
 
 use crate::common::fakes::model_fixture::ModelFixture;

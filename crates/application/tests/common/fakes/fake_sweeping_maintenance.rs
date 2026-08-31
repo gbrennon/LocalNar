@@ -1,6 +1,5 @@
 #![allow(dead_code)]
-use application::errors::LibraryError;
-use application::ports::outbound::LibraryMaintenancePort;
+use application::{errors::LibraryError, ports::outbound::LibraryMaintenancePort};
 use domain::DiscardedStray;
 
 use crate::common::fakes::model_fixture::ModelFixture;

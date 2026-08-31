@@ -1,8 +1,12 @@
 use domain::ModelInventory;
 
-use crate::errors::list_installed_models_error::ListInstalledModelsError;
-use crate::ports::inbound::list_installed_models_port::ListInstalledModelsPort;
-use crate::ports::outbound::model_inventory_port::ModelInventoryPort;
+use crate::{
+    errors::list_installed_models_error::ListInstalledModelsError,
+    ports::{
+        inbound::list_installed_models_port::ListInstalledModelsPort,
+        outbound::model_inventory_port::ModelInventoryPort,
+    },
+};
 
 /// The use case that shows the operator every model this machine holds.
 ///

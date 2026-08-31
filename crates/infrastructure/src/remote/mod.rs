@@ -6,6 +6,6 @@
 pub mod huggingface;
 
 pub use huggingface::{
-    downloader::HfHubDownloader, downloader::HfHubTokioTransport, downloader::HubDownloadTransport,
-    registry::HfApiRegistry, registry::HubTransport, registry::ReqwestHubTransport,
+    downloader::{HfHubDownloader, HfHubTokioTransport, HubDownloadTransport},
+    registry::{HfApiRegistry, HubTransport, ReqwestHubTransport},
 };

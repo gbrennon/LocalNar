@@ -64,8 +64,7 @@ impl fmt::Debug for Checksum {
 
 #[cfg(test)]
 mod checksum_tests {
-    use crate::errors::DomainError;
-    use crate::value_objects::Checksum;
+    use crate::{errors::DomainError, value_objects::Checksum};
 
     const SAMPLE_HEX: &str = "a94a8fe5ccb19ba61c4c0873d391e987982fbbd3fdf96d1b0f6a55a0f9f0f7e8";
 

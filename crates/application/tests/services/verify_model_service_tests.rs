@@ -1,17 +1,21 @@
-use application::errors::VerifyModelError;
-use application::ports::inbound::VerifyModelPort;
-use application::ports::outbound::ModelLibraryPort;
-use application::services::VerifyModelService;
+use application::{
+    errors::VerifyModelError,
+    ports::{inbound::VerifyModelPort, outbound::ModelLibraryPort},
+    services::VerifyModelService,
+};
 use domain::ManagedModel;
 
-use crate::common::block_on::BlockOn;
-use crate::common::fakes::fake_broken_model_library::FakeBrokenModelLibrary;
-use crate::common::fakes::fake_missing_model_library::FakeMissingModelLibrary;
-use crate::common::fakes::fake_unhashable_model_library::FakeUnhashableModelLibrary;
-use crate::common::fakes::fake_unproven_model_library::FakeUnprovenModelLibrary;
-use crate::common::fakes::fake_vanishing_model_library::FakeVanishingModelLibrary;
-use crate::common::fakes::fake_verified_model_library::FakeVerifiedModelLibrary;
-use crate::common::fakes::model_fixture::ModelFixture;
+use crate::common::{
+    block_on::BlockOn,
+    fakes::{
+        fake_broken_model_library::FakeBrokenModelLibrary,
+        fake_missing_model_library::FakeMissingModelLibrary,
+        fake_unhashable_model_library::FakeUnhashableModelLibrary,
+        fake_unproven_model_library::FakeUnprovenModelLibrary,
+        fake_vanishing_model_library::FakeVanishingModelLibrary,
+        fake_verified_model_library::FakeVerifiedModelLibrary, model_fixture::ModelFixture,
+    },
+};
 
 /// Runs a verification against one library double.
 struct VerifyHarness;
