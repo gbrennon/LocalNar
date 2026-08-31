@@ -241,11 +241,11 @@ All commands run from the repository root:
 
 ```sh
 cargo run                    # start the TUI
-./verify.sh                  # fmt --check, build, test, clippy -D warnings
+./scripts/verify.sh          # fmt --check, build, test, clippy -D warnings
 cargo test --workspace       # every suite
 ```
 
-`verify.sh` is the gate; it must exit 0 before a change lands.
+`scripts/verify.sh` is the gate; it must exit 0 before a change lands.
 
 ## 7. Conventions
 

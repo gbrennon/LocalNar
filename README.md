@@ -127,12 +127,12 @@ what comes next is in [`docs/roadmap.md`](docs/roadmap.md).
 From the repository root:
 
 ```sh
-./verify.sh                  # the gate: fmt --check, build, test, clippy -D warnings
+./scripts/verify.sh         # the gate: fmt --check, build, test, clippy -D warnings
 cargo test --workspace       # every suite
 cargo run                    # start the TUI
 ```
 
-`verify.sh` must exit 0 before a change lands. It runs `cargo clippy` with
+`scripts/verify.sh` must exit 0 before a change lands. It runs `cargo clippy` with
 `-D warnings`, so a warning is a failure.
 
 Conventions: one type per file with the filename as `snake_case(type)`;
@@ -154,7 +154,7 @@ CI and the lefthook pre-commit hooks enforce them.
 | `crates/infrastructure/` | Adapters: Hugging Face registry and downloader, disk library |
 | `crates/presentation/` | The TUI that drives the use cases |
 | `src/main.rs` | Binary entry point; composes the adapters and starts the TUI |
-| `verify.sh` | The gate: `cargo fmt --check`, build, test, `clippy -D warnings` |
+| `scripts/verify.sh` | The gate: `cargo fmt --check`, build, test, `clippy -D warnings` |
 | `docs/` | Current-state architecture and roadmap |
 | `scripts/` | Branch-name, commit-message, and no-llama.cpp checks used by CI |
 | `README.md` | This guide, one orb included |
