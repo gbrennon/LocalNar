@@ -1,10 +1,10 @@
 use std::path::Path;
 
-use crate::byte_length::ByteLength;
-use crate::checksum::Checksum;
-use crate::installed_model::InstalledModel;
-use crate::model_spec::ModelSpec;
-use crate::model_state::ModelState;
+use crate::ByteLength;
+use crate::Checksum;
+use crate::InstalledModel;
+use crate::ModelSpec;
+use crate::ModelState;
 
 /// A replica the local library holds, read together with its current state.
 ///
@@ -83,14 +83,14 @@ impl ManagedModel {
 #[cfg(test)]
 mod managed_model_tests {
     use super::ManagedModel;
-    use crate::byte_length::ByteLength;
-    use crate::checksum::Checksum;
-    use crate::installed_model::InstalledModel;
-    use crate::model_file_name::ModelFileName;
-    use crate::model_repository::ModelRepository;
-    use crate::model_repository_id::ModelRepositoryId;
-    use crate::model_spec::ModelSpec;
-    use crate::model_state::ModelState;
+    use crate::ByteLength;
+    use crate::Checksum;
+    use crate::InstalledModel;
+    use crate::ModelFileName;
+    use crate::ModelRepository;
+    use crate::ModelRepositoryId;
+    use crate::ModelSpec;
+    use crate::ModelState;
 
     fn spec() -> ModelSpec {
         ModelSpec::new(
@@ -98,6 +98,7 @@ mod managed_model_tests {
                 ModelRepositoryId::parse("unsloth/Qwen3-8B-GGUF").expect("valid id"),
             ),
             ModelFileName::new("Qwen3-8B-Q4_K_M.gguf").expect("valid file name"),
+            vec![],
         )
     }
 

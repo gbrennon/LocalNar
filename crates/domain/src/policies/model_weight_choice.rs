@@ -1,37 +1,33 @@
-use crate::model_file_name::ModelFileName;
-use crate::quantization::Quantization;
-use crate::remote_model_file::RemoteModelFile;
+use crate::specifications::{Specification, WholeWeightFile};
+use crate::value_objects::{Quantization, RemoteModelFile};
 
 /// The rule that reduces everything a repository offers to one candidate file.
 pub struct ModelWeightChoice;
 
 impl ModelWeightChoice {
-    const WEIGHT_EXTENSION: &'static str = ".gguf";
     const PREFERRED_BIT_WIDTH: u8 = 4;
-    const SHARD_MARKER: &'static str = "of";
     const UNKNOWN_PRECISION_DISTANCE: u8 = u8::MAX;
 
     /// The single offered file that stands for the repository, if any qualifies.
     ///
-    /// Only a whole weight file qualifies: documentation, configuration, and any
-    /// one part of a multi-part weight are useless on their own, so a repository
-    /// that offers nothing else yields no candidate at all rather than a row
-    /// that cannot be installed.
+    /// Qualifying is decided by `WholeWeightFile`, so a repository that offers
+    /// nothing installable on its own yields no candidate at all rather than a
+    /// row that cannot be installed.
     ///
-    /// Among the qualifying files the precision nearest four bits wins, since
-    /// four bits is the narrowest width that keeps a model usable while wider
-    /// ones only cost disk; an equal distance is settled in favor of the wider
-    /// precision, then the smaller file, then the file name, so the choice never
-    /// depends on the order the catalog happened to list files in.
+    /// Among the qualifying files the narrowest precision wins, since a
+    /// narrower width keeps a model usable while wider ones only cost disk;
+    /// an equal distance is settled in favor of the wider precision, then
+    /// the smaller file, then the file name, so the choice never depends on
+    /// the order the catalog happened to list files in.
     pub fn among(offered: &[RemoteModelFile]) -> Option<&RemoteModelFile> {
         offered
             .iter()
-            .filter(|offer| Self::is_whole_weight(offer.file()))
+            .filter(|offer| WholeWeightFile.is_satisfied_by(offer.file()))
             .min_by(|left, right| Self::preference(left).cmp(&Self::preference(right)))
     }
 
     fn preference(offer: &RemoteModelFile) -> (u8, bool, u64, &str) {
-        let (distance, narrower_than_preferred) = match Quantization::of_file(offer.file()) {
+        let (distance, narrower_than_preferred) = match Quantization::for_file(offer.file()) {
             Some(quantization) => (
                 quantization.bit_width().abs_diff(Self::PREFERRED_BIT_WIDTH),
                 quantization.bit_width() < Self::PREFERRED_BIT_WIDTH,
@@ -46,40 +42,14 @@ impl ModelWeightChoice {
             offer.file().as_str(),
         )
     }
-
-    fn is_whole_weight(file: &ModelFileName) -> bool {
-        let name = file.as_str();
-        let Some(stem_length) = name.len().checked_sub(Self::WEIGHT_EXTENSION.len()) else {
-            return false;
-        };
-
-        name.is_char_boundary(stem_length)
-            && name[stem_length..].eq_ignore_ascii_case(Self::WEIGHT_EXTENSION)
-            && !Self::is_shard(&name[..stem_length])
-    }
-
-    fn is_shard(stem: &str) -> bool {
-        let tokens: Vec<&str> = stem.split('-').collect();
-        tokens.windows(3).any(|window| {
-            Self::is_ordinal(window[0])
-                && window[1] == Self::SHARD_MARKER
-                && Self::is_ordinal(window[2])
-        })
-    }
-
-    fn is_ordinal(token: &str) -> bool {
-        !token.is_empty() && token.bytes().all(|byte| byte.is_ascii_digit())
-    }
 }
 
 #[cfg(test)]
 mod model_weight_choice_tests {
-    use crate::byte_length::ByteLength;
-    use crate::model_file_name::ModelFileName;
-    use crate::model_repository::ModelRepository;
-    use crate::model_repository_id::ModelRepositoryId;
-    use crate::model_weight_choice::ModelWeightChoice;
-    use crate::remote_model_file::RemoteModelFile;
+    use crate::policies::ModelWeightChoice;
+    use crate::value_objects::{
+        ByteLength, ModelFileName, ModelRepository, ModelRepositoryId, RemoteModelFile,
+    };
 
     fn offered(files: &[(&str, u64)]) -> Vec<RemoteModelFile> {
         let identifier = ModelRepositoryId::parse("unsloth/Qwen3-8B-GGUF").expect("valid id");
@@ -117,8 +87,14 @@ mod model_weight_choice_tests {
     }
 
     #[test]
-    fn a_repository_without_weights_yields_no_candidate() {
-        assert_eq!(chosen(&[("README.md", 12_000), ("config.json", 900)]), None);
+    fn a_repository_offering_only_split_parts_yields_no_candidate() {
+        assert_eq!(
+            chosen(&[
+                ("Qwen3-235B-Q4_K_M-00001-of-00003.gguf", 15_000_000_000),
+                ("Qwen3-235B-Q4_K_M-00002-of-00003.gguf", 15_000_000_000),
+            ]),
+            None
+        );
     }
 
     #[test]
@@ -170,7 +146,7 @@ mod model_weight_choice_tests {
     #[test]
     fn an_untagged_weight_is_still_a_candidate_when_it_is_the_only_one() {
         assert_eq!(
-            chosen(&[("README.md", 12_000), ("model.gguf", 4_000_000_000)]),
+            chosen(&[("model.gguf", 4_000_000_000)]),
             Some("model.gguf".to_owned())
         );
     }

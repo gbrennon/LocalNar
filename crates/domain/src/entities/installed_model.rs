@@ -1,8 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::byte_length::ByteLength;
-use crate::checksum::Checksum;
-use crate::model_spec::ModelSpec;
+use crate::value_objects::{ByteLength, Checksum, ModelSpec};
 
 /// A model replica that is present in the durable library.
 ///
@@ -63,12 +61,9 @@ impl InstalledModel {
 #[cfg(test)]
 mod installed_model_tests {
     use super::InstalledModel;
-    use crate::byte_length::ByteLength;
-    use crate::checksum::Checksum;
-    use crate::model_file_name::ModelFileName;
-    use crate::model_repository::ModelRepository;
-    use crate::model_repository_id::ModelRepositoryId;
-    use crate::model_spec::ModelSpec;
+    use crate::value_objects::{
+        ByteLength, Checksum, ModelFileName, ModelRepository, ModelRepositoryId, ModelSpec,
+    };
 
     fn spec() -> ModelSpec {
         ModelSpec::new(
@@ -76,6 +71,7 @@ mod installed_model_tests {
                 ModelRepositoryId::parse("unsloth/Qwen3-8B-GGUF").expect("valid id"),
             ),
             ModelFileName::new("Qwen3-8B-Q4_K_M.gguf").expect("valid file name"),
+            vec![],
         )
     }
 

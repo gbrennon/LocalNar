@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::model_file_name::ModelFileName;
+use crate::value_objects::ModelFileName;
 
 /// The weight precision a published model file was quantized to.
 ///
@@ -25,7 +25,7 @@ impl Quantization {
     /// closest to the extension is the file's own. A name that carries no such
     /// token, like `model.gguf`, discloses no quantization, and the caller must
     /// treat the precision as unknown rather than assume one.
-    pub fn of_file(file: &ModelFileName) -> Option<Self> {
+    pub fn for_file(file: &ModelFileName) -> Option<Self> {
         file.as_str()
             .split(Self::TAG_SEPARATORS)
             .rev()
@@ -71,11 +71,10 @@ impl fmt::Display for Quantization {
 
 #[cfg(test)]
 mod quantization_tests {
-    use crate::model_file_name::ModelFileName;
-    use crate::quantization::Quantization;
+    use crate::value_objects::{ModelFileName, Quantization};
 
     fn quantization_of(name: &str) -> Option<Quantization> {
-        Quantization::of_file(&ModelFileName::new(name).expect("valid file name"))
+        Quantization::for_file(&ModelFileName::new(name).expect("valid file name"))
     }
 
     #[test]

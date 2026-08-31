@@ -37,7 +37,7 @@ impl fmt::Display for ParameterCount {
 
 #[cfg(test)]
 mod parameter_count_tests {
-    use crate::parameter_count::ParameterCount;
+    use crate::value_objects::ParameterCount;
 
     #[test]
     fn billions_render_with_one_decimal() {

@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
 
-use crate::byte_length::ByteLength;
-use crate::managed_model::ManagedModel;
-use crate::model_spec::ModelSpec;
+use crate::ByteLength;
+use crate::ManagedModel;
+use crate::ModelSpec;
 
 /// Everything the local library holds, read as one answer.
 ///
@@ -83,15 +83,15 @@ impl ModelInventory {
 #[cfg(test)]
 mod model_inventory_tests {
     use super::ModelInventory;
-    use crate::byte_length::ByteLength;
-    use crate::checksum::Checksum;
-    use crate::installed_model::InstalledModel;
-    use crate::managed_model::ManagedModel;
-    use crate::model_file_name::ModelFileName;
-    use crate::model_repository::ModelRepository;
-    use crate::model_repository_id::ModelRepositoryId;
-    use crate::model_spec::ModelSpec;
-    use crate::model_state::ModelState;
+    use crate::ByteLength;
+    use crate::Checksum;
+    use crate::InstalledModel;
+    use crate::ManagedModel;
+    use crate::ModelFileName;
+    use crate::ModelRepository;
+    use crate::ModelRepositoryId;
+    use crate::ModelSpec;
+    use crate::ModelState;
 
     fn spec(file: &str) -> ModelSpec {
         ModelSpec::new(
@@ -99,6 +99,7 @@ mod model_inventory_tests {
                 ModelRepositoryId::parse("unsloth/Qwen3-8B-GGUF").expect("valid id"),
             ),
             ModelFileName::new(file).expect("valid file name"),
+            vec![],
         )
     }
 

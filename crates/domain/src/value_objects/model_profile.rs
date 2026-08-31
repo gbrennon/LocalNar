@@ -1,5 +1,4 @@
-use crate::context_length::ContextLength;
-use crate::parameter_count::ParameterCount;
+use crate::value_objects::{ContextLength, ParameterCount};
 
 /// What a catalog discloses about serving a model, beyond the weights themselves.
 ///
@@ -42,9 +41,7 @@ impl ModelProfile {
 
 #[cfg(test)]
 mod model_profile_tests {
-    use crate::context_length::ContextLength;
-    use crate::model_profile::ModelProfile;
-    use crate::parameter_count::ParameterCount;
+    use crate::value_objects::{ContextLength, ModelProfile, ParameterCount};
 
     #[test]
     fn a_disclosed_profile_reports_both_facts() {

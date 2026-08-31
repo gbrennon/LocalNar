@@ -148,6 +148,7 @@ impl<'root> InventoryWalk<'root> {
         Some(ModelSpec::new(
             ModelRepository::new(identifier, revision),
             file,
+            vec![],
         ))
     }
 }

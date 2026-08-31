@@ -16,7 +16,7 @@ fn spec(owner: &str, name: &str, revision: &str, file: &str) -> ModelSpec {
     );
     let file = ModelFileName::new(file).expect("valid file");
 
-    ModelSpec::new(repository, file)
+    ModelSpec::new(repository, file, vec![])
 }
 
 fn digest_of(bytes: &[u8]) -> Checksum {

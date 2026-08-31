@@ -23,6 +23,9 @@ pub enum DomainError {
     /// A literal did not parse as 64 hexadecimal characters.
     InvalidChecksumLiteral(String),
 
+    /// A model tag was built from a blank label.
+    InvalidModelTag,
+
     /// A computed checksum disagreed with the one the remote advertised.
     IntegrityMismatch { expected: String, actual: String },
 }
@@ -44,6 +47,7 @@ impl fmt::Display for DomainError {
                 formatter,
                 "`{literal}` is not a valid 64-character hexadecimal digest"
             ),
+            Self::InvalidModelTag => formatter.write_str("a model tag must not be blank"),
             Self::IntegrityMismatch { expected, actual } => write!(
                 formatter,
                 "checksum mismatch: expected `{expected}`, computed `{actual}`"
