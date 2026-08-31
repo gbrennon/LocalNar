@@ -233,7 +233,7 @@ progress, library, and help - cycled with `Tab`/`Shift+Tab`.
 
 `TuiApp` is the composition root; `LibraryManager` owns the five management use
 cases and turns each outcome into an `AppEvent`, so the widgets never call a
-service directly. Key bindings are documented in the README.
+service directly. Key bindings are documented in `docs/usage.md`.
 
 ## 6. Running and validating
 

@@ -1,6 +1,6 @@
 # LocalNar
 
-> Locally manage LLMs. Look at me: I am the sum of all evils.
+> Locally manage LLMs. Look at me: I am the sum of all evil.
 
 <!-- The orb was smaller in 1981. Yours is 4.7 GiB, quantized, and on your own disk. -->
 
@@ -29,70 +29,12 @@ Requires Rust `1.95` (edition **2024**).
 
 ---
 
-## 1. Searching and installing
+## 1. Using LocalNar
 
-Search mode queries the remote catalog and lists one row per model, with its
-quantization, size, parameter count, and context length. `↑`/`↓` selects,
-`Enter` installs.
+Search-and-install and library mode - keys, states, deleting, pruning - are
+documented in [`docs/usage.md`](docs/usage.md).
 
-An install resolves the remote file, downloads it, and verifies its SHA-256
-against the digest the catalog advertised. A model whose upstream advertises no
-checksum still installs, but is reported as **unproven** rather than verified:
-the manager reports what it can prove instead of assuming success.
-
-Progress is shown while bytes are in flight; `Esc` returns to the model list.
-
----
-
-## 2. Managing installed models
-
-`Tab` and `Shift+Tab` cycle search -> models -> library -> help, and `l` jumps
-straight to the library from the model table.
-
-Library mode gives full control over the models already on this machine:
-
-| Key | Action |
-|---|---|
-| `↑` / `↓` | Move through the installed models |
-| `i` / `Enter` | Inspect one model: revision, exact path, size, full digest |
-| `v` | Re-hash the replica and prove it against its recorded digest |
-| `d` | Delete a model, after a `y`/`n` confirmation |
-| `p` | Prune leftovers: orphan `.sha256` notes and emptied directories |
-| `r` | Re-read the library from disk |
-| `Esc` | Close a popup, else return to the model table |
-| `Ctrl+C` / `Ctrl+Q` | Quit |
-
-The header reports where the library lives, how many models it holds, how much
-space they take, and how many are verified or broken.
-
-### What the states mean
-
-- **verified** - the library recorded a digest it proved for these bytes.
-- **unproven** - the bytes are on disk but nothing has proved them, because no
-  checksum was ever recorded. `v` is what turns unproven into verified.
-- **broken** - the bytes no longer match the digest recorded for them.
-
-The orb in the film corrupted everyone who took it on faith. `v` replaces faith
-with arithmetic.
-
-Listing the library never hashes a file, which is what keeps it fast with
-multi-gigabyte models. Proving bytes is `v`'s job, on demand, for one model.
-
-### Deleting and pruning
-
-Deleting removes the replica, its digest note, and the directories that model
-alone needed - never the library root.
-
-Pruning discards only what stands for no model: digest notes whose replica is
-gone, and directories left holding nothing. A model you installed is never a
-leftover, proven or not, and a file the manager did not put there is never
-touched.
-
-Taarna struck only what had earned it. So does `p`.
-
----
-
-## 3. Layout
+## 2. Layout
 
 The hexagon has four crates under `crates/`, all implemented:
 
@@ -122,26 +64,10 @@ what comes next is in [`docs/roadmap.md`](docs/roadmap.md).
 
 ---
 
-## 4. Development
+## 3. Development
 
-From the repository root:
-
-```sh
-./scripts/verify.sh         # the gate: fmt --check, build, test, clippy -D warnings
-cargo test --workspace       # every suite
-cargo run                    # start the TUI
-```
-
-`scripts/verify.sh` must exit 0 before a change lands. It runs `cargo clippy` with
-`-D warnings`, so a warning is a failure.
-
-Conventions: one type per file with the filename as `snake_case(type)`;
-`mod.rs` only re-exports; no inline comments, with doc comments stating the
-contract on a port and the behavior on an implementation; no setters - a method
-is named for what it does.
-
-Branch-name and commit-message rules live in [`scripts/`](scripts/README.md);
-CI and the lefthook pre-commit hooks enforce them.
+The gate, conventions, and branch/commit rules are documented in
+[`docs/development.md`](docs/development.md).
 
 ---
 
@@ -155,7 +81,7 @@ CI and the lefthook pre-commit hooks enforce them.
 | `crates/presentation/` | The TUI that drives the use cases |
 | `src/main.rs` | Binary entry point; composes the adapters and starts the TUI |
 | `scripts/verify.sh` | The gate: `cargo fmt --check`, build, test, `clippy -D warnings` |
-| `docs/` | Current-state architecture and roadmap |
+| `docs/` | Architecture, roadmap, usage, development, and the song behind the name |
 | `scripts/` | Branch-name, commit-message, and no-llama.cpp checks used by CI |
 | `README.md` | This guide, one orb included |
 
@@ -163,10 +89,24 @@ CI and the lefthook pre-commit hooks enforce them.
 
 ## The name
 
-`LocalNar` is `local` welded onto the Loc-Nar: the green glowing orb from *Heavy
-Metal* (1981) that turns up in every era, promises everything, and consumes
-whoever covets it. A stack of quantized weights is a fair modern likeness -
-enormous, seductive, and much better kept somewhere you can prove what it is.
+`LocalNar` is `local` welded onto the Loc-Nar: the green glowing orb from
+*Heavy Metal* (1981) that surfaces in every era the anthology visits, promises
+everything, and consumes whoever covets it. The soundtrack knows it too -
+Sammy Hagar's "Heavy Metal", Don Felder's "Heavy Metal (Takin' a Ride)", and
+Blue Oyster Cult's "Veteran of the Psychic Wars" playing Taarna in. A stack of
+quantized weights is a fair modern likeness - enormous, seductive, and much
+better kept somewhere you can prove what it is.
+
+The orb had a chronicler before this repository did. "March of the Black
+Monolith", written for the Brazilian black metal band Black Cascade, sings the
+thing's side of the story: it introduces itself as "the sum of all evil",
+"searching for some worlds to crack", the one who can "cut through the tissue
+of reality" and "distort every world/one" - and who ends, always, as "nothing
+but a simple existence". Strip the menace and that is the manager's founding
+observation: the orb is bytes on your own disk, and bytes you can prove.
+
+The full lyrics and where each line lands - on the film and on this
+repository - are in [`docs/music.md`](docs/music.md).
 
 The orb never asked permission. This one does: nothing leaves the library
 without a `y`.
