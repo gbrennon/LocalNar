@@ -1,5 +1,6 @@
 [package]
 name = "localnar"
+description = "Local model manager: discovers models in a remote catalog, installs them into a durable on-disk library, and lists, inspects, verifies, removes, and prunes that library."
 edition.workspace = true
 version.workspace = true
 

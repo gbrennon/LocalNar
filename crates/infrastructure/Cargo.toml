@@ -1,6 +1,6 @@
 [package]
 name = "infrastructure"
-description = "infrastructure layer of the localnar model downloader automation (scaffolded)."
+description = "Outbound adapters for LocalNar: disk-backed model library persistence and the Hugging Face registry and downloader."
 edition.workspace = true
 version.workspace = true
 authors.workspace = true

@@ -1,6 +1,6 @@
 [package]
 name = "application"
-description = "Ports and services orchestrating the model downloader automation."
+description = "Application services for LocalNar: inbound and outbound ports plus the services that install, search, verify, inspect, remove, list, and prune models."
 edition.workspace = true
 version.workspace = true
 authors.workspace = true
