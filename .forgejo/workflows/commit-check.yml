@@ -2,9 +2,6 @@ name: Check Commit Messages
 
 on: [push, pull_request]
 
-permissions:
-  contents: read
-
 jobs:
   check-commit-messages:
     name: Check commit messages
