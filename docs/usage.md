@@ -14,7 +14,8 @@ against the digest the catalog advertised. A model whose upstream advertises no
 checksum still installs, but is reported as **unproven** rather than verified:
 the manager reports what it can prove instead of assuming success.
 
-Progress is shown while bytes are in flight; `Esc` returns to the model list.
+Progress is shown while bytes are in flight; `Esc` returns to wherever the
+install started.
 
 ## Managing installed models
 
@@ -31,6 +32,7 @@ Library mode gives full control over the models already on this machine:
 | `d` | Delete a model, after a `y`/`n` confirmation |
 | `p` | Prune leftovers: orphan `.sha256` notes and emptied directories |
 | `r` | Re-read the library from disk |
+| `h` | Open help |
 | `Esc` | Close a popup, else return to the model table |
 | `Ctrl+C` / `Ctrl+Q` | Quit |
 

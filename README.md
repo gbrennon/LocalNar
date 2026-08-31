@@ -25,7 +25,9 @@ holds.
 Models live under `$LOCALNAR_MODELS_DIR`, defaulting to
 `~/.cache/localnar/models`.
 
-Requires Rust `1.95` (edition **2024**).
+Built on Rust edition **2024**; the toolchain comes from
+[`rust-toolchain.toml`](rust-toolchain.toml) (`nightly`), so any `cargo` command
+installs what it needs through `rustup`.
 
 ---
 
