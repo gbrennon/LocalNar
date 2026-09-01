@@ -26,10 +26,10 @@ authors = ["gbrennon"]
 license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
-domain = { path = "crates/domain" }
-application = { path = "crates/application" }
-infrastructure = { path = "crates/infrastructure" }
-presentation = { path = "crates/presentation" }
+domain = { path = "crates/domain", version = "0.1.0" }
+application = { path = "crates/application", version = "0.1.0" }
+infrastructure = { path = "crates/infrastructure", version = "0.1.0" }
+presentation = { path = "crates/presentation", version = "0.1.0" }
 
 tokio = { version = "1", features = ["full"] }
 futures = "0.3"
