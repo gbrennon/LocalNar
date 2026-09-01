@@ -87,7 +87,7 @@ The gate, conventions, and branch/commit rules are documented in
 | `crates/application/` | Ports, typed errors, and one service per use case |
 | `crates/infrastructure/` | Adapters: Hugging Face registry and downloader, disk library |
 | `crates/presentation/` | The TUI that drives the use cases |
-| `src/main.rs` | Binary entry point; composes the adapters and starts the TUI |
+| `src/main.rs` | Binary entry point; awaits `TuiLauncher::launch` and nothing else |
 | `scripts/verify.sh` | The gate: `cargo fmt --check`, build, test, `clippy -D warnings` |
 | `docs/` | Architecture, roadmap, usage, development, and the song behind the name |
 | `scripts/` | Branch-name, commit-message, and no-llama.cpp checks used by CI |
