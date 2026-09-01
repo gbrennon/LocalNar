@@ -1,0 +1,11 @@
+name: Verify
+description: Run the repository gate - formatting check, build, tests, and clippy with warnings as errors.
+
+runs:
+  using: composite
+  steps:
+    - name: Run the gate
+      shell: bash
+      run: |
+        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+        ./scripts/verify.sh

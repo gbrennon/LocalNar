@@ -47,30 +47,44 @@ the library holds. One type per file, filename = `snake_case(type)`.
 
 ```
 crates/domain/src
-├── byte_length.rs          ByteLength
-├── checksum.rs             Checksum
-├── context_length.rs       ContextLength
-├── discarded_stray.rs      DiscardedStray
-├── domain_error.rs         DomainError
-├── installed_model.rs      InstalledModel
-├── managed_model.rs        ManagedModel
-├── model_artifact.rs       ModelArtifact
-├── model_file_name.rs      ModelFileName
-├── model_info.rs           ModelInfo
-├── model_inventory.rs      ModelInventory
-├── model_profile.rs        ModelProfile
-├── model_repository.rs     ModelRepository
-├── model_repository_id.rs  ModelRepositoryId
-├── model_revision.rs       ModelRevision
-├── model_spec.rs           ModelSpec
-├── model_state.rs          ModelState
-├── model_weight_choice.rs  ModelWeightChoice
-├── parameter_count.rs      ParameterCount
-├── quantization.rs         Quantization
-├── remote_model_file.rs    RemoteModelFile
-├── removed_model.rs        RemovedModel
-└── search_query.rs         SearchQuery
+├── errors/
+│   └── domain_error.rs             DomainError
+├── entities/
+│   ├── installed_model.rs          InstalledModel
+│   ├── discarded_stray.rs          DiscardedStray
+│   ├── managed_model.rs            ManagedModel
+│   ├── model_inventory.rs          ModelInventory
+│   └── removed_model.rs            RemovedModel
+├── policies/
+│   └── model_weight_choice.rs      ModelWeightChoice
+├── specifications/
+│   ├── specification.rs            Specification
+│   ├── multi_part_shard.rs         MultiPartShard
+│   └── whole_weight_file.rs        WholeWeightFile
+├── value_objects/
+│   ├── byte_length.rs              ByteLength
+│   ├── checksum.rs                 Checksum
+│   ├── context_length.rs           ContextLength
+│   ├── model_artifact.rs           ModelArtifact
+│   ├── model_file_name.rs          ModelFileName
+│   ├── model_info.rs               ModelInfo
+│   ├── model_profile.rs            ModelProfile
+│   ├── model_repository.rs         ModelRepository
+│   ├── model_repository_id.rs      ModelRepositoryId
+│   ├── model_revision.rs           ModelRevision
+│   ├── model_spec.rs               ModelSpec
+│   ├── model_state.rs              ModelState
+│   ├── model_tag.rs                ModelTag
+│   ├── parameter_count.rs          ParameterCount
+│   ├── quantization.rs             Quantization
+│   ├── remote_model_file.rs        RemoteModelFile
+│   └── search_query.rs             SearchQuery
 ```
+
+Value objects live under `value_objects/`; yes-or-no domain rules under
+`specifications/` (combined by the one policy under `policies/`); the types
+describing what the library holds and what its operations give back live under
+`entities/`.
 
 ### 2.1 Naming one model
 
@@ -84,7 +98,7 @@ A spec is the identity every use case takes.
 
 ### 2.2 Install lifecycle
 
-`ModelState` - `crates/domain/src/model_state.rs`:
+`ModelState` - `crates/domain/src/value_objects/model_state.rs`:
 
 ```rust
 pub enum ModelState {
@@ -114,11 +128,11 @@ replica, and the manager reports that honestly rather than claiming success.
 ### 2.4 Domain errors - `crates/domain/src/domain_error.rs`
 
 `BlankSearchQuery`, `EmptyRevision`, `MalformedRepository`, `InvalidFileName`,
-`InvalidChecksumLiteral`. Construction is fallible where a value has a rule;
+`InvalidChecksumLiteral`, `InvalidModelTag`. Construction is fallible where a
+value has a rule;
 nothing else validates on the operator's behalf.
 
 ## 3. Application crate (`crates/application`)
-
 Owns the boundary: the ports, the typed errors, and the services that
 orchestrate them. No I/O lives here.
 
@@ -233,7 +247,7 @@ progress, library, and help - cycled with `Tab`/`Shift+Tab`.
 
 `TuiApp` is the composition root; `LibraryManager` owns the five management use
 cases and turns each outcome into an `AppEvent`, so the widgets never call a
-service directly. Key bindings are documented in the README.
+service directly. Key bindings are documented in `docs/usage.md`.
 
 ## 6. Running and validating
 
@@ -241,11 +255,11 @@ All commands run from the repository root:
 
 ```sh
 cargo run                    # start the TUI
-./verify.sh                  # fmt --check, build, test, clippy -D warnings
+./scripts/verify.sh          # fmt --check, build, test, clippy -D warnings
 cargo test --workspace       # every suite
 ```
 
-`verify.sh` is the gate; it must exit 0 before a change lands.
+`scripts/verify.sh` is the gate; it must exit 0 before a change lands.
 
 ## 7. Conventions
 

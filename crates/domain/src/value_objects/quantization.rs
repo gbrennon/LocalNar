@@ -21,7 +21,7 @@ impl Quantization {
     /// Reads the quantization a file name advertises, when it advertises one.
     ///
     /// Publishers encode the tag as its own dash- or dot-separated token, as in
-    /// `Qwen3-8B-Q4_K_M.gguf` or `Meta-Llama-3-8B.IQ4_XS.gguf`, and the tag
+    /// `Qwen3-8B-Q4_K_M.gguf` or `Mistral-7B-v0.3.IQ4_XS.gguf`, and the tag
     /// closest to the extension is the file's own. A name that carries no such
     /// token, like `model.gguf`, discloses no quantization, and the caller must
     /// treat the precision as unknown rather than assume one.
@@ -88,7 +88,7 @@ mod quantization_tests {
     #[test]
     fn a_dot_separated_tag_is_read_from_the_file_name() {
         let quantization =
-            quantization_of("Meta-Llama-3-8B.IQ4_XS.gguf").expect("a tagged file name");
+            quantization_of("Mistral-7B-v0.3.IQ4_XS.gguf").expect("a tagged file name");
 
         assert_eq!(quantization.label(), "IQ4_XS");
         assert_eq!(quantization.bit_width(), 4);
