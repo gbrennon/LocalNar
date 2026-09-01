@@ -1,6 +1,6 @@
 [package]
 name = "domain"
-description = "Pure domain model and inbound/outbound ports for the model downloader automation."
+description = "Framework-free domain model for LocalNar: entities, value objects, policies, specifications, and domain errors."
 edition.workspace = true
 version.workspace = true
 authors.workspace = true
