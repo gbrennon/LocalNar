@@ -48,14 +48,14 @@ The hexagon has four crates under `crates/`, all implemented:
 
 | Crate | Layer |
 |---|---|
-| `domain` | value objects, install state machine, what the library holds |
-| `application` | inbound/outbound ports, typed errors, one service per use case |
-| `infrastructure` | adapters: Hugging Face registry and downloader, disk library |
-| `presentation` | the TUI that drives the use cases |
+| `localnar-domain` | value objects, install state machine, what the library holds |
+| `localnar-application` | inbound/outbound ports, typed errors, one service per use case |
+| `localnar-infrastructure` | adapters: Hugging Face registry and downloader, disk library |
+| `localnar-presentation` | the TUI that drives the use cases |
 
-The dependency rule points inwards: `domain` depends on nothing, `application`
-only on `domain`, and the outer layers implement the ports the inner ones
-declare.
+The dependency rule points inwards: `localnar-domain` depends on nothing,
+`localnar-application` only on `localnar-domain`, and the outer layers implement
+the ports the inner ones declare.
 
 Inbound ports name what a driver may ask for - `SearchModelsPort`,
 `InstallModelPort`, `ListInstalledModelsPort`, `InspectModelPort`,
