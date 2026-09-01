@@ -1,6 +1,6 @@
 [package]
 name = "presentation"
-description = "presentation layer of the localnar model downloader automation (scaffolded)."
+description = "User interface layer for LocalNar: drives model search, install progress, and library management for the operator."
 edition.workspace = true
 version.workspace = true
 authors.workspace = true

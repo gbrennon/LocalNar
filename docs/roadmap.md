@@ -75,4 +75,4 @@ that through a port rather than reaching into the filesystem itself.
   `tempfile`.
 - Presentation tests render widgets against `ratatui`'s `TestBackend` and assert
   on the rendered cells.
-- `./verify.sh` (fmt, build, test, clippy `-D warnings`) must exit 0.
+- `./scripts/verify.sh` (fmt, build, test, clippy `-D warnings`) must exit 0.

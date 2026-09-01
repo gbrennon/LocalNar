@@ -1,0 +1,13 @@
+name: Check No llama.cpp
+
+on: [push, pull_request]
+
+jobs:
+  check-no-llama-cpp:
+    name: Check no llama.cpp
+    runs-on: codeberg-medium
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check no llama.cpp
+        run: bash scripts/check_no_llama_cpp.sh
