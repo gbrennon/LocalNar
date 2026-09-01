@@ -7,12 +7,8 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
-application = { workspace = true }
-infrastructure = { workspace = true }
 presentation = { workspace = true }
 tokio = { workspace = true }
-crossterm = { workspace = true }
-ratatui = { workspace = true }
 
 [workspace]
 members = [
