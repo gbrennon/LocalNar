@@ -2,7 +2,7 @@
 
 use std::{fmt, path::Path};
 
-use application::errors::LibraryError;
+use localnar_application::errors::LibraryError;
 
 /// Builds the library failures that a path, rather than a named model, raises.
 ///

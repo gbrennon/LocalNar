@@ -1,5 +1,5 @@
-use domain::ByteLength;
-use infrastructure::adapters::{ProgressBus, ProgressEvent};
+use localnar_domain::ByteLength;
+use localnar_infrastructure::adapters::{ProgressBus, ProgressEvent};
 use tokio::sync::mpsc;
 
 use crate::tui::app_event::AppEvent;

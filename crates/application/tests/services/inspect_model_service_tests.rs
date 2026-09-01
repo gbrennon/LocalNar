@@ -1,9 +1,9 @@
-use application::{
+use localnar_application::{
     errors::InspectModelError,
     ports::{inbound::InspectModelPort, outbound::ModelLibraryPort},
     services::InspectModelService,
 };
-use domain::ManagedModel;
+use localnar_domain::ManagedModel;
 
 use crate::common::{
     block_on::BlockOn,

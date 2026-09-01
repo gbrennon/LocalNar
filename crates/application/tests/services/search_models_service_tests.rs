@@ -1,4 +1,4 @@
-use application::{
+use localnar_application::{
     errors::{RegistryReadError, SearchModelsError},
     ports::inbound::SearchModelsPort,
     services::SearchModelsService,

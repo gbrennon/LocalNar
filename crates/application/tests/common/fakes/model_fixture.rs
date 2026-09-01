@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use domain::{
+use localnar_domain::{
     ByteLength, Checksum, ContextLength, DiscardedStray, InstalledModel, ManagedModel,
     ModelArtifact, ModelFileName, ModelInfo, ModelProfile, ModelRepository, ModelRepositoryId,
     ModelSpec, ModelState, ParameterCount, RemoteModelFile, RemovedModel, SearchQuery,

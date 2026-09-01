@@ -1,7 +1,7 @@
 //! Discarding one replica from the filesystem-backed library.
 
-use application::{errors::LibraryError, ports::outbound::ModelEvictionPort};
-use domain::{ModelSpec, RemovedModel};
+use localnar_application::{errors::LibraryError, ports::outbound::ModelEvictionPort};
+use localnar_domain::{ModelSpec, RemovedModel};
 
 use super::{library_tree::LibraryTree, model_library::DiskModelLibrary};
 

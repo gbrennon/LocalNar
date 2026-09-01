@@ -1,6 +1,6 @@
 #![allow(dead_code)]
-use application::{errors::LibraryError, ports::outbound::ModelEvictionPort};
-use domain::{ModelSpec, RemovedModel};
+use localnar_application::{errors::LibraryError, ports::outbound::ModelEvictionPort};
+use localnar_domain::{ModelSpec, RemovedModel};
 
 use crate::common::fakes::model_fixture::ModelFixture;
 

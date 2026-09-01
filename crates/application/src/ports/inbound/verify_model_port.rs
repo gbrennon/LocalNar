@@ -1,4 +1,4 @@
-use domain::{ManagedModel, ModelSpec};
+use localnar_domain::{ManagedModel, ModelSpec};
 
 use crate::errors::verify_model_error::VerifyModelError;
 

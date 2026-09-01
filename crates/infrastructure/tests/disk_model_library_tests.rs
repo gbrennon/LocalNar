@@ -1,9 +1,9 @@
-use application::{errors::LibraryError, ports::outbound::ModelLibraryPort};
-use domain::{
+use localnar_application::{errors::LibraryError, ports::outbound::ModelLibraryPort};
+use localnar_domain::{
     ByteLength, Checksum, ModelArtifact, ModelFileName, ModelRepository, ModelRepositoryId,
     ModelRevision, ModelSpec, ModelState,
 };
-use infrastructure::DiskModelLibrary;
+use localnar_infrastructure::DiskModelLibrary;
 use sha2::{Digest, Sha256};
 use tempfile::TempDir;
 

@@ -1,6 +1,6 @@
 #![allow(dead_code)]
-use application::{errors::LibraryError, ports::outbound::ModelInventoryPort};
-use domain::ModelInventory;
+use localnar_application::{errors::LibraryError, ports::outbound::ModelInventoryPort};
+use localnar_domain::ModelInventory;
 
 /// An inventory whose library location cannot be read at all.
 pub struct FakeUnreadableModelInventory;

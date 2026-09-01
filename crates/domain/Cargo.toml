@@ -1,5 +1,5 @@
 [package]
-name = "domain"
+name = "localnar-domain"
 description = "Framework-free domain model for LocalNar: entities, value objects, policies, specifications, and domain errors."
 edition.workspace = true
 version.workspace = true

@@ -2,8 +2,8 @@
 
 use std::path::{Path, PathBuf};
 
-use application::errors::LibraryError;
-use domain::{
+use localnar_application::errors::LibraryError;
+use localnar_domain::{
     ByteLength, InstalledModel, ManagedModel, ModelFileName, ModelRepository, ModelRepositoryId,
     ModelRevision, ModelSpec, ModelState,
 };

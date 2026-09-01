@@ -6,15 +6,15 @@ use std::{
     },
 };
 
-use application::{
-    errors::ModelDownloadError,
-    ports::outbound::{DownloadProgress, DownloadProgressPort, ModelDownloaderPort},
-};
-use domain::{ByteLength, ModelArtifact, RemoteModelFile};
 use hf_hub::{
     Repo, RepoType,
     api::tokio::{ApiBuilder, ApiRepo, Progress as HfProgress},
 };
+use localnar_application::{
+    errors::ModelDownloadError,
+    ports::outbound::{DownloadProgress, DownloadProgressPort, ModelDownloaderPort},
+};
+use localnar_domain::{ByteLength, ModelArtifact, RemoteModelFile};
 use tokio::sync::mpsc;
 
 const DEFAULT_ENDPOINT: &str = "https://huggingface.co";

@@ -1,9 +1,9 @@
-use application::{
+use localnar_application::{
     errors::ListInstalledModelsError,
     ports::{inbound::ListInstalledModelsPort, outbound::ModelInventoryPort},
     services::ListInstalledModelsService,
 };
-use domain::{ByteLength, ModelInventory};
+use localnar_domain::{ByteLength, ModelInventory};
 
 use crate::common::{
     block_on::BlockOn,

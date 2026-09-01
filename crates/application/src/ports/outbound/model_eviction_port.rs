@@ -1,4 +1,4 @@
-use domain::{ModelSpec, RemovedModel};
+use localnar_domain::{ModelSpec, RemovedModel};
 
 use crate::errors::library_error::LibraryError;
 

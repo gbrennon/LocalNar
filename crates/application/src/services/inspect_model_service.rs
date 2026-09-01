@@ -1,4 +1,4 @@
-use domain::{ManagedModel, ModelSpec, ModelState};
+use localnar_domain::{ManagedModel, ModelSpec, ModelState};
 
 use crate::{
     errors::inspect_model_error::InspectModelError,

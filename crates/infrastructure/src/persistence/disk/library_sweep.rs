@@ -2,8 +2,8 @@
 
 use std::{cmp::Reverse, path::Path};
 
-use application::errors::LibraryError;
-use domain::{ByteLength, DiscardedStray};
+use localnar_application::errors::LibraryError;
+use localnar_domain::{ByteLength, DiscardedStray};
 
 use super::{library_tree::LibraryTree, model_library::DiskModelLibrary};
 

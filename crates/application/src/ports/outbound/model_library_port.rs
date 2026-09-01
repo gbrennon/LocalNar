@@ -1,4 +1,4 @@
-use domain::{Checksum, InstalledModel, ModelArtifact, ModelSpec, ModelState};
+use localnar_domain::{Checksum, InstalledModel, ModelArtifact, ModelSpec, ModelState};
 
 use crate::errors::library_error::LibraryError;
 

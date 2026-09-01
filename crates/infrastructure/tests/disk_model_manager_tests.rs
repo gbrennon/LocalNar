@@ -1,11 +1,11 @@
-use application::ports::outbound::{
+use localnar_application::ports::outbound::{
     LibraryMaintenancePort, ModelEvictionPort, ModelInventoryPort, ModelLibraryPort,
 };
-use domain::{
+use localnar_domain::{
     ByteLength, Checksum, ModelArtifact, ModelFileName, ModelRepository, ModelRepositoryId,
     ModelRevision, ModelSpec, ModelState,
 };
-use infrastructure::DiskModelLibrary;
+use localnar_infrastructure::DiskModelLibrary;
 use sha2::{Digest, Sha256};
 use tempfile::TempDir;
 

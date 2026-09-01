@@ -1,4 +1,4 @@
-use domain::{ManagedModel, ModelInventory};
+use localnar_domain::{ManagedModel, ModelInventory};
 use ratatui::{
     Frame,
     layout::{Constraint, Rect},

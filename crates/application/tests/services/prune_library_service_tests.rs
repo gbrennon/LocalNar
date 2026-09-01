@@ -1,9 +1,9 @@
-use application::{
+use localnar_application::{
     errors::PruneLibraryError,
     ports::{inbound::PruneLibraryPort, outbound::LibraryMaintenancePort},
     services::PruneLibraryService,
 };
-use domain::{ByteLength, DiscardedStray};
+use localnar_domain::{ByteLength, DiscardedStray};
 
 use crate::common::{
     block_on::BlockOn,

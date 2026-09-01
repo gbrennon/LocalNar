@@ -1,4 +1,4 @@
-use domain::ByteLength;
+use localnar_domain::ByteLength;
 
 /// How far a transfer has got.
 ///

@@ -27,17 +27,17 @@ Every layer is implemented:
 
 | Crate | Role |
 |---|---|
-| `domain` | value objects, install state machine, what the library holds |
-| `application` | inbound/outbound ports, typed errors, use-case services |
-| `infrastructure` | adapters: Hugging Face registry, downloader, disk library |
-| `presentation` | the TUI that drives the use cases |
+| `localnar-domain` | value objects, install state machine, what the library holds |
+| `localnar-application` | inbound/outbound ports, typed errors, use-case services |
+| `localnar-infrastructure` | adapters: Hugging Face registry, downloader, disk library |
+| `localnar-presentation` | the TUI that drives the use cases |
 
-The dependency rule points inwards. `domain` depends on nothing;
-`application` depends only on `domain`; `infrastructure` and `presentation`
-depend on the layers inside them and never the reverse.
+The dependency rule points inwards. `localnar-domain` depends on nothing;
+`localnar-application` depends only on `localnar-domain`; `localnar-infrastructure`
+and `localnar-presentation` depend on the layers inside them and never the reverse.
 
 Ports are plain traits using native `async fn` in trait position, enabled by
-`#![allow(async_fn_in_trait)]` in the `application` crate root. There is no
+`#![allow(async_fn_in_trait)]` in the `localnar-application` crate root. There is no
 `#[async_trait]` anywhere in the workspace.
 
 ## 2. Domain crate (`crates/domain`)

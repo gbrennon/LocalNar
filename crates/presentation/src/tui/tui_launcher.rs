@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
-use application::services::SearchModelsService;
-use infrastructure::{DiskModelLibrary, HfApiRegistry, HfHubDownloader};
+use localnar_application::services::SearchModelsService;
+use localnar_infrastructure::{DiskModelLibrary, HfApiRegistry, HfHubDownloader};
 
 use crate::tui::{AppRunner, EventHandler, TerminalSession, TuiApp, TuiLaunchError};
 

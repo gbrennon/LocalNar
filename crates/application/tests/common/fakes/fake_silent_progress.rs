@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use application::ports::outbound::{DownloadProgress, DownloadProgressPort};
+use localnar_application::ports::outbound::{DownloadProgress, DownloadProgressPort};
 
 /// A progress sink for scenarios that do not assert on reporting.
 pub struct FakeSilentProgress;

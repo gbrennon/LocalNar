@@ -1,4 +1,4 @@
-use domain::{InstalledModel, ModelSpec};
+use localnar_domain::{InstalledModel, ModelSpec};
 
 use crate::errors::install_model_error::InstallModelError;
 

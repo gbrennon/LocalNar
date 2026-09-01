@@ -1,9 +1,9 @@
 #![allow(dead_code)]
-use application::{
+use localnar_application::{
     errors::ModelDownloadError,
     ports::outbound::{DownloadProgress, DownloadProgressPort, ModelDownloaderPort},
 };
-use domain::{ModelArtifact, RemoteModelFile};
+use localnar_domain::{ModelArtifact, RemoteModelFile};
 
 use crate::common::fakes::model_fixture::ModelFixture;
 

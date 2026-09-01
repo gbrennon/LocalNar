@@ -1,17 +1,17 @@
 use std::sync::Mutex;
 
-use application::{
+use localnar_application::{
     ports::{
         inbound::InstallModelPort,
         outbound::{DownloadProgress, DownloadProgressPort},
     },
     services::InstallModelService,
 };
-use domain::{
+use localnar_domain::{
     ByteLength, Checksum, ModelArtifact, ModelFileName, ModelRepository, ModelRepositoryId,
     ModelRevision, ModelSpec, RemoteModelFile,
 };
-use infrastructure::{
+use localnar_infrastructure::{
     DiskModelLibrary, HfApiRegistry, HfHubDownloader, HubDownloadTransport, HubTransport,
 };
 use serde::de::DeserializeOwned;
@@ -43,9 +43,9 @@ impl HubTransport for FakeHubTransport {
     async fn get_json<T: DeserializeOwned>(
         &self,
         _path: &str,
-    ) -> Result<T, application::errors::RegistryReadError> {
+    ) -> Result<T, localnar_application::errors::RegistryReadError> {
         serde_json::from_str(&self.response_json).map_err(|_| {
-            application::errors::RegistryReadError::Malformed {
+            localnar_application::errors::RegistryReadError::Malformed {
                 repository: "fake".to_string(),
             }
         })
@@ -62,14 +62,16 @@ impl HubDownloadTransport for FakeDownloadTransport {
         &self,
         remote: &RemoteModelFile,
         progress: &dyn DownloadProgressPort,
-    ) -> Result<ModelArtifact, application::errors::ModelDownloadError> {
+    ) -> Result<ModelArtifact, localnar_application::errors::ModelDownloadError> {
         let staged_file = self.staged_dir.path().join(remote.file().as_str());
         tokio::fs::write(&staged_file, &self.payload)
             .await
-            .map_err(|err| application::errors::ModelDownloadError::Transport {
-                file: remote.file().to_string(),
-                cause: err.to_string(),
-            })?;
+            .map_err(
+                |err| localnar_application::errors::ModelDownloadError::Transport {
+                    file: remote.file().to_string(),
+                    cause: err.to_string(),
+                },
+            )?;
 
         let total = ByteLength::new(self.payload.len() as u64);
         progress.report(DownloadProgress::Started { total });
@@ -173,7 +175,7 @@ impl HubDownloadTransport for FakeCacheStagingTransport {
         &self,
         remote: &RemoteModelFile,
         progress: &dyn DownloadProgressPort,
-    ) -> Result<ModelArtifact, application::errors::ModelDownloadError> {
+    ) -> Result<ModelArtifact, localnar_application::errors::ModelDownloadError> {
         let blobs = self.cache_dir.path().join("blobs");
         let snapshot = self.cache_dir.path().join("snapshots").join(Self::COMMIT);
         tokio::fs::create_dir_all(&blobs).await.expect("blobs dir");

@@ -1,6 +1,6 @@
 #![allow(dead_code)]
-use application::{errors::LibraryError, ports::outbound::ModelEvictionPort};
-use domain::{ModelSpec, RemovedModel};
+use localnar_application::{errors::LibraryError, ports::outbound::ModelEvictionPort};
+use localnar_domain::{ModelSpec, RemovedModel};
 
 /// A library whose replicas cannot be discarded.
 pub struct FakeRefusingEviction;
