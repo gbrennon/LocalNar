@@ -1,6 +1,6 @@
 use std::{error::Error, fmt};
 
-use domain::ByteLength;
+use localnar_domain::ByteLength;
 
 /// Failures that can occur while transmitting a remote file.
 #[derive(Debug, Clone, PartialEq, Eq)]

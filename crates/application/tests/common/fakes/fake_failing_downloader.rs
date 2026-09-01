@@ -1,9 +1,9 @@
 #![allow(dead_code)]
-use application::{
+use localnar_application::{
     errors::ModelDownloadError,
     ports::outbound::{DownloadProgressPort, ModelDownloaderPort},
 };
-use domain::{ModelArtifact, RemoteModelFile};
+use localnar_domain::{ModelArtifact, RemoteModelFile};
 
 /// A downloader whose transport always breaks mid transfer.
 pub struct FakeFailingDownloader;

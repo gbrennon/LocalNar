@@ -1,9 +1,9 @@
-use application::{errors::RegistryReadError, ports::outbound::RemoteModelRegistryPort};
-use domain::{
+use futures::future::join_all;
+use localnar_application::{errors::RegistryReadError, ports::outbound::RemoteModelRegistryPort};
+use localnar_domain::{
     ByteLength, Checksum, ContextLength, ModelFileName, ModelInfo, ModelProfile, ModelRepository,
     ModelRepositoryId, ModelWeightChoice, ParameterCount, RemoteModelFile, SearchQuery,
 };
-use futures::future::join_all;
 use reqwest::Client;
 use serde::{Deserialize, de::DeserializeOwned};
 

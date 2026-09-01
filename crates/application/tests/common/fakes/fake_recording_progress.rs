@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use std::sync::Mutex;
 
-use application::ports::outbound::{DownloadProgress, DownloadProgressPort};
+use localnar_application::ports::outbound::{DownloadProgress, DownloadProgressPort};
 
 /// A progress sink that remembers every report in order.
 #[derive(Default)]

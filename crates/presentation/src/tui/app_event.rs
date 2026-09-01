@@ -1,4 +1,4 @@
-use domain::{
+use localnar_domain::{
     DiscardedStray, InstalledModel, ManagedModel, ModelInfo, ModelInventory, RemovedModel,
 };
 

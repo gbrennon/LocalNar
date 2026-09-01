@@ -1,4 +1,4 @@
-use application::{
+use localnar_application::{
     errors::RemoveModelError,
     ports::{
         inbound::RemoveModelPort,
@@ -6,7 +6,7 @@ use application::{
     },
     services::RemoveModelService,
 };
-use domain::{ByteLength, RemovedModel};
+use localnar_domain::{ByteLength, RemovedModel};
 
 use crate::common::{
     block_on::BlockOn,

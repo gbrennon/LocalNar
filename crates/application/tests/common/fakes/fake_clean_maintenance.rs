@@ -1,6 +1,6 @@
 #![allow(dead_code)]
-use application::{errors::LibraryError, ports::outbound::LibraryMaintenancePort};
-use domain::DiscardedStray;
+use localnar_application::{errors::LibraryError, ports::outbound::LibraryMaintenancePort};
+use localnar_domain::DiscardedStray;
 
 /// Maintenance of a library that keeps nothing but its replicas.
 pub struct FakeCleanMaintenance;

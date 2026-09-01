@@ -6,8 +6,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use application::errors::LibraryError;
-use domain::ByteLength;
+use localnar_application::errors::LibraryError;
+use localnar_domain::ByteLength;
 use tokio::fs::DirEntry;
 
 use super::library_fault::LibraryFault;

@@ -1,5 +1,5 @@
 [package]
-name = "application"
+name = "localnar-application"
 description = "Application services for LocalNar: inbound and outbound ports plus the services that install, search, verify, inspect, remove, list, and prune models."
 edition.workspace = true
 version.workspace = true
@@ -7,7 +7,7 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
-domain.workspace = true
+localnar-domain.workspace = true
 
 [[test]]
 name = "services"

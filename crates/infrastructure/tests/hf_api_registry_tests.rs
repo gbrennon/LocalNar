@@ -1,9 +1,9 @@
-use application::{errors::RegistryReadError, ports::outbound::RemoteModelRegistryPort};
-use domain::{
+use localnar_application::{errors::RegistryReadError, ports::outbound::RemoteModelRegistryPort};
+use localnar_domain::{
     ByteLength, Checksum, ContextLength, ModelFileName, ModelRepository, ModelRepositoryId,
     ModelRevision, ParameterCount, SearchQuery,
 };
-use infrastructure::{HfApiRegistry, HubTransport};
+use localnar_infrastructure::{HfApiRegistry, HubTransport};
 use serde::de::DeserializeOwned;
 
 const SEARCH_PATH: &str = "api/models?search=qwen3 gguf&limit=10&expand%5B%5D=gguf";

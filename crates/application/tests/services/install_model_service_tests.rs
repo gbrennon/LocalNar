@@ -1,4 +1,4 @@
-use application::{
+use localnar_application::{
     errors::InstallModelError,
     ports::{
         inbound::InstallModelPort,
@@ -8,7 +8,7 @@ use application::{
     },
     services::InstallModelService,
 };
-use domain::InstalledModel;
+use localnar_domain::InstalledModel;
 
 use crate::common::{
     block_on::BlockOn,

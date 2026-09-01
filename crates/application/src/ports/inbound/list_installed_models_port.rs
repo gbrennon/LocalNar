@@ -1,4 +1,4 @@
-use domain::ModelInventory;
+use localnar_domain::ModelInventory;
 
 use crate::errors::list_installed_models_error::ListInstalledModelsError;
 

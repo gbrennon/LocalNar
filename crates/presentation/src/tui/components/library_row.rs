@@ -1,4 +1,4 @@
-use domain::ManagedModel;
+use localnar_domain::ManagedModel;
 
 /// One locally installed model rendered as the cells of a single table row.
 ///

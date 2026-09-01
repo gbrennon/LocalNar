@@ -1,4 +1,4 @@
-use domain::{ModelInfo, SearchQuery};
+use localnar_domain::{ModelInfo, SearchQuery};
 
 use crate::{
     errors::search_models_error::SearchModelsError,

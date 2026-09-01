@@ -1,4 +1,4 @@
-use domain::{ModelSpec, ModelState, RemovedModel};
+use localnar_domain::{ModelSpec, ModelState, RemovedModel};
 
 use crate::{
     errors::remove_model_error::RemoveModelError,

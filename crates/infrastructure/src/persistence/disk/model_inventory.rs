@@ -1,7 +1,7 @@
 //! Reading the whole of what the filesystem-backed library holds.
 
-use application::{errors::LibraryError, ports::outbound::ModelInventoryPort};
-use domain::ModelInventory;
+use localnar_application::{errors::LibraryError, ports::outbound::ModelInventoryPort};
+use localnar_domain::ModelInventory;
 
 use super::{inventory_walk::InventoryWalk, model_library::DiskModelLibrary};
 

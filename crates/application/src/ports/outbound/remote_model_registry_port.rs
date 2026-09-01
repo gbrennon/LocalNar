@@ -1,4 +1,4 @@
-use domain::{ModelFileName, ModelInfo, ModelRepository, RemoteModelFile, SearchQuery};
+use localnar_domain::{ModelFileName, ModelInfo, ModelRepository, RemoteModelFile, SearchQuery};
 
 use crate::errors::registry_read_error::RegistryReadError;
 

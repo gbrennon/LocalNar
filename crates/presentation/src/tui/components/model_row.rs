@@ -1,4 +1,4 @@
-use domain::ModelInfo;
+use localnar_domain::ModelInfo;
 
 /// One described model rendered as the cells of a single table row.
 ///

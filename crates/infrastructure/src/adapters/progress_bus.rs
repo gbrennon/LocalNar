@@ -1,4 +1,4 @@
-use application::ports::outbound::download_progress::DownloadProgress;
+use localnar_application::ports::outbound::download_progress::DownloadProgress;
 use tokio::sync::broadcast;
 
 /// Progress event emitted by the progress bus.
@@ -56,7 +56,7 @@ impl ProgressBusSender {
     }
 }
 
-impl application::ports::outbound::download_progress_port::DownloadProgressPort
+impl localnar_application::ports::outbound::download_progress_port::DownloadProgressPort
     for ProgressBusSender
 {
     fn report(&self, progress: DownloadProgress) {
@@ -76,10 +76,10 @@ impl application::ports::outbound::download_progress_port::DownloadProgressPort
 
 #[cfg(test)]
 mod tests {
-    use application::ports::outbound::{
+    use localnar_application::ports::outbound::{
         download_progress::DownloadProgress, download_progress_port::DownloadProgressPort,
     };
-    use domain::ByteLength;
+    use localnar_domain::ByteLength;
 
     use super::*;
 

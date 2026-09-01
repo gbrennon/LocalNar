@@ -1,4 +1,4 @@
-use domain::{ModelArtifact, RemoteModelFile};
+use localnar_domain::{ModelArtifact, RemoteModelFile};
 
 use crate::{
     errors::model_download_error::ModelDownloadError,

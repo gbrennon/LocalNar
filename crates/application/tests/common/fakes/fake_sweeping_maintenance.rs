@@ -1,6 +1,6 @@
 #![allow(dead_code)]
-use application::{errors::LibraryError, ports::outbound::LibraryMaintenancePort};
-use domain::DiscardedStray;
+use localnar_application::{errors::LibraryError, ports::outbound::LibraryMaintenancePort};
+use localnar_domain::DiscardedStray;
 
 use crate::common::fakes::model_fixture::ModelFixture;
 

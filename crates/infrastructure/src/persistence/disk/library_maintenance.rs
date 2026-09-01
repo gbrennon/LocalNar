@@ -1,7 +1,7 @@
 //! Clearing what the filesystem-backed library keeps that is not a model.
 
-use application::{errors::LibraryError, ports::outbound::LibraryMaintenancePort};
-use domain::DiscardedStray;
+use localnar_application::{errors::LibraryError, ports::outbound::LibraryMaintenancePort};
+use localnar_domain::DiscardedStray;
 
 use super::{library_sweep::LibrarySweep, model_library::DiskModelLibrary};
 

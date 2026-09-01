@@ -1,4 +1,4 @@
-use domain::{ManagedModel, ModelState};
+use localnar_domain::{ManagedModel, ModelState};
 
 /// One installed model rendered as the labeled facts of a details view.
 ///

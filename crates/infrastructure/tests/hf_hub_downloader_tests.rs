@@ -1,14 +1,14 @@
 use std::sync::Mutex;
 
-use application::{
+use localnar_application::{
     errors::ModelDownloadError,
     ports::outbound::{DownloadProgress, DownloadProgressPort, ModelDownloaderPort},
 };
-use domain::{
+use localnar_domain::{
     ByteLength, Checksum, ModelArtifact, ModelFileName, ModelRepository, ModelRepositoryId,
     ModelRevision, RemoteModelFile,
 };
-use infrastructure::{HfHubDownloader, HubDownloadTransport};
+use localnar_infrastructure::{HfHubDownloader, HubDownloadTransport};
 use tempfile::TempDir;
 
 #[derive(Default)]

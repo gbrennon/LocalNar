@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use application::{
+use localnar_application::{
     ports::inbound::{
         InspectModelPort, ListInstalledModelsPort, PruneLibraryPort, RemoveModelPort,
         VerifyModelPort,
@@ -10,8 +10,8 @@ use application::{
         VerifyModelService,
     },
 };
-use domain::ModelSpec;
-use infrastructure::DiskModelLibrary;
+use localnar_domain::ModelSpec;
+use localnar_infrastructure::DiskModelLibrary;
 use tokio::sync::mpsc;
 
 use crate::tui::app_event::AppEvent;

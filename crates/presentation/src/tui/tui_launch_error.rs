@@ -1,6 +1,6 @@
 use std::{error::Error, fmt};
 
-use application::errors::RegistryReadError;
+use localnar_application::errors::RegistryReadError;
 
 /// Reason a TUI launch could not reach its run loop.
 #[derive(Debug)]

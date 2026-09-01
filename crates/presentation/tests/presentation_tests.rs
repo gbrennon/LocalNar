@@ -1,8 +1,8 @@
-use domain::{
+use localnar_domain::{
     ByteLength, ContextLength, ModelFileName, ModelInfo, ModelProfile, ModelRepository,
     ModelRepositoryId, ParameterCount, RemoteModelFile,
 };
-use presentation::tui::{LayoutHelper, ModelRow, ModelTableWidget};
+use localnar_presentation::tui::{LayoutHelper, ModelRow, ModelTableWidget};
 use ratatui::{Terminal, backend::TestBackend, layout::Rect};
 
 const TERMINAL_WIDTH: u16 = 80;

@@ -1,4 +1,4 @@
-use domain::DiscardedStray;
+use localnar_domain::DiscardedStray;
 
 use crate::errors::library_error::LibraryError;
 

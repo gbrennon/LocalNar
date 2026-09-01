@@ -1,5 +1,5 @@
 [package]
-name = "presentation"
+name = "localnar-presentation"
 description = "User interface layer for LocalNar: drives model search, install progress, and library management for the operator."
 edition.workspace = true
 version.workspace = true
@@ -9,7 +9,7 @@ license.workspace = true
 [dependencies]
 ratatui = { workspace = true }
 crossterm = { workspace = true }
-application = { workspace = true }
-domain = { workspace = true }
+localnar-application = { workspace = true }
+localnar-domain = { workspace = true }
 tokio = { workspace = true }
-infrastructure = { workspace = true }
+localnar-infrastructure = { workspace = true }

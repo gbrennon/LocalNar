@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use application::{
+use crossterm::event::{KeyCode, KeyEvent};
+use localnar_application::{
     ports::inbound::search_models_port::SearchModelsPort,
     services::{InstallModelService, SearchModelsService},
 };
-use crossterm::event::{KeyCode, KeyEvent};
-use domain::{DiscardedStray, ManagedModel, ModelSpec, SearchQuery};
-use infrastructure::{
+use localnar_domain::{DiscardedStray, ManagedModel, ModelSpec, SearchQuery};
+use localnar_infrastructure::{
     DiskModelLibrary, HfApiRegistry, HfHubDownloader, ReqwestHubTransport, adapters::ProgressBus,
     remote::huggingface::downloader::HfHubTokioTransport,
 };
@@ -113,7 +113,7 @@ impl TuiApp {
         HfApiRegistry<ReqwestHubTransport>,
         HfHubDownloader<HfHubTokioTransport>,
         DiskModelLibrary,
-        infrastructure::adapters::ProgressReporter,
+        localnar_infrastructure::adapters::ProgressReporter,
     > {
         let progress_reporter = self.progress_bus.sender();
         InstallModelService::new(
@@ -317,7 +317,7 @@ impl TuiApp {
                     let install_service = self.make_install_service();
 
                     tokio::spawn(async move {
-                        match application::ports::inbound::InstallModelPort::execute(
+                        match localnar_application::ports::inbound::InstallModelPort::execute(
                             &install_service,
                             &spec,
                         )

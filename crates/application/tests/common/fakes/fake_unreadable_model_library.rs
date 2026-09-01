@@ -1,6 +1,6 @@
 #![allow(dead_code)]
-use application::{errors::LibraryError, ports::outbound::ModelLibraryPort};
-use domain::{Checksum, InstalledModel, ModelArtifact, ModelSpec, ModelState};
+use localnar_application::{errors::LibraryError, ports::outbound::ModelLibraryPort};
+use localnar_domain::{Checksum, InstalledModel, ModelArtifact, ModelSpec, ModelState};
 
 /// A library whose location cannot be read at all.
 pub struct FakeUnreadableModelLibrary;

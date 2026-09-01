@@ -1,8 +1,8 @@
-use domain::{
+use localnar_domain::{
     ByteLength, Checksum, InstalledModel, ManagedModel, ModelFileName, ModelInventory,
     ModelRepository, ModelRepositoryId, ModelSpec, ModelState,
 };
-use presentation::tui::{LibraryRow, LibraryTableWidget, ModelDetails};
+use localnar_presentation::tui::{LibraryRow, LibraryTableWidget, ModelDetails};
 use ratatui::{Terminal, backend::TestBackend};
 
 const TERMINAL_WIDTH: u16 = 100;

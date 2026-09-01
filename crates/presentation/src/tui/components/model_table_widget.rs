@@ -1,4 +1,4 @@
-use domain::ModelInfo;
+use localnar_domain::ModelInfo;
 use ratatui::{
     Frame,
     layout::{Constraint, Rect},
