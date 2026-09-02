@@ -5,7 +5,7 @@ use localnar_application::services::SearchModelsService;
 use localnar_infrastructure::{
     DiskModelLibrary, HfApiRegistry, HfHubDownloader, ReqwestHubTransport,
 };
-use localnar_presentation::tui::{AppEvent, AppMode, AppTab, TuiApp};
+use localnar_presentation::tui::{AppEvent, AppMode, AppTab, GBadwolf, Theme, TuiApp};
 use ratatui::{
     Terminal,
     backend::TestBackend,
@@ -29,6 +29,7 @@ fn app(models_root: &Path) -> TuiApp {
         registry,
         HfHubDownloader::default(),
         DiskModelLibrary::new(models_root),
+        Arc::new(GBadwolf),
     )
 }
 
@@ -77,8 +78,8 @@ fn highlighted_columns_of(strip: &str, styles: &[Style], title: &str) -> Vec<Sty
 
 fn carries_the_highlight(styles: &[Style]) -> bool {
     styles.iter().all(|style| {
-        style.bg == Some(Color::Rgb(214, 93, 14))
-            && style.fg == Some(Color::Rgb(28, 27, 26))
+        style.bg == Some(GBadwolf::ACCENT_ORANGE)
+            && style.fg == Some(GBadwolf::ROOT_BACKGROUND)
             && style.add_modifier.contains(Modifier::BOLD)
     })
 }
@@ -296,4 +297,59 @@ async fn install_progress_can_be_reopened_from_model_table() {
 
     app.handle_key_event(pressed(KeyCode::Char('p'))).await;
     assert_eq!(app.mode(), AppMode::InstallProgress);
+}
+
+#[tokio::test]
+async fn a_custom_theme_can_be_injected() {
+    struct CustomTestTheme;
+    impl Theme for CustomTestTheme {
+        fn name(&self) -> &'static str {
+            "CustomTest"
+        }
+        fn tab_active(&self) -> Style {
+            Style::default().fg(Color::Yellow).bg(Color::Blue)
+        }
+        fn tab_inactive(&self) -> Style {
+            Style::default().fg(Color::Gray).bg(Color::Black)
+        }
+        fn border(&self) -> Style {
+            Style::default().fg(Color::White)
+        }
+        fn content(&self) -> Style {
+            Style::default().fg(Color::White)
+        }
+        fn content_emphasis(&self) -> Style {
+            Style::default().fg(Color::White)
+        }
+        fn highlight(&self) -> Style {
+            Style::default().fg(Color::Yellow).bg(Color::Blue)
+        }
+        fn status_success(&self) -> Style {
+            Style::default().fg(Color::Green)
+        }
+        fn status_error(&self) -> Style {
+            Style::default().fg(Color::Red)
+        }
+    }
+
+    let models_root = TempDir::new().expect("temp dir");
+    let transport = ReqwestHubTransport::new(UNREACHABLE_ENDPOINT, None).expect("a transport");
+    let registry = HfApiRegistry::new(transport);
+    let search_service = Arc::new(SearchModelsService::new(registry.clone()));
+
+    let mut custom_app = TuiApp::new(
+        search_service,
+        registry,
+        HfHubDownloader::default(),
+        DiskModelLibrary::new(models_root.path()),
+        Arc::new(CustomTestTheme),
+    );
+
+    let (strip, styles) = rendered_strip(&mut custom_app);
+    let highlighted = highlighted_columns_of(&strip, &styles, "1 Search");
+    assert!(
+        highlighted
+            .iter()
+            .all(|s| s.fg == Some(Color::Yellow) && s.bg == Some(Color::Blue))
+    );
 }
