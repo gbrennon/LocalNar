@@ -1,9 +1,6 @@
-use ratatui::{
-    style::Modifier,
-    text::{Line, Span},
-};
+use ratatui::text::{Line, Span};
 
-use crate::tui::{components::help_line::HelpLine, theme::Theme};
+use crate::tui::components::{help_line::HelpLine, themes::Theme};
 
 /// A section of help content with a title and lines.
 #[derive(Debug, Clone, Copy)]
@@ -147,22 +144,21 @@ impl HelpSection {
     ];
 
     /// Renders the section title and every line beneath it.
-    pub fn to_lines(self) -> Vec<Line<'static>> {
+    pub fn to_lines(self, theme: &dyn Theme) -> Vec<Line<'static>> {
         let mut lines = vec![Line::from(vec![Span::styled(
             self.title,
-            Theme::OUTSIDE_TABS.add_modifier(Modifier::BOLD),
+            theme.content_emphasis(),
         )])];
 
         for line in self.lines {
             match line {
-                HelpLine::Plain(text) => lines.push(Line::from(*text)),
+                HelpLine::Plain(text) => {
+                    lines.push(Line::from(Span::styled(*text, theme.content())))
+                }
                 HelpLine::KeyBinding { key, description } => {
                     lines.push(Line::from(vec![
-                        Span::styled(
-                            format!("  {key:<16}"),
-                            Theme::OUTSIDE_TABS.add_modifier(Modifier::BOLD),
-                        ),
-                        Span::styled(format!(" - {description}"), Theme::OUTSIDE_TABS),
+                        Span::styled(format!("  {key:<16}"), theme.content_emphasis()),
+                        Span::styled(format!(" - {description}"), theme.content()),
                     ]));
                 }
             }

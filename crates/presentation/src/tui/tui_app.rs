@@ -24,13 +24,12 @@ use crate::tui::{
     app_tab::AppTab,
     components::{
         HelpWidget, LibraryTableWidget, ModelDetails, ModelTableWidget, ProgressWidget,
-        SearchWidget, StatusWidget, TabsWidget,
+        SearchWidget, StatusWidget, TabsWidget, themes::Theme,
     },
     events::EventHandler,
     layout_helper::LayoutHelper,
     library_manager::LibraryManager,
     progress_reporter::ProgressReporterBridge,
-    theme::Theme,
 };
 
 /// Main TUI application struct managing the model downloader interface.
@@ -49,7 +48,7 @@ pub struct TuiApp {
     search_mode: AppMode,
     is_installing: bool,
     previous_tab: Option<AppTab>,
-    theme: Theme,
+    theme: Arc<dyn Theme>,
     tabs_widget: TabsWidget,
     search_widget: SearchWidget,
     model_table_widget: ModelTableWidget,
@@ -72,6 +71,7 @@ impl TuiApp {
         registry: HfApiRegistry<ReqwestHubTransport>,
         downloader: HfHubDownloader<HfHubTokioTransport>,
         library: DiskModelLibrary,
+        theme: Arc<dyn Theme>,
     ) -> Self {
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
         let progress_bus = ProgressBus::new(16);
@@ -89,14 +89,14 @@ impl TuiApp {
             search_mode: AppMode::Search,
             is_installing: false,
             previous_tab: None,
-            theme: Theme::new(),
-            tabs_widget: TabsWidget::new(),
-            search_widget: SearchWidget::new(),
-            model_table_widget: ModelTableWidget::new(),
-            library_table_widget: LibraryTableWidget::new(),
-            progress_widget: ProgressWidget::new(),
-            status_widget: StatusWidget::new(),
-            help_widget: HelpWidget::new(),
+            tabs_widget: TabsWidget::with_theme(Arc::clone(&theme)),
+            search_widget: SearchWidget::with_theme(Arc::clone(&theme)),
+            model_table_widget: ModelTableWidget::with_theme(Arc::clone(&theme)),
+            library_table_widget: LibraryTableWidget::with_theme(Arc::clone(&theme)),
+            progress_widget: ProgressWidget::with_theme(Arc::clone(&theme)),
+            status_widget: StatusWidget::with_theme(Arc::clone(&theme)),
+            help_widget: HelpWidget::with_theme(Arc::clone(&theme)),
+            theme,
             details: None,
             pending_removal: None,
             event_sender,
@@ -543,7 +543,7 @@ impl TuiApp {
     /// Render the TUI application.
     pub fn draw(&mut self, frame: &mut Frame) {
         let area = frame.area();
-        frame.render_widget(Block::default().style(self.theme.outside_tabs()), area);
+        frame.render_widget(Block::default().style(self.theme.content()), area);
 
         let chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -556,11 +556,11 @@ impl TuiApp {
         self.status_widget.draw(frame, chunks[3]);
 
         if let Some(entry) = self.details.as_ref() {
-            Self::draw_details_popup(frame, area, entry);
+            self.draw_details_popup(frame, area, entry);
         }
 
         if let Some(spec) = self.pending_removal.as_ref() {
-            Self::draw_removal_prompt(frame, area, spec);
+            self.draw_removal_prompt(frame, area, spec);
         }
 
         if let Some(error) = self.last_error.as_ref() {
@@ -579,10 +579,10 @@ impl TuiApp {
                 } else {
                     Self::MODEL_TABLE_HEADER
                 };
-                Self::draw_banner(frame, area, header, Self::MODEL_TABLE_TITLE);
+                self.draw_banner(frame, area, header, Self::MODEL_TABLE_TITLE);
             }
             AppMode::InstallProgress => {
-                Self::draw_banner(
+                self.draw_banner(
                     frame,
                     area,
                     Self::INSTALL_PROGRESS_HEADER,
@@ -590,10 +590,10 @@ impl TuiApp {
                 );
             }
             AppMode::Library => {
-                Self::draw_banner(frame, area, Self::LIBRARY_HEADER, Self::LIBRARY_TITLE);
+                self.draw_banner(frame, area, Self::LIBRARY_HEADER, Self::LIBRARY_TITLE);
             }
             AppMode::Help => {
-                Self::draw_banner(frame, area, Self::HELP_HEADER, Self::HELP_TITLE);
+                self.draw_banner(frame, area, Self::HELP_HEADER, Self::HELP_TITLE);
             }
         }
     }
@@ -618,65 +618,73 @@ impl TuiApp {
         }
     }
 
-    fn draw_banner(frame: &mut Frame, area: Rect, header: &'static str, title: &'static str) {
-        let banner = Paragraph::new(header).style(Theme::OUTSIDE_TABS).block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(title)
-                .border_style(Theme::BORDER)
-                .style(Theme::OUTSIDE_TABS),
-        );
+    fn draw_banner(
+        &self,
+        frame: &mut Frame,
+        area: Rect,
+        header: &'static str,
+        title: &'static str,
+    ) {
+        let banner = Paragraph::new(header)
+            .style(self.theme.content_emphasis())
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(title)
+                    .border_style(self.theme.border())
+                    .style(self.theme.content()),
+            );
         frame.render_widget(banner, area);
     }
 
     fn draw_search_help(&self, frame: &mut Frame, area: Rect) {
         let help = Paragraph::new(Self::SEARCH_HELP_TEXT)
-            .style(self.theme.outside_tabs())
+            .style(self.theme.content())
             .block(
                 Block::default()
                     .borders(Borders::ALL)
                     .title(Self::SEARCH_HELP_TITLE)
                     .border_style(self.theme.border())
-                    .style(self.theme.outside_tabs()),
+                    .style(self.theme.content()),
             )
             .wrap(Wrap { trim: true });
         frame.render_widget(help, area);
     }
 
-    fn draw_details_popup(frame: &mut Frame, area: Rect, entry: &ManagedModel) {
+    fn draw_details_popup(&self, frame: &mut Frame, area: Rect, entry: &ManagedModel) {
         let popup_area = LayoutHelper::centered_rect(
             Self::DETAILS_POPUP_WIDTH_PCT,
             Self::DETAILS_POPUP_HEIGHT_PCT,
             area,
         );
         let details = Paragraph::new(ModelDetails::describing(entry).to_lines().join("\n"))
-            .style(Theme::OUTSIDE_TABS)
+            .style(self.theme.content())
             .block(
                 Block::default()
                     .title(Self::DETAILS_TITLE)
                     .borders(Borders::ALL)
-                    .border_style(Theme::BORDER)
-                    .style(Theme::OUTSIDE_TABS),
+                    .border_style(self.theme.border())
+                    .style(self.theme.content()),
             )
             .wrap(Wrap { trim: false });
         frame.render_widget(Clear, popup_area);
         frame.render_widget(details, popup_area);
     }
 
-    fn draw_removal_prompt(frame: &mut Frame, area: Rect, spec: &ModelSpec) {
+    fn draw_removal_prompt(&self, frame: &mut Frame, area: Rect, spec: &ModelSpec) {
         let popup_area = LayoutHelper::centered_rect(
             Self::PROMPT_POPUP_WIDTH_PCT,
             Self::PROMPT_POPUP_HEIGHT_PCT,
             area,
         );
         let prompt = Paragraph::new(format!("{spec}\n\n{}", Self::PROMPT_ANSWERS))
-            .style(Theme::OUTSIDE_TABS)
+            .style(self.theme.content())
             .block(
                 Block::default()
                     .title(Self::PROMPT_TITLE)
                     .borders(Borders::ALL)
-                    .border_style(Theme::BORDER)
-                    .style(Theme::OUTSIDE_TABS),
+                    .border_style(self.theme.border())
+                    .style(self.theme.content()),
             )
             .wrap(Wrap { trim: true });
         frame.render_widget(Clear, popup_area);

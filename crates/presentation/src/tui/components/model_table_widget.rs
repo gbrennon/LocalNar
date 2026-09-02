@@ -1,21 +1,23 @@
+use std::sync::Arc;
+
 use localnar_domain::ModelInfo;
 use ratatui::{
     Frame,
     layout::{Constraint, Rect},
-    style::Modifier,
     widgets::{Block, Borders, Row, Table, TableState},
 };
 
-use crate::tui::{components::model_row::ModelRow, theme::Theme};
+use crate::tui::components::{
+    model_row::ModelRow,
+    themes::{GBadwolf, Theme},
+};
+
 /// Table of the models a search found, one row per model.
-///
-/// A catalog entry publishes many files, but the operator is choosing a model,
-/// so the table holds one described model per entry and never one row per
-/// published file.
-#[derive(Debug, Default)]
+#[derive(Clone)]
 pub struct ModelTableWidget {
     models: Vec<ModelInfo>,
     state: TableState,
+    theme: Arc<dyn Theme>,
 }
 
 impl ModelTableWidget {
@@ -28,11 +30,19 @@ impl ModelTableWidget {
     const CONTEXT_WIDTH: u16 = 8;
     const COLUMN_SPACING: u16 = 1;
 
-    /// Builds an empty table with nothing selected.
+    /// Builds an empty table with default theme.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Builds an empty table with an injected theme.
+    pub fn with_theme(theme: Arc<dyn Theme>) -> Self {
+        Self {
+            models: Vec::new(),
+            state: TableState::default(),
+            theme,
+        }
+    }
     /// Replaces the described models, selecting the first of them.
     pub fn show(&mut self, models: Vec<ModelInfo>) {
         self.state
@@ -83,23 +93,20 @@ impl ModelTableWidget {
     /// Renders the table into `area`.
     pub fn draw(&mut self, frame: &mut Frame, area: Rect) {
         let rows = self.models.iter().map(|info| {
-            Row::new(ModelRow::describing(info).into_cells()).style(Theme::OUTSIDE_TABS)
+            Row::new(ModelRow::describing(info).into_cells()).style(self.theme.content())
         });
 
         let table = Table::new(rows, Self::COLUMN_WIDTHS)
-            .header(
-                Row::new(ModelRow::HEADINGS)
-                    .style(Theme::OUTSIDE_TABS.add_modifier(Modifier::BOLD)),
-            )
+            .header(Row::new(ModelRow::HEADINGS).style(self.theme.content_emphasis()))
             .block(
                 Block::default()
                     .borders(Borders::ALL)
                     .title(Self::TITLE)
-                    .border_style(Theme::BORDER)
-                    .style(Theme::OUTSIDE_TABS),
+                    .border_style(self.theme.border())
+                    .style(self.theme.content()),
             )
             .column_spacing(Self::COLUMN_SPACING)
-            .highlight_style(Theme::HIGHLIGHT)
+            .highlight_style(self.theme.highlight())
             .highlight_symbol(Self::HIGHLIGHT_SYMBOL);
 
         frame.render_stateful_widget(table, area, &mut self.state);
@@ -129,4 +136,10 @@ impl ModelTableWidget {
         Constraint::Length(Self::PARAMETERS_WIDTH),
         Constraint::Length(Self::CONTEXT_WIDTH),
     ];
+}
+
+impl Default for ModelTableWidget {
+    fn default() -> Self {
+        Self::with_theme(Arc::new(GBadwolf))
+    }
 }

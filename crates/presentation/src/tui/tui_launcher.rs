@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 use localnar_application::services::SearchModelsService;
 use localnar_infrastructure::{DiskModelLibrary, HfApiRegistry, HfHubDownloader};
 
-use crate::tui::{AppRunner, EventHandler, TerminalSession, TuiApp, TuiLaunchError};
+use crate::tui::{AppRunner, EventHandler, GBadwolf, TerminalSession, TuiApp, TuiLaunchError};
 
 /// Bootstrap that assembles the application dependencies and opens the TUI.
 pub struct TuiLauncher;
@@ -22,6 +22,7 @@ impl TuiLauncher {
             registry,
             HfHubDownloader::default(),
             DiskModelLibrary::default(),
+            Arc::new(GBadwolf),
         );
 
         let events = EventHandler::new(Self::TICK_RATE);
