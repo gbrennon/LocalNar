@@ -17,7 +17,7 @@ impl HelpSection {
         HelpLine::Plain("Type query, press Enter to search"),
         HelpLine::KeyBinding {
             key: "Tab",
-            description: "Move to the models tab",
+            description: "Move to the library tab",
         },
         HelpLine::KeyBinding {
             key: "Esc",
@@ -40,7 +40,7 @@ impl HelpSection {
         },
         HelpLine::KeyBinding {
             key: "Esc",
-            description: "Return to the search tab",
+            description: "Return to search input",
         },
         HelpLine::KeyBinding {
             key: "h / ?",
@@ -85,7 +85,7 @@ impl HelpSection {
         },
         HelpLine::KeyBinding {
             key: "Esc",
-            description: "Close details, or return to the models tab",
+            description: "Close details, or return to the search tab",
         },
     ];
 
@@ -95,7 +95,7 @@ impl HelpSection {
             description: "Move to the next / previous tab",
         },
         HelpLine::KeyBinding {
-            key: "Alt+1..Alt+4",
+            key: "Alt+1..Alt+3",
             description: "Jump straight to a tab",
         },
         HelpLine::KeyBinding {

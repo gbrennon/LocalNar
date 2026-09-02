@@ -418,7 +418,7 @@ impl TuiApp {
     /// inside it to dismiss.
     fn close_details_or_leave_library(&mut self) {
         if self.details.take().is_none() {
-            self.switch_to_tab(AppTab::Models);
+            self.switch_to_tab(AppTab::Search);
         }
     }
 
@@ -476,7 +476,7 @@ impl TuiApp {
 
     fn handle_install_progress_keys(&mut self, key: KeyEvent) {
         if key.code == KeyCode::Esc {
-            self.switch_to_tab(AppTab::Models);
+            self.mode = AppMode::ModelTable;
         }
     }
 
@@ -679,7 +679,7 @@ impl TuiApp {
     const HELP_HEADER: &'static str = "Help (Esc/h returns to the previous tab)";
     const HELP_TITLE: &'static str = "Help";
 
-    const SEARCH_HELP_TEXT: &'static str = "Enter search query and press Enter to search models.\nTab / Shift+Tab move between tabs; Alt+1..Alt+4 jump straight to one.\nEsc opens the help tab.";
+    const SEARCH_HELP_TEXT: &'static str = "Enter search query and press Enter to search models.\nTab / Shift+Tab move between tabs; Alt+1..Alt+3 jump straight to one.\nEsc opens the help tab.";
     const SEARCH_HELP_TITLE: &'static str = "Search";
 
     const ERROR_TITLE: &'static str = "Error";
