@@ -43,6 +43,10 @@ impl HelpSection {
             description: "Return to search input",
         },
         HelpLine::KeyBinding {
+            key: "p",
+            description: "View install progress (while downloading)",
+        },
+        HelpLine::KeyBinding {
             key: "h / ?",
             description: "Open help",
         },
