@@ -10,6 +10,7 @@ mod progress_widget;
 mod search_widget;
 mod status_widget;
 mod tabs_widget;
+pub mod themes;
 
 pub use help_widget::HelpWidget;
 pub use library_row::LibraryRow;
