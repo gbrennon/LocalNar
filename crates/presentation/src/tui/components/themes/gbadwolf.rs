@@ -13,11 +13,11 @@ impl GBadwolf {
     /// Accent orange (`colour166` in tmux / `#d75f00`).
     pub const ACCENT_ORANGE: Color = Color::Rgb(215, 95, 0);
 
-    /// Root background (`colour234` in tmux / `#1c1c1c`).
-    pub const ROOT_BACKGROUND: Color = Color::Rgb(28, 28, 28);
+    /// Root background (pure black `#000000` for maximum contrast with accent orange).
+    pub const ROOT_BACKGROUND: Color = Color::Rgb(0, 0, 0);
 
-    /// Surface background (`colour235` in tmux / `#262626`).
-    pub const SURFACE_BACKGROUND: Color = Color::Rgb(38, 38, 38);
+    /// Surface background (`colour234` / `#1c1c1c` / dark surface).
+    pub const SURFACE_BACKGROUND: Color = Color::Rgb(24, 24, 24);
 
     /// Subtle border gray (`colour236` in tmux / `#303030`).
     pub const BORDER_COLOR: Color = Color::Rgb(48, 48, 48);
