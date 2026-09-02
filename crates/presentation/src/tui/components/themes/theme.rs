@@ -17,6 +17,9 @@ pub trait Theme: Send + Sync {
     /// Style for container and divider borders.
     fn border(&self) -> Style;
 
+    /// Style for container and block titles.
+    fn title(&self) -> Style;
+
     /// Style for regular body and descriptive text.
     fn content(&self) -> Style;
 

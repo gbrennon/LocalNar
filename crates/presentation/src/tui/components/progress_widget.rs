@@ -55,6 +55,7 @@ impl ProgressWidget {
                 Block::default()
                     .borders(Borders::ALL)
                     .title(Self::GAUGE_TITLE)
+                    .title_style(self.theme.title())
                     .border_style(self.theme.border())
                     .style(self.theme.content()),
             )
@@ -69,6 +70,7 @@ impl ProgressWidget {
                 Block::default()
                     .borders(Borders::ALL)
                     .title(Self::STATUS_TITLE)
+                    .title_style(self.theme.title())
                     .border_style(self.theme.border())
                     .style(self.theme.content()),
             )
@@ -82,6 +84,7 @@ impl ProgressWidget {
                 Block::default()
                     .borders(Borders::ALL)
                     .title(Self::CONTROLS_TITLE)
+                    .title_style(self.theme.title())
                     .border_style(self.theme.border())
                     .style(self.theme.content()),
             );

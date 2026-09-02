@@ -315,6 +315,9 @@ async fn a_custom_theme_can_be_injected() {
         fn border(&self) -> Style {
             Style::default().fg(Color::White)
         }
+        fn title(&self) -> Style {
+            Style::default().fg(Color::Yellow)
+        }
         fn content(&self) -> Style {
             Style::default().fg(Color::White)
         }

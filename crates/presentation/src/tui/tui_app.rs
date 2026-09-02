@@ -631,6 +631,7 @@ impl TuiApp {
                 Block::default()
                     .borders(Borders::ALL)
                     .title(title)
+                    .title_style(self.theme.title())
                     .border_style(self.theme.border())
                     .style(self.theme.content()),
             );
@@ -644,6 +645,7 @@ impl TuiApp {
                 Block::default()
                     .borders(Borders::ALL)
                     .title(Self::SEARCH_HELP_TITLE)
+                    .title_style(self.theme.title())
                     .border_style(self.theme.border())
                     .style(self.theme.content()),
             )
@@ -662,6 +664,7 @@ impl TuiApp {
             .block(
                 Block::default()
                     .title(Self::DETAILS_TITLE)
+                    .title_style(self.theme.title())
                     .borders(Borders::ALL)
                     .border_style(self.theme.border())
                     .style(self.theme.content()),
@@ -682,6 +685,7 @@ impl TuiApp {
             .block(
                 Block::default()
                     .title(Self::PROMPT_TITLE)
+                    .title_style(self.theme.title())
                     .borders(Borders::ALL)
                     .border_style(self.theme.border())
                     .style(self.theme.content()),

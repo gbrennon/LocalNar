@@ -102,6 +102,7 @@ impl ModelTableWidget {
                 Block::default()
                     .borders(Borders::ALL)
                     .title(Self::TITLE)
+                    .title_style(self.theme.title())
                     .border_style(self.theme.border())
                     .style(self.theme.content()),
             )

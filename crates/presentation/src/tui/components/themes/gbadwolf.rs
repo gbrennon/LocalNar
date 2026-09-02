@@ -21,13 +21,17 @@ impl GBadwolf {
 
     /// Subtle border gray (`colour236` in tmux / `#303030`).
     pub const BORDER_COLOR: Color = Color::Rgb(48, 48, 48);
+    /// Readable mustard color for section titles (`#ffc24b` in Badwolf / `colour11`).
+    pub const MUSTARD_TITLE: Color = Color::Rgb(255, 194, 75);
 
-    /// Muted body text gray (`colour245` in tmux / `#8a8a8a`).
+    /// Primary body text foreground (`#f8f6f2` from Badwolf terminal config).
+    pub const PRIMARY_FOREGROUND: Color = Color::Rgb(248, 246, 242);
+
+    /// Muted secondary text gray (`colour245` in tmux / `#8a8a8a`).
     pub const MUTED_FOREGROUND: Color = Color::Rgb(138, 138, 138);
 
     /// Bright text for headings and emphasized values.
-    pub const BRIGHT_FOREGROUND: Color = Color::Rgb(245, 245, 245);
-
+    pub const BRIGHT_FOREGROUND: Color = Color::Rgb(255, 255, 255);
     /// Active tab style: dark text on accent orange background with bold font.
     pub const TAB_ACTIVE: Style = Style::new()
         .fg(Self::ROOT_BACKGROUND)
@@ -43,12 +47,16 @@ impl GBadwolf {
     pub const BORDER: Style = Style::new()
         .fg(Self::BORDER_COLOR)
         .bg(Self::ROOT_BACKGROUND);
+    /// Section title style: readable mustard yellow with bold font.
+    pub const TITLE: Style = Style::new()
+        .fg(Self::MUSTARD_TITLE)
+        .bg(Self::ROOT_BACKGROUND)
+        .add_modifier(Modifier::BOLD);
 
-    /// Content style: muted gray text on root background.
+    /// Content style: bright, highly readable text on root background.
     pub const CONTENT: Style = Style::new()
-        .fg(Self::MUTED_FOREGROUND)
+        .fg(Self::PRIMARY_FOREGROUND)
         .bg(Self::ROOT_BACKGROUND);
-
     /// Emphasized content style: bright bold text on root background.
     pub const CONTENT_EMPHASIS: Style = Style::new()
         .fg(Self::BRIGHT_FOREGROUND)
@@ -88,6 +96,10 @@ impl Theme for GBadwolf {
 
     fn border(&self) -> Style {
         Self::BORDER
+    }
+
+    fn title(&self) -> Style {
+        Self::TITLE
     }
 
     fn content(&self) -> Style {
