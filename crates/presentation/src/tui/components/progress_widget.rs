@@ -1,9 +1,10 @@
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
     widgets::{Block, Borders, Gauge, Paragraph},
 };
+
+use crate::tui::theme::Theme;
 
 /// Progress widget displaying install progress with gauge and status message.
 #[derive(Debug, Default)]
@@ -41,31 +42,37 @@ impl ProgressWidget {
             .block(
                 Block::default()
                     .borders(Borders::ALL)
-                    .title(Self::GAUGE_TITLE),
+                    .title(Self::GAUGE_TITLE)
+                    .border_style(Theme::BORDER)
+                    .style(Theme::OUTSIDE_TABS),
             )
-            .gauge_style(Style::default().fg(Color::Green).bg(Color::Black))
+            .gauge_style(Theme::HIGHLIGHT)
             .ratio(self.progress)
             .label(format!("{:.1}%", self.progress * 100.0));
 
         frame.render_widget(gauge, chunks[0]);
 
         let message = Paragraph::new(self.message.as_str())
-            .style(Style::default().fg(Color::White))
+            .style(Theme::OUTSIDE_TABS)
             .block(
                 Block::default()
                     .borders(Borders::ALL)
-                    .title(Self::STATUS_TITLE),
+                    .title(Self::STATUS_TITLE)
+                    .border_style(Theme::BORDER)
+                    .style(Theme::OUTSIDE_TABS),
             )
             .wrap(ratatui::widgets::Wrap { trim: true });
 
         frame.render_widget(message, chunks[1]);
 
         let help = Paragraph::new(Self::HELP_TEXT)
-            .style(Style::default().fg(Color::DarkGray))
+            .style(Theme::OUTSIDE_TABS)
             .block(
                 Block::default()
                     .borders(Borders::ALL)
-                    .title(Self::CONTROLS_TITLE),
+                    .title(Self::CONTROLS_TITLE)
+                    .border_style(Theme::BORDER)
+                    .style(Theme::OUTSIDE_TABS),
             );
         frame.render_widget(help, chunks[2]);
     }

@@ -1,12 +1,12 @@
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::Modifier,
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
 };
 
-use crate::tui::components::help_section::HelpSection;
+use crate::tui::{components::help_section::HelpSection, theme::Theme};
 
 /// Help widget displaying key bindings and usage information.
 #[derive(Debug, Default)]
@@ -26,9 +26,7 @@ impl HelpWidget {
     pub fn draw(&self, frame: &mut Frame, area: Rect) {
         let mut help_lines = vec![Line::from(vec![Span::styled(
             self.title,
-            Style::default()
-                .fg(Color::Cyan)
-                .add_modifier(Modifier::BOLD),
+            Theme::OUTSIDE_TABS.add_modifier(Modifier::BOLD),
         )])];
         help_lines.push(Line::from(""));
 
@@ -37,8 +35,14 @@ impl HelpWidget {
         }
 
         let paragraph = Paragraph::new(help_lines)
-            .style(Style::default().fg(Color::White))
-            .block(Block::default().borders(Borders::ALL).title("Help"))
+            .style(Theme::OUTSIDE_TABS)
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title("Help")
+                    .border_style(Theme::BORDER)
+                    .style(Theme::OUTSIDE_TABS),
+            )
             .wrap(ratatui::widgets::Wrap { trim: true });
 
         frame.render_widget(paragraph, area);

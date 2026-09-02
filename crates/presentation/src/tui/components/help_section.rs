@@ -1,9 +1,9 @@
 use ratatui::{
-    style::{Color, Modifier, Style},
+    style::Modifier,
     text::{Line, Span},
 };
 
-use crate::tui::components::help_line::HelpLine;
+use crate::tui::{components::help_line::HelpLine, theme::Theme};
 
 /// A section of help content with a title and lines.
 #[derive(Debug, Clone, Copy)]
@@ -17,11 +17,11 @@ impl HelpSection {
         HelpLine::Plain("Type query, press Enter to search"),
         HelpLine::KeyBinding {
             key: "Tab",
-            description: "Switch to model table",
+            description: "Move to the models tab",
         },
         HelpLine::KeyBinding {
             key: "Esc",
-            description: "Open help",
+            description: "Open the help tab",
         },
     ];
 
@@ -40,10 +40,10 @@ impl HelpSection {
         },
         HelpLine::KeyBinding {
             key: "Esc",
-            description: "Return to search",
+            description: "Return to the search tab",
         },
         HelpLine::KeyBinding {
-            key: "h",
+            key: "h / ?",
             description: "Open help",
         },
     ];
@@ -80,15 +80,23 @@ impl HelpSection {
             description: "Re-read the library",
         },
         HelpLine::KeyBinding {
+            key: "h / ?",
+            description: "Open the help tab",
+        },
+        HelpLine::KeyBinding {
             key: "Esc",
-            description: "Close details, or return to model table",
+            description: "Close details, or return to the models tab",
         },
     ];
 
     const GENERAL_LINES: &[HelpLine] = &[
         HelpLine::KeyBinding {
             key: "Tab / Shift+Tab",
-            description: "Cycle search, models, library, help",
+            description: "Move to the next / previous tab",
+        },
+        HelpLine::KeyBinding {
+            key: "Alt+1..Alt+4",
+            description: "Jump straight to a tab",
         },
         HelpLine::KeyBinding {
             key: "h / ?",
@@ -138,9 +146,7 @@ impl HelpSection {
     pub fn to_lines(self) -> Vec<Line<'static>> {
         let mut lines = vec![Line::from(vec![Span::styled(
             self.title,
-            Style::default()
-                .fg(Color::Yellow)
-                .add_modifier(Modifier::BOLD),
+            Theme::OUTSIDE_TABS.add_modifier(Modifier::BOLD),
         )])];
 
         for line in self.lines {
@@ -148,11 +154,11 @@ impl HelpSection {
                 HelpLine::Plain(text) => lines.push(Line::from(*text)),
                 HelpLine::KeyBinding { key, description } => {
                     lines.push(Line::from(vec![
-                        Span::styled(format!("  {key:<16}"), Style::default().fg(Color::Cyan)),
                         Span::styled(
-                            format!(" - {description}"),
-                            Style::default().fg(Color::White),
+                            format!("  {key:<16}"),
+                            Theme::OUTSIDE_TABS.add_modifier(Modifier::BOLD),
                         ),
+                        Span::styled(format!(" - {description}"), Theme::OUTSIDE_TABS),
                     ]));
                 }
             }

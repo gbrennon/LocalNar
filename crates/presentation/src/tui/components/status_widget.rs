@@ -5,6 +5,8 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 
+use crate::tui::theme::Theme;
+
 /// Status widget displaying status messages with error/success coloring.
 #[derive(Debug, Default)]
 pub struct StatusWidget {
@@ -33,14 +35,18 @@ impl StatusWidget {
     /// Render the status widget.
     pub fn draw(&self, frame: &mut Frame, area: Rect) {
         let style = if self.is_error {
-            Style::default().fg(Color::Red).bg(Color::Black)
+            Style::default().fg(Color::Red).bg(Theme::BACKGROUND)
         } else {
-            Style::default().fg(Color::Green).bg(Color::Black)
+            Theme::OUTSIDE_TABS
         };
 
-        let paragraph = Paragraph::new(self.message.as_str())
-            .style(style)
-            .block(Block::default().borders(Borders::ALL).title("Status"));
+        let paragraph = Paragraph::new(self.message.as_str()).style(style).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Status")
+                .border_style(Theme::BORDER)
+                .style(Theme::OUTSIDE_TABS),
+        );
 
         frame.render_widget(paragraph, area);
     }

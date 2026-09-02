@@ -1,9 +1,10 @@
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Color, Style},
     widgets::{Block, Borders, Paragraph},
 };
+
+use crate::tui::theme::Theme;
 
 /// Search input widget with cursor handling.
 #[derive(Debug, Default)]
@@ -49,17 +50,14 @@ impl SearchWidget {
 
     /// Render the search widget.
     pub fn draw(&self, frame: &mut Frame, area: Rect) {
-        let border_style = Style::default().fg(Color::Yellow);
-
         let input = format!("{}{}", Self::PROMPT_PREFIX, self.query);
-        let paragraph = Paragraph::new(input)
-            .style(Style::default().fg(Color::White))
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title(Self::TITLE)
-                    .border_style(border_style),
-            );
+        let paragraph = Paragraph::new(input).style(Theme::OUTSIDE_TABS).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(Self::TITLE)
+                .border_style(Theme::BORDER)
+                .style(Theme::OUTSIDE_TABS),
+        );
 
         frame.render_widget(paragraph, area);
 

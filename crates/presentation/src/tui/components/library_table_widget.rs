@@ -6,8 +6,7 @@ use ratatui::{
     widgets::{Block, Borders, Row, Table, TableState},
 };
 
-use crate::tui::components::library_row::LibraryRow;
-
+use crate::tui::{components::library_row::LibraryRow, theme::Theme};
 /// Table of the models this machine holds, one row per installed replica.
 ///
 /// The widget distinguishes a library that has not been read yet from one that
@@ -135,33 +134,30 @@ impl LibraryTableWidget {
             .map(|entry| {
                 let row = LibraryRow::describing(entry);
                 let style = if row.is_broken() {
-                    Style::default().fg(Color::Red)
+                    Style::default().fg(Color::Red).bg(Theme::BACKGROUND)
                 } else if entry.is_verified() {
-                    Style::default().fg(Color::Green)
+                    Style::default().fg(Color::Green).bg(Theme::BACKGROUND)
                 } else {
-                    Style::default().fg(Color::White)
+                    Theme::OUTSIDE_TABS
                 };
                 Row::new(row.into_cells()).style(style)
             });
 
         let table = Table::new(rows, Self::COLUMN_WIDTHS)
             .header(
-                Row::new(LibraryRow::HEADINGS).style(
-                    Style::default()
-                        .fg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD),
-                ),
+                Row::new(LibraryRow::HEADINGS)
+                    .style(Theme::OUTSIDE_TABS.add_modifier(Modifier::BOLD)),
             )
-            .block(Block::default().borders(Borders::ALL).title(title))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(title)
+                    .border_style(Theme::BORDER)
+                    .style(Theme::OUTSIDE_TABS),
+            )
             .column_spacing(Self::COLUMN_SPACING)
-            .highlight_style(
-                Style::default()
-                    .bg(Color::Blue)
-                    .fg(Color::White)
-                    .add_modifier(Modifier::BOLD),
-            )
+            .highlight_style(Theme::HIGHLIGHT)
             .highlight_symbol(Self::HIGHLIGHT_SYMBOL);
-
         frame.render_stateful_widget(table, area, &mut self.state);
     }
 

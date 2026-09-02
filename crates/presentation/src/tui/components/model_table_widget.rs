@@ -2,12 +2,11 @@ use localnar_domain::ModelInfo;
 use ratatui::{
     Frame,
     layout::{Constraint, Rect},
-    style::{Color, Modifier, Style},
+    style::Modifier,
     widgets::{Block, Borders, Row, Table, TableState},
 };
 
-use crate::tui::components::model_row::ModelRow;
-
+use crate::tui::{components::model_row::ModelRow, theme::Theme};
 /// Table of the models a search found, one row per model.
 ///
 /// A catalog entry publishes many files, but the operator is choosing a model,
@@ -84,26 +83,23 @@ impl ModelTableWidget {
     /// Renders the table into `area`.
     pub fn draw(&mut self, frame: &mut Frame, area: Rect) {
         let rows = self.models.iter().map(|info| {
-            Row::new(ModelRow::describing(info).into_cells())
-                .style(Style::default().fg(Color::White))
+            Row::new(ModelRow::describing(info).into_cells()).style(Theme::OUTSIDE_TABS)
         });
 
         let table = Table::new(rows, Self::COLUMN_WIDTHS)
             .header(
-                Row::new(ModelRow::HEADINGS).style(
-                    Style::default()
-                        .fg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD),
-                ),
+                Row::new(ModelRow::HEADINGS)
+                    .style(Theme::OUTSIDE_TABS.add_modifier(Modifier::BOLD)),
             )
-            .block(Block::default().borders(Borders::ALL).title(Self::TITLE))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(Self::TITLE)
+                    .border_style(Theme::BORDER)
+                    .style(Theme::OUTSIDE_TABS),
+            )
             .column_spacing(Self::COLUMN_SPACING)
-            .highlight_style(
-                Style::default()
-                    .bg(Color::Blue)
-                    .fg(Color::White)
-                    .add_modifier(Modifier::BOLD),
-            )
+            .highlight_style(Theme::HIGHLIGHT)
             .highlight_symbol(Self::HIGHLIGHT_SYMBOL);
 
         frame.render_stateful_widget(table, area, &mut self.state);
