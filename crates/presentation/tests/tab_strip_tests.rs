@@ -5,7 +5,7 @@ use localnar_application::services::SearchModelsService;
 use localnar_infrastructure::{
     DiskModelLibrary, HfApiRegistry, HfHubDownloader, ReqwestHubTransport,
 };
-use localnar_presentation::tui::{AppMode, AppTab, TuiApp};
+use localnar_presentation::tui::{AppEvent, AppMode, AppTab, TuiApp};
 use ratatui::{
     Terminal,
     backend::TestBackend,
@@ -243,4 +243,57 @@ async fn the_strip_stays_on_the_search_tab_while_a_model_installs() {
     app.handle_key_event(shortcut('1')).await;
 
     assert_eq!(app.active_tab(), AppTab::Search);
+}
+
+#[tokio::test]
+async fn search_state_is_preserved_when_switching_tabs() {
+    let models_root = TempDir::new().expect("temp dir");
+    let mut app = app(models_root.path());
+
+    app.event_sender()
+        .send(AppEvent::SearchCompleted(vec![]))
+        .ok();
+    app.handle_events().await;
+    assert_eq!(app.mode(), AppMode::ModelTable);
+    assert_eq!(app.active_tab(), AppTab::Search);
+
+    app.handle_key_event(shortcut('2')).await;
+    assert_eq!(app.active_tab(), AppTab::Library);
+
+    app.handle_key_event(shortcut('1')).await;
+    assert_eq!(app.active_tab(), AppTab::Search);
+    assert_eq!(app.mode(), AppMode::ModelTable);
+}
+
+#[tokio::test]
+async fn active_install_progress_is_restored_when_returning_to_search_tab() {
+    let models_root = TempDir::new().expect("temp dir");
+    let mut app = app(models_root.path());
+
+    app.event_sender().send(AppEvent::InstallStarted).ok();
+    app.handle_events().await;
+    assert_eq!(app.mode(), AppMode::InstallProgress);
+
+    app.handle_key_event(shortcut('2')).await;
+    assert_eq!(app.active_tab(), AppTab::Library);
+
+    app.handle_key_event(shortcut('1')).await;
+    assert_eq!(app.active_tab(), AppTab::Search);
+    assert_eq!(app.mode(), AppMode::InstallProgress);
+}
+
+#[tokio::test]
+async fn install_progress_can_be_reopened_from_model_table() {
+    let models_root = TempDir::new().expect("temp dir");
+    let mut app = app(models_root.path());
+
+    app.event_sender().send(AppEvent::InstallStarted).ok();
+    app.handle_events().await;
+    assert_eq!(app.mode(), AppMode::InstallProgress);
+
+    app.handle_key_event(pressed(KeyCode::Esc)).await;
+    assert_eq!(app.mode(), AppMode::ModelTable);
+
+    app.handle_key_event(pressed(KeyCode::Char('p'))).await;
+    assert_eq!(app.mode(), AppMode::InstallProgress);
 }
