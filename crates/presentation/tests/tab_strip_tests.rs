@@ -85,15 +85,7 @@ fn carries_the_highlight(styles: &[Style]) -> bool {
 
 #[test]
 fn the_tabs_follow_the_order_of_the_strip() {
-    assert_eq!(
-        AppTab::ALL,
-        [
-            AppTab::Search,
-            AppTab::Models,
-            AppTab::Library,
-            AppTab::Help
-        ]
-    );
+    assert_eq!(AppTab::ALL, [AppTab::Search, AppTab::Library, AppTab::Help]);
 
     for (position, tab) in AppTab::ALL.into_iter().enumerate() {
         assert_eq!(tab.index(), position);
@@ -102,8 +94,7 @@ fn the_tabs_follow_the_order_of_the_strip() {
 
 #[test]
 fn moving_forward_walks_the_tabs_and_wraps_past_the_last() {
-    assert_eq!(AppTab::Search.next(), AppTab::Models);
-    assert_eq!(AppTab::Models.next(), AppTab::Library);
+    assert_eq!(AppTab::Search.next(), AppTab::Library);
     assert_eq!(AppTab::Library.next(), AppTab::Help);
     assert_eq!(AppTab::Help.next(), AppTab::Search);
 }
@@ -118,17 +109,18 @@ fn moving_back_undoes_moving_forward() {
 #[test]
 fn a_digit_shortcut_names_the_tab_at_that_position() {
     assert_eq!(AppTab::from_shortcut('1'), Some(AppTab::Search));
-    assert_eq!(AppTab::from_shortcut('4'), Some(AppTab::Help));
+    assert_eq!(AppTab::from_shortcut('2'), Some(AppTab::Library));
+    assert_eq!(AppTab::from_shortcut('3'), Some(AppTab::Help));
     assert_eq!(AppTab::from_shortcut('0'), None);
-    assert_eq!(AppTab::from_shortcut('5'), None);
+    assert_eq!(AppTab::from_shortcut('4'), None);
     assert_eq!(AppTab::from_shortcut('x'), None);
 }
 
 #[test]
 fn every_mode_reports_the_tab_it_belongs_to() {
     assert_eq!(AppMode::Search.tab(), AppTab::Search);
-    assert_eq!(AppMode::ModelTable.tab(), AppTab::Models);
-    assert_eq!(AppMode::InstallProgress.tab(), AppTab::Models);
+    assert_eq!(AppMode::ModelTable.tab(), AppTab::Search);
+    assert_eq!(AppMode::InstallProgress.tab(), AppTab::Search);
     assert_eq!(AppMode::Library.tab(), AppTab::Library);
     assert_eq!(AppMode::Help.tab(), AppTab::Help);
 }
@@ -136,7 +128,6 @@ fn every_mode_reports_the_tab_it_belongs_to() {
 #[test]
 fn selecting_a_tab_lands_on_that_tabs_mode() {
     assert_eq!(AppMode::from(AppTab::Search), AppMode::Search);
-    assert_eq!(AppMode::from(AppTab::Models), AppMode::ModelTable);
     assert_eq!(AppMode::from(AppTab::Library), AppMode::Library);
     assert_eq!(AppMode::from(AppTab::Help), AppMode::Help);
 }
@@ -155,10 +146,10 @@ async fn pressing_tab_moves_to_the_next_tab() {
     let mut app = app(models_root.path());
 
     app.handle_key_event(pressed(KeyCode::Tab)).await;
-    assert_eq!(app.active_tab(), AppTab::Models);
+    assert_eq!(app.active_tab(), AppTab::Library);
 
     app.handle_key_event(pressed(KeyCode::Tab)).await;
-    assert_eq!(app.active_tab(), AppTab::Library);
+    assert_eq!(app.active_tab(), AppTab::Help);
 }
 
 #[tokio::test]
@@ -176,7 +167,7 @@ async fn a_digit_shortcut_jumps_straight_to_its_tab() {
     let models_root = TempDir::new().expect("temp dir");
     let mut app = app(models_root.path());
 
-    app.handle_key_event(shortcut('3')).await;
+    app.handle_key_event(shortcut('2')).await;
     assert_eq!(app.active_tab(), AppTab::Library);
 
     app.handle_key_event(shortcut('1')).await;
@@ -189,7 +180,7 @@ async fn a_modified_digit_never_reaches_the_search_query() {
     let models_root = TempDir::new().expect("temp dir");
     let mut app = app(models_root.path());
 
-    app.handle_key_event(shortcut('3')).await;
+    app.handle_key_event(shortcut('2')).await;
     app.handle_key_event(shortcut('1')).await;
 
     let (prompt, _) = rendered_row(&mut app, SEARCH_PROMPT_ROW);
@@ -208,9 +199,9 @@ async fn the_strip_names_every_tab() {
     let (strip, _) = rendered_strip(&mut app);
 
     assert!(strip.contains("1 Search"));
-    assert!(strip.contains("2 Models"));
-    assert!(strip.contains("3 Library"));
-    assert!(strip.contains("4 Help"));
+    assert!(strip.contains("2 Library"));
+    assert!(strip.contains("3 Help"));
+    assert!(!strip.contains("Models"));
 }
 
 #[tokio::test]
@@ -225,14 +216,16 @@ async fn the_strip_highlights_the_tab_the_operator_is_on() {
     assert!(!carries_the_highlight(&highlighted_columns_of(
         &strip,
         &styles,
-        "3 Library"
+        "2 Library"
     )));
 
     app.handle_key_event(pressed(KeyCode::Tab)).await;
 
     let (strip, styles) = rendered_strip(&mut app);
     assert!(carries_the_highlight(&highlighted_columns_of(
-        &strip, &styles, "2 Models"
+        &strip,
+        &styles,
+        "2 Library"
     )));
     assert!(!carries_the_highlight(&highlighted_columns_of(
         &strip, &styles, "1 Search"
@@ -240,14 +233,14 @@ async fn the_strip_highlights_the_tab_the_operator_is_on() {
 }
 
 #[tokio::test]
-async fn the_strip_stays_on_the_models_tab_while_a_model_installs() {
+async fn the_strip_stays_on_the_search_tab_while_a_model_installs() {
     let models_root = TempDir::new().expect("temp dir");
     let mut app = app(models_root.path());
 
-    assert_eq!(AppMode::InstallProgress.tab(), AppTab::Models);
+    assert_eq!(AppMode::InstallProgress.tab(), AppTab::Search);
 
-    app.handle_key_event(shortcut('3')).await;
     app.handle_key_event(shortcut('2')).await;
+    app.handle_key_event(shortcut('1')).await;
 
-    assert_eq!(app.active_tab(), AppTab::Models);
+    assert_eq!(app.active_tab(), AppTab::Search);
 }
