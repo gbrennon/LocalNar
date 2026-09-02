@@ -18,12 +18,11 @@ pub enum AppMode {
 impl AppMode {
     /// Names the tab whose strip entry stands for this mode.
     ///
-    /// Install progress is reached only from the model table and shows no
-    /// strip entry of its own, so it keeps the models tab highlighted.
+    /// The model table and install progress screens appear as results of search,
+    /// so they keep the search tab highlighted.
     pub fn tab(self) -> AppTab {
         match self {
-            Self::Search => AppTab::Search,
-            Self::ModelTable | Self::InstallProgress => AppTab::Models,
+            Self::Search | Self::ModelTable | Self::InstallProgress => AppTab::Search,
             Self::Library => AppTab::Library,
             Self::Help => AppTab::Help,
         }
@@ -35,7 +34,6 @@ impl From<AppTab> for AppMode {
     fn from(tab: AppTab) -> Self {
         match tab {
             AppTab::Search => Self::Search,
-            AppTab::Models => Self::ModelTable,
             AppTab::Library => Self::Library,
             AppTab::Help => Self::Help,
         }

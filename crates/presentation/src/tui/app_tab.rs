@@ -7,8 +7,6 @@
 pub enum AppTab {
     /// Where the operator states what they are looking for.
     Search,
-    /// Where found models are listed and chosen for install.
-    Models,
     /// Where the models this machine already holds are managed.
     Library,
     /// Where the key bindings are explained.
@@ -17,7 +15,7 @@ pub enum AppTab {
 
 impl AppTab {
     /// Every tab, in the order the strip renders them.
-    pub const ALL: [Self; 4] = [Self::Search, Self::Models, Self::Library, Self::Help];
+    pub const ALL: [Self; 3] = [Self::Search, Self::Library, Self::Help];
 
     /// The label the strip renders for this tab.
     ///
@@ -26,9 +24,8 @@ impl AppTab {
     pub fn title(self) -> &'static str {
         match self {
             Self::Search => "1 Search",
-            Self::Models => "2 Models",
-            Self::Library => "3 Library",
-            Self::Help => "4 Help",
+            Self::Library => "2 Library",
+            Self::Help => "3 Help",
         }
     }
 
@@ -36,9 +33,8 @@ impl AppTab {
     pub fn index(self) -> usize {
         match self {
             Self::Search => 0,
-            Self::Models => 1,
-            Self::Library => 2,
-            Self::Help => 3,
+            Self::Library => 1,
+            Self::Help => 2,
         }
     }
 
