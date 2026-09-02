@@ -1,0 +1,16 @@
+name: Publish Staging
+
+on:
+  pull_request:
+
+jobs:
+  publish:
+    name: Publish to staging
+    runs-on: codeberg-medium
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.forgejo/actions/install-rust
+      - uses: ./.forgejo/actions/publish
+        with:
+          mode: staging
+          api-key: ${{ secrets.CRATES_IO_STAGING_TOKEN }}

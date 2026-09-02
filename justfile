@@ -20,7 +20,7 @@ build:
     cargo build --workspace
 
 lint-scripts:
-    shellcheck --external-sources -S info scripts/lib/common.sh scripts/check_branch_name.sh scripts/check_commit_messages.sh scripts/check_no_llama_cpp.sh scripts/verify.sh
+    shellcheck --external-sources -S info scripts/lib/common.sh scripts/check_branch_name.sh scripts/check_commit_messages.sh scripts/check_no_llama_cpp.sh scripts/verify.sh scripts/publish_crates.sh
 
 lint-workflows:
     actionlint -config-file .actionlint.yaml .forgejo/workflows/*.yml

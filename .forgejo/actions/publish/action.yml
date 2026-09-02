@@ -1,0 +1,22 @@
+name: Publish
+description: Publish the workspace crates to a crates registry (staging or production).
+
+inputs:
+  mode:
+    description: Registry target — staging or production.
+    required: true
+  api-key:
+    description: API token for the target registry.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Publish crates
+      shell: bash
+      env:
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        DEV_COUNTER: ${{ github.run_number }}
+      run: |
+        export PATH="$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
+        ./scripts/publish_crates.sh "${{ inputs.mode }}" "${{ inputs.api-key }}"
