@@ -46,6 +46,8 @@ pub struct TuiApp {
     library_manager: LibraryManager,
     progress_bus: ProgressBus,
     mode: AppMode,
+    search_mode: AppMode,
+    is_installing: bool,
     previous_tab: Option<AppTab>,
     theme: Theme,
     tabs_widget: TabsWidget,
@@ -84,6 +86,8 @@ impl TuiApp {
             library_manager,
             progress_bus,
             mode: AppMode::Search,
+            search_mode: AppMode::Search,
+            is_installing: false,
             previous_tab: None,
             theme: Theme::new(),
             tabs_widget: TabsWidget::new(),
@@ -116,6 +120,10 @@ impl TuiApp {
     pub fn active_tab(&self) -> AppTab {
         self.mode.tab()
     }
+    /// Returns the current application mode.
+    pub fn mode(&self) -> AppMode {
+        self.mode
+    }
 
     /// Create an install service with progress reporting.
     fn make_install_service(
@@ -141,7 +149,8 @@ impl TuiApp {
             match event {
                 AppEvent::SearchCompleted(results) => {
                     self.model_table_widget.show(results);
-                    if self.mode == AppMode::Search {
+                    self.search_mode = AppMode::ModelTable;
+                    if self.mode.tab() == AppTab::Search {
                         self.mode = AppMode::ModelTable;
                     }
                     self.status_widget.report(Self::MSG_SEARCH_COMPLETED);
@@ -150,14 +159,25 @@ impl TuiApp {
                     self.raise_failure(err);
                 }
                 AppEvent::InstallStarted => {
-                    self.mode = AppMode::InstallProgress;
+                    self.is_installing = true;
+                    self.search_mode = AppMode::InstallProgress;
+                    if self.mode.tab() == AppTab::Search {
+                        self.mode = AppMode::InstallProgress;
+                    }
                     self.progress_widget.reset();
                     self.status_widget.report(Self::MSG_INSTALL_STARTED);
                 }
                 AppEvent::InstallProgress(progress, msg) => {
-                    self.progress_widget.advance(progress, msg);
+                    self.progress_widget.advance(progress, msg.clone());
+                    self.status_widget.report(format!(
+                        "Installing: {:.1}% - {}",
+                        progress * 100.0,
+                        msg
+                    ));
                 }
                 AppEvent::InstallCompleted(model) => {
+                    self.is_installing = false;
+                    self.search_mode = AppMode::ModelTable;
                     if self.mode == AppMode::InstallProgress {
                         self.mode = AppMode::ModelTable;
                     }
@@ -169,6 +189,8 @@ impl TuiApp {
                     self.library_manager.list();
                 }
                 AppEvent::InstallFailed(err) => {
+                    self.is_installing = false;
+                    self.search_mode = AppMode::ModelTable;
                     if self.mode == AppMode::InstallProgress {
                         self.mode = AppMode::ModelTable;
                     }
@@ -278,13 +300,27 @@ impl TuiApp {
         if leaving != tab {
             self.previous_tab = Some(leaving);
 
+            if leaving == AppTab::Search {
+                self.search_mode = self.mode;
+            }
+
             if leaving == AppTab::Library {
                 self.details = None;
                 self.pending_removal = None;
             }
         }
 
-        self.mode = AppMode::from(tab);
+        self.mode = match tab {
+            AppTab::Search => {
+                if self.is_installing {
+                    AppMode::InstallProgress
+                } else {
+                    self.search_mode
+                }
+            }
+            AppTab::Library => AppMode::Library,
+            AppTab::Help => AppMode::Help,
+        };
 
         if tab == AppTab::Library && self.library_table_widget.inventory().is_none() {
             self.status_widget.report(Self::MSG_READING_LIBRARY);
@@ -338,6 +374,12 @@ impl TuiApp {
                 self.model_table_widget.next();
             }
             KeyCode::Enter => {
+                if self.is_installing {
+                    self.mode = AppMode::InstallProgress;
+                    self.search_mode = AppMode::InstallProgress;
+                    return;
+                }
+
                 if let Some(model) = self.model_table_widget.selected_model() {
                     let spec = model.spec().clone();
                     self.event_sender.send(AppEvent::InstallStarted).ok();
@@ -362,11 +404,18 @@ impl TuiApp {
                     });
                 }
             }
+            KeyCode::Char('p') | KeyCode::Char('P') => {
+                if self.is_installing {
+                    self.mode = AppMode::InstallProgress;
+                    self.search_mode = AppMode::InstallProgress;
+                }
+            }
             KeyCode::Char('l') | KeyCode::Char('L') => {
                 self.switch_to_tab(AppTab::Library);
             }
             KeyCode::Esc => {
-                self.switch_to_tab(AppTab::Search);
+                self.search_mode = AppMode::Search;
+                self.mode = AppMode::Search;
             }
             KeyCode::Char('h') | KeyCode::Char('H') | KeyCode::Char('?') => {
                 self.switch_to_tab(AppTab::Help);
@@ -476,6 +525,7 @@ impl TuiApp {
 
     fn handle_install_progress_keys(&mut self, key: KeyEvent) {
         if key.code == KeyCode::Esc {
+            self.search_mode = AppMode::ModelTable;
             self.mode = AppMode::ModelTable;
         }
     }
@@ -524,12 +574,12 @@ impl TuiApp {
                 self.search_widget.draw(frame, area);
             }
             AppMode::ModelTable => {
-                Self::draw_banner(
-                    frame,
-                    area,
-                    Self::MODEL_TABLE_HEADER,
-                    Self::MODEL_TABLE_TITLE,
-                );
+                let header = if self.is_installing {
+                    Self::MODEL_TABLE_HEADER_INSTALLING
+                } else {
+                    Self::MODEL_TABLE_HEADER
+                };
+                Self::draw_banner(frame, area, header, Self::MODEL_TABLE_TITLE);
             }
             AppMode::InstallProgress => {
                 Self::draw_banner(
@@ -666,7 +716,9 @@ impl TuiApp {
     const STATUS_HEIGHT: u16 = 3;
 
     const MODEL_TABLE_HEADER: &'static str =
-        "Models (↑/↓ navigate, Enter install, Tab/Shift+Tab change tab, h help)";
+        "Models (↑/↓ navigate, Enter install, Esc search again, Tab change tab, h help)";
+    const MODEL_TABLE_HEADER_INSTALLING: &'static str =
+        "Models (↑/↓ navigate, p / Enter view progress, Esc search again, Tab change tab, h help)";
     const MODEL_TABLE_TITLE: &'static str = "Models";
 
     const INSTALL_PROGRESS_HEADER: &'static str = "Installing Model... (Esc to return)";
