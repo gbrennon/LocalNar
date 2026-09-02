@@ -9,6 +9,7 @@ mod model_table_widget;
 mod progress_widget;
 mod search_widget;
 mod status_widget;
+mod tabs_widget;
 
 pub use help_widget::HelpWidget;
 pub use library_row::LibraryRow;
@@ -19,3 +20,4 @@ pub use model_table_widget::ModelTableWidget;
 pub use progress_widget::ProgressWidget;
 pub use search_widget::SearchWidget;
 pub use status_widget::StatusWidget;
+pub use tabs_widget::TabsWidget;
