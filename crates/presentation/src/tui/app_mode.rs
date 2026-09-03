@@ -1,3 +1,5 @@
+use crate::tui::app_tab::AppTab;
+
 /// Application mode enumeration representing the current TUI state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppMode {
@@ -14,67 +16,26 @@ pub enum AppMode {
 }
 
 impl AppMode {
-    /// The mode reached by cycling forward from this one.
+    /// Names the tab whose strip entry stands for this mode.
     ///
-    /// The cycle follows the operator's own order of work: find a model, choose
-    /// one, manage what the machine ended up holding, then read the help.
-    pub fn next(self) -> Self {
+    /// The model table and install progress screens appear as results of search,
+    /// so they keep the search tab highlighted.
+    pub fn tab(self) -> AppTab {
         match self {
-            Self::Search => Self::ModelTable,
-            Self::ModelTable => Self::Library,
-            Self::Library => Self::Help,
-            Self::Help => Self::Search,
-            Self::InstallProgress => Self::Library,
-        }
-    }
-
-    /// The mode reached by cycling backward from this one.
-    pub fn previous(self) -> Self {
-        match self {
-            Self::Search => Self::Help,
-            Self::ModelTable => Self::Search,
-            Self::Library => Self::ModelTable,
-            Self::Help => Self::Library,
-            Self::InstallProgress => Self::ModelTable,
+            Self::Search | Self::ModelTable | Self::InstallProgress => AppTab::Search,
+            Self::Library => AppTab::Library,
+            Self::Help => AppTab::Help,
         }
     }
 }
 
-#[cfg(test)]
-mod app_mode_tests {
-    use super::AppMode;
-
-    #[test]
-    fn cycling_forward_visits_every_mode_and_returns_to_the_first() {
-        let mut mode = AppMode::Search;
-        let mut visited = vec![mode];
-
-        for _ in 0..3 {
-            mode = mode.next();
-            visited.push(mode);
-        }
-
-        assert_eq!(
-            visited,
-            vec![
-                AppMode::Search,
-                AppMode::ModelTable,
-                AppMode::Library,
-                AppMode::Help
-            ]
-        );
-        assert_eq!(mode.next(), AppMode::Search);
-    }
-
-    #[test]
-    fn cycling_backward_undoes_cycling_forward() {
-        for mode in [
-            AppMode::Search,
-            AppMode::ModelTable,
-            AppMode::Library,
-            AppMode::Help,
-        ] {
-            assert_eq!(mode.next().previous(), mode);
+impl From<AppTab> for AppMode {
+    /// The mode a strip selection lands on.
+    fn from(tab: AppTab) -> Self {
+        match tab {
+            AppTab::Search => Self::Search,
+            AppTab::Library => Self::Library,
+            AppTab::Help => Self::Help,
         }
     }
 }

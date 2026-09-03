@@ -1,21 +1,34 @@
+use std::sync::Arc;
+
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Color, Style},
     widgets::{Block, Borders, Paragraph},
 };
 
+use crate::tui::components::themes::{GBadwolf, Theme};
+
 /// Status widget displaying status messages with error/success coloring.
-#[derive(Debug, Default)]
+#[derive(Clone)]
 pub struct StatusWidget {
     message: String,
     is_error: bool,
+    theme: Arc<dyn Theme>,
 }
 
 impl StatusWidget {
-    /// Create a new status widget.
+    /// Create a new status widget with default theme.
     pub fn new() -> Self {
-        Self::default()
+        Self::with_theme(Arc::new(GBadwolf))
+    }
+
+    /// Create a new status widget with an injected theme.
+    pub fn with_theme(theme: Arc<dyn Theme>) -> Self {
+        Self {
+            message: String::new(),
+            is_error: false,
+            theme,
+        }
     }
 
     /// Set a normal status message (green).
@@ -33,15 +46,26 @@ impl StatusWidget {
     /// Render the status widget.
     pub fn draw(&self, frame: &mut Frame, area: Rect) {
         let style = if self.is_error {
-            Style::default().fg(Color::Red).bg(Color::Black)
+            self.theme.status_error()
         } else {
-            Style::default().fg(Color::Green).bg(Color::Black)
+            self.theme.content()
         };
 
-        let paragraph = Paragraph::new(self.message.as_str())
-            .style(style)
-            .block(Block::default().borders(Borders::ALL).title("Status"));
+        let paragraph = Paragraph::new(self.message.as_str()).style(style).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Status")
+                .title_style(self.theme.title())
+                .border_style(self.theme.border())
+                .style(self.theme.content()),
+        );
 
         frame.render_widget(paragraph, area);
+    }
+}
+
+impl Default for StatusWidget {
+    fn default() -> Self {
+        Self::new()
     }
 }

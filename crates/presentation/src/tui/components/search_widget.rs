@@ -1,23 +1,33 @@
+use std::sync::Arc;
+
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Color, Style},
     widgets::{Block, Borders, Paragraph},
 };
 
+use crate::tui::components::themes::{GBadwolf, Theme};
+
 /// Search input widget with cursor handling.
-#[derive(Debug, Default)]
+#[derive(Clone)]
 pub struct SearchWidget {
     query: String,
     cursor_position: usize,
+    theme: Arc<dyn Theme>,
 }
 
 impl SearchWidget {
-    /// Create a new search widget.
+    /// Create a new search widget with default theme.
     pub fn new() -> Self {
+        Self::with_theme(Arc::new(GBadwolf))
+    }
+
+    /// Create a new search widget with an injected theme.
+    pub fn with_theme(theme: Arc<dyn Theme>) -> Self {
         Self {
             query: String::new(),
             cursor_position: 0,
+            theme,
         }
     }
 
@@ -49,16 +59,16 @@ impl SearchWidget {
 
     /// Render the search widget.
     pub fn draw(&self, frame: &mut Frame, area: Rect) {
-        let border_style = Style::default().fg(Color::Yellow);
-
         let input = format!("{}{}", Self::PROMPT_PREFIX, self.query);
         let paragraph = Paragraph::new(input)
-            .style(Style::default().fg(Color::White))
+            .style(self.theme.content_emphasis())
             .block(
                 Block::default()
                     .borders(Borders::ALL)
                     .title(Self::TITLE)
-                    .border_style(border_style),
+                    .title_style(self.theme.title())
+                    .border_style(self.theme.border())
+                    .style(self.theme.content()),
             );
 
         frame.render_widget(paragraph, area);
@@ -67,6 +77,12 @@ impl SearchWidget {
             area.x + Self::CURSOR_X_OFFSET + self.cursor_position as u16,
             area.y + Self::CURSOR_Y_OFFSET,
         ));
+    }
+}
+
+impl Default for SearchWidget {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

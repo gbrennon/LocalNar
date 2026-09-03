@@ -1,9 +1,6 @@
-use ratatui::{
-    style::{Color, Modifier, Style},
-    text::{Line, Span},
-};
+use ratatui::text::{Line, Span};
 
-use crate::tui::components::help_line::HelpLine;
+use crate::tui::components::{help_line::HelpLine, themes::Theme};
 
 /// A section of help content with a title and lines.
 #[derive(Debug, Clone, Copy)]
@@ -17,11 +14,11 @@ impl HelpSection {
         HelpLine::Plain("Type query, press Enter to search"),
         HelpLine::KeyBinding {
             key: "Tab",
-            description: "Switch to model table",
+            description: "Move to the library tab",
         },
         HelpLine::KeyBinding {
             key: "Esc",
-            description: "Open help",
+            description: "Open the help tab",
         },
     ];
 
@@ -40,10 +37,14 @@ impl HelpSection {
         },
         HelpLine::KeyBinding {
             key: "Esc",
-            description: "Return to search",
+            description: "Return to search input",
         },
         HelpLine::KeyBinding {
-            key: "h",
+            key: "p",
+            description: "View install progress (while downloading)",
+        },
+        HelpLine::KeyBinding {
+            key: "h / ?",
             description: "Open help",
         },
     ];
@@ -80,15 +81,23 @@ impl HelpSection {
             description: "Re-read the library",
         },
         HelpLine::KeyBinding {
+            key: "h / ?",
+            description: "Open the help tab",
+        },
+        HelpLine::KeyBinding {
             key: "Esc",
-            description: "Close details, or return to model table",
+            description: "Close details, or return to the search tab",
         },
     ];
 
     const GENERAL_LINES: &[HelpLine] = &[
         HelpLine::KeyBinding {
             key: "Tab / Shift+Tab",
-            description: "Cycle search, models, library, help",
+            description: "Move to the next / previous tab",
+        },
+        HelpLine::KeyBinding {
+            key: "Alt+1..Alt+3",
+            description: "Jump straight to a tab",
         },
         HelpLine::KeyBinding {
             key: "h / ?",
@@ -135,24 +144,21 @@ impl HelpSection {
     ];
 
     /// Renders the section title and every line beneath it.
-    pub fn to_lines(self) -> Vec<Line<'static>> {
+    pub fn to_lines(self, theme: &dyn Theme) -> Vec<Line<'static>> {
         let mut lines = vec![Line::from(vec![Span::styled(
             self.title,
-            Style::default()
-                .fg(Color::Yellow)
-                .add_modifier(Modifier::BOLD),
+            theme.content_emphasis(),
         )])];
 
         for line in self.lines {
             match line {
-                HelpLine::Plain(text) => lines.push(Line::from(*text)),
+                HelpLine::Plain(text) => {
+                    lines.push(Line::from(Span::styled(*text, theme.content())))
+                }
                 HelpLine::KeyBinding { key, description } => {
                     lines.push(Line::from(vec![
-                        Span::styled(format!("  {key:<16}"), Style::default().fg(Color::Cyan)),
-                        Span::styled(
-                            format!(" - {description}"),
-                            Style::default().fg(Color::White),
-                        ),
+                        Span::styled(format!("  {key:<16}"), theme.content_emphasis()),
+                        Span::styled(format!(" - {description}"), theme.content()),
                     ]));
                 }
             }

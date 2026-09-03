@@ -1,5 +1,6 @@
 mod app_event;
 mod app_mode;
+mod app_tab;
 mod components;
 mod events;
 mod layout_helper;
@@ -13,7 +14,11 @@ mod ui;
 
 pub use app_event::AppEvent;
 pub use app_mode::AppMode;
-pub use components::{LibraryRow, LibraryTableWidget, ModelDetails, ModelRow, ModelTableWidget};
+pub use app_tab::AppTab;
+pub use components::{
+    LibraryRow, LibraryTableWidget, ModelDetails, ModelRow, ModelTableWidget, TabsWidget,
+    themes::{self, GBadwolf, Theme},
+};
 pub use events::EventHandler;
 pub use layout_helper::LayoutHelper;
 pub use library_manager::LibraryManager;

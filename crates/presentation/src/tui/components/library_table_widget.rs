@@ -1,13 +1,16 @@
+use std::sync::Arc;
+
 use localnar_domain::{ManagedModel, ModelInventory};
 use ratatui::{
     Frame,
     layout::{Constraint, Rect},
-    style::{Color, Modifier, Style},
     widgets::{Block, Borders, Row, Table, TableState},
 };
 
-use crate::tui::components::library_row::LibraryRow;
-
+use crate::tui::components::{
+    library_row::LibraryRow,
+    themes::{GBadwolf, Theme},
+};
 /// Table of the models this machine holds, one row per installed replica.
 ///
 /// The widget distinguishes a library that has not been read yet from one that
@@ -18,10 +21,11 @@ use crate::tui::components::library_row::LibraryRow;
 /// The title carries the readings that belong to the library as a whole, so the
 /// place, the count, the occupied space, and the number of broken replicas are
 /// visible without walking the rows.
-#[derive(Debug)]
+#[derive(Clone)]
 pub struct LibraryTableWidget {
     inventory: Option<ModelInventory>,
     state: TableState,
+    theme: Arc<dyn Theme>,
 }
 
 impl LibraryTableWidget {
@@ -36,11 +40,17 @@ impl LibraryTableWidget {
     const DIGEST_WIDTH: u16 = 12;
     const COLUMN_SPACING: u16 = 1;
 
-    /// Builds a table that has not read the library yet.
+    /// Builds an empty table with default theme.
     pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Builds an empty table with an injected theme.
+    pub fn with_theme(theme: Arc<dyn Theme>) -> Self {
         Self {
             inventory: None,
             state: TableState::default(),
+            theme,
         }
     }
 
@@ -135,33 +145,28 @@ impl LibraryTableWidget {
             .map(|entry| {
                 let row = LibraryRow::describing(entry);
                 let style = if row.is_broken() {
-                    Style::default().fg(Color::Red)
+                    self.theme.status_error()
                 } else if entry.is_verified() {
-                    Style::default().fg(Color::Green)
+                    self.theme.status_success()
                 } else {
-                    Style::default().fg(Color::White)
+                    self.theme.content()
                 };
                 Row::new(row.into_cells()).style(style)
             });
 
         let table = Table::new(rows, Self::COLUMN_WIDTHS)
-            .header(
-                Row::new(LibraryRow::HEADINGS).style(
-                    Style::default()
-                        .fg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD),
-                ),
+            .header(Row::new(LibraryRow::HEADINGS).style(self.theme.content_emphasis()))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(title)
+                    .title_style(self.theme.title())
+                    .border_style(self.theme.border())
+                    .style(self.theme.content()),
             )
-            .block(Block::default().borders(Borders::ALL).title(title))
             .column_spacing(Self::COLUMN_SPACING)
-            .highlight_style(
-                Style::default()
-                    .bg(Color::Blue)
-                    .fg(Color::White)
-                    .add_modifier(Modifier::BOLD),
-            )
+            .highlight_style(self.theme.highlight())
             .highlight_symbol(Self::HIGHLIGHT_SYMBOL);
-
         frame.render_stateful_widget(table, area, &mut self.state);
     }
 
@@ -181,7 +186,7 @@ impl LibraryTableWidget {
 
 impl Default for LibraryTableWidget {
     fn default() -> Self {
-        Self::new()
+        Self::with_theme(Arc::new(GBadwolf))
     }
 }
 

@@ -13,3 +13,6 @@ localnar-application = { workspace = true }
 localnar-domain = { workspace = true }
 tokio = { workspace = true }
 localnar-infrastructure = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

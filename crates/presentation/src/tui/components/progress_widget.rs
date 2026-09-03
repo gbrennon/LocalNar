@@ -1,21 +1,34 @@
+use std::sync::Arc;
+
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
     widgets::{Block, Borders, Gauge, Paragraph},
 };
 
+use crate::tui::components::themes::{GBadwolf, Theme};
+
 /// Progress widget displaying install progress with gauge and status message.
-#[derive(Debug, Default)]
+#[derive(Clone)]
 pub struct ProgressWidget {
     progress: f64,
     message: String,
+    theme: Arc<dyn Theme>,
 }
 
 impl ProgressWidget {
-    /// Create a new progress widget.
+    /// Create a new progress widget with default theme.
     pub fn new() -> Self {
-        Self::default()
+        Self::with_theme(Arc::new(GBadwolf))
+    }
+
+    /// Create a new progress widget with an injected theme.
+    pub fn with_theme(theme: Arc<dyn Theme>) -> Self {
+        Self {
+            progress: 0.0,
+            message: String::new(),
+            theme,
+        }
     }
 
     /// Reset the progress to initial state.
@@ -41,31 +54,39 @@ impl ProgressWidget {
             .block(
                 Block::default()
                     .borders(Borders::ALL)
-                    .title(Self::GAUGE_TITLE),
+                    .title(Self::GAUGE_TITLE)
+                    .title_style(self.theme.title())
+                    .border_style(self.theme.border())
+                    .style(self.theme.content()),
             )
-            .gauge_style(Style::default().fg(Color::Green).bg(Color::Black))
-            .ratio(self.progress)
+            .gauge_style(self.theme.highlight())
             .label(format!("{:.1}%", self.progress * 100.0));
 
         frame.render_widget(gauge, chunks[0]);
 
         let message = Paragraph::new(self.message.as_str())
-            .style(Style::default().fg(Color::White))
+            .style(self.theme.content())
             .block(
                 Block::default()
                     .borders(Borders::ALL)
-                    .title(Self::STATUS_TITLE),
+                    .title(Self::STATUS_TITLE)
+                    .title_style(self.theme.title())
+                    .border_style(self.theme.border())
+                    .style(self.theme.content()),
             )
             .wrap(ratatui::widgets::Wrap { trim: true });
 
         frame.render_widget(message, chunks[1]);
 
         let help = Paragraph::new(Self::HELP_TEXT)
-            .style(Style::default().fg(Color::DarkGray))
+            .style(self.theme.content())
             .block(
                 Block::default()
                     .borders(Borders::ALL)
-                    .title(Self::CONTROLS_TITLE),
+                    .title(Self::CONTROLS_TITLE)
+                    .title_style(self.theme.title())
+                    .border_style(self.theme.border())
+                    .style(self.theme.content()),
             );
         frame.render_widget(help, chunks[2]);
     }
@@ -87,4 +108,10 @@ impl ProgressWidget {
     const CONTROLS_TITLE: &'static str = "Controls";
     const HELP_TEXT: &'static str =
         "Press Esc to return to the model table (install continues in background)";
+}
+
+impl Default for ProgressWidget {
+    fn default() -> Self {
+        Self::new()
+    }
 }

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use localnar_application::{
     ports::inbound::search_models_port::SearchModelsPort,
     services::{InstallModelService, SearchModelsService},
@@ -21,9 +21,10 @@ use tokio::sync::mpsc;
 use crate::tui::{
     app_event::AppEvent,
     app_mode::AppMode,
+    app_tab::AppTab,
     components::{
         HelpWidget, LibraryTableWidget, ModelDetails, ModelTableWidget, ProgressWidget,
-        SearchWidget, StatusWidget,
+        SearchWidget, StatusWidget, TabsWidget, themes::Theme,
     },
     events::EventHandler,
     layout_helper::LayoutHelper,
@@ -44,7 +45,11 @@ pub struct TuiApp {
     library_manager: LibraryManager,
     progress_bus: ProgressBus,
     mode: AppMode,
-    previous_mode: Option<AppMode>,
+    search_mode: AppMode,
+    is_installing: bool,
+    previous_tab: Option<AppTab>,
+    theme: Arc<dyn Theme>,
+    tabs_widget: TabsWidget,
     search_widget: SearchWidget,
     model_table_widget: ModelTableWidget,
     library_table_widget: LibraryTableWidget,
@@ -66,6 +71,7 @@ impl TuiApp {
         registry: HfApiRegistry<ReqwestHubTransport>,
         downloader: HfHubDownloader<HfHubTokioTransport>,
         library: DiskModelLibrary,
+        theme: Arc<dyn Theme>,
     ) -> Self {
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
         let progress_bus = ProgressBus::new(16);
@@ -80,13 +86,17 @@ impl TuiApp {
             library_manager,
             progress_bus,
             mode: AppMode::Search,
-            previous_mode: None,
-            search_widget: SearchWidget::new(),
-            model_table_widget: ModelTableWidget::new(),
-            library_table_widget: LibraryTableWidget::new(),
-            progress_widget: ProgressWidget::new(),
-            status_widget: StatusWidget::new(),
-            help_widget: HelpWidget::new(),
+            search_mode: AppMode::Search,
+            is_installing: false,
+            previous_tab: None,
+            tabs_widget: TabsWidget::with_theme(Arc::clone(&theme)),
+            search_widget: SearchWidget::with_theme(Arc::clone(&theme)),
+            model_table_widget: ModelTableWidget::with_theme(Arc::clone(&theme)),
+            library_table_widget: LibraryTableWidget::with_theme(Arc::clone(&theme)),
+            progress_widget: ProgressWidget::with_theme(Arc::clone(&theme)),
+            status_widget: StatusWidget::with_theme(Arc::clone(&theme)),
+            help_widget: HelpWidget::with_theme(Arc::clone(&theme)),
+            theme,
             details: None,
             pending_removal: None,
             event_sender,
@@ -104,6 +114,15 @@ impl TuiApp {
     /// Check if the application should quit.
     pub fn should_quit(&self) -> bool {
         self.should_quit
+    }
+
+    /// Names the tab the operator is on.
+    pub fn active_tab(&self) -> AppTab {
+        self.mode.tab()
+    }
+    /// Returns the current application mode.
+    pub fn mode(&self) -> AppMode {
+        self.mode
     }
 
     /// Create an install service with progress reporting.
@@ -130,23 +149,38 @@ impl TuiApp {
             match event {
                 AppEvent::SearchCompleted(results) => {
                     self.model_table_widget.show(results);
-                    self.mode = AppMode::ModelTable;
+                    self.search_mode = AppMode::ModelTable;
+                    if self.mode.tab() == AppTab::Search {
+                        self.mode = AppMode::ModelTable;
+                    }
                     self.status_widget.report(Self::MSG_SEARCH_COMPLETED);
                 }
                 AppEvent::SearchFailed(err) => {
                     self.raise_failure(err);
                 }
                 AppEvent::InstallStarted => {
-                    self.previous_mode = Some(self.mode);
-                    self.mode = AppMode::InstallProgress;
+                    self.is_installing = true;
+                    self.search_mode = AppMode::InstallProgress;
+                    if self.mode.tab() == AppTab::Search {
+                        self.mode = AppMode::InstallProgress;
+                    }
                     self.progress_widget.reset();
                     self.status_widget.report(Self::MSG_INSTALL_STARTED);
                 }
                 AppEvent::InstallProgress(progress, msg) => {
-                    self.progress_widget.advance(progress, msg);
+                    self.progress_widget.advance(progress, msg.clone());
+                    self.status_widget.report(format!(
+                        "Installing: {:.1}% - {}",
+                        progress * 100.0,
+                        msg
+                    ));
                 }
                 AppEvent::InstallCompleted(model) => {
-                    self.mode = self.previous_mode.take().unwrap_or(AppMode::ModelTable);
+                    self.is_installing = false;
+                    self.search_mode = AppMode::ModelTable;
+                    if self.mode == AppMode::InstallProgress {
+                        self.mode = AppMode::ModelTable;
+                    }
                     self.status_widget.report(format!(
                         "{}{}",
                         Self::MSG_INSTALL_COMPLETED,
@@ -155,7 +189,11 @@ impl TuiApp {
                     self.library_manager.list();
                 }
                 AppEvent::InstallFailed(err) => {
-                    self.mode = self.previous_mode.take().unwrap_or(AppMode::ModelTable);
+                    self.is_installing = false;
+                    self.search_mode = AppMode::ModelTable;
+                    if self.mode == AppMode::InstallProgress {
+                        self.mode = AppMode::ModelTable;
+                    }
                     self.raise_failure(err);
                 }
                 AppEvent::LibraryListed(inventory) => {
@@ -229,8 +267,14 @@ impl TuiApp {
         }
 
         match key.code {
-            KeyCode::Tab => return self.switch_to(self.mode.next()),
-            KeyCode::BackTab => return self.switch_to(self.mode.previous()),
+            KeyCode::Tab => return self.switch_to_tab(self.active_tab().next()),
+            KeyCode::BackTab => return self.switch_to_tab(self.active_tab().previous()),
+            KeyCode::Char(digit) if key.modifiers.contains(KeyModifiers::ALT) => {
+                if let Some(tab) = AppTab::from_shortcut(digit) {
+                    self.switch_to_tab(tab);
+                }
+                return;
+            }
             _ => {}
         }
 
@@ -243,21 +287,42 @@ impl TuiApp {
         }
     }
 
-    /// Leaves the current mode for `mode`, preparing whatever it needs.
+    /// Leaves the current tab for `tab`, preparing whatever it needs.
     ///
     /// Entering the library reads it when nothing has read it yet, so the
     /// operator never faces an empty screen they have to know to refresh.
     /// Leaving it abandons an unanswered removal prompt rather than carrying a
-    /// pending deletion into a mode that cannot show it.
-    fn switch_to(&mut self, mode: AppMode) {
-        if self.mode == AppMode::Library && mode != AppMode::Library {
-            self.details = None;
-            self.pending_removal = None;
+    /// pending deletion into a screen that cannot show it. The tab left behind
+    /// is remembered so the help tab can send the operator back to it.
+    fn switch_to_tab(&mut self, tab: AppTab) {
+        let leaving = self.mode.tab();
+
+        if leaving != tab {
+            self.previous_tab = Some(leaving);
+
+            if leaving == AppTab::Search {
+                self.search_mode = self.mode;
+            }
+
+            if leaving == AppTab::Library {
+                self.details = None;
+                self.pending_removal = None;
+            }
         }
 
-        self.mode = mode;
+        self.mode = match tab {
+            AppTab::Search => {
+                if self.is_installing {
+                    AppMode::InstallProgress
+                } else {
+                    self.search_mode
+                }
+            }
+            AppTab::Library => AppMode::Library,
+            AppTab::Help => AppMode::Help,
+        };
 
-        if mode == AppMode::Library && self.library_table_widget.inventory().is_none() {
+        if tab == AppTab::Library && self.library_table_widget.inventory().is_none() {
             self.status_widget.report(Self::MSG_READING_LIBRARY);
             self.library_manager.list();
         }
@@ -294,7 +359,7 @@ impl TuiApp {
                 }
             }
             KeyCode::Esc => {
-                self.mode = AppMode::Help;
+                self.switch_to_tab(AppTab::Help);
             }
             _ => {}
         }
@@ -309,6 +374,12 @@ impl TuiApp {
                 self.model_table_widget.next();
             }
             KeyCode::Enter => {
+                if self.is_installing {
+                    self.mode = AppMode::InstallProgress;
+                    self.search_mode = AppMode::InstallProgress;
+                    return;
+                }
+
                 if let Some(model) = self.model_table_widget.selected_model() {
                     let spec = model.spec().clone();
                     self.event_sender.send(AppEvent::InstallStarted).ok();
@@ -333,14 +404,21 @@ impl TuiApp {
                     });
                 }
             }
+            KeyCode::Char('p') | KeyCode::Char('P') => {
+                if self.is_installing {
+                    self.mode = AppMode::InstallProgress;
+                    self.search_mode = AppMode::InstallProgress;
+                }
+            }
             KeyCode::Char('l') | KeyCode::Char('L') => {
-                self.switch_to(AppMode::Library);
+                self.switch_to_tab(AppTab::Library);
             }
             KeyCode::Esc => {
-                self.switch_to(AppMode::Search);
+                self.search_mode = AppMode::Search;
+                self.mode = AppMode::Search;
             }
-            KeyCode::Char('h') | KeyCode::Char('H') => {
-                self.mode = AppMode::Help;
+            KeyCode::Char('h') | KeyCode::Char('H') | KeyCode::Char('?') => {
+                self.switch_to_tab(AppTab::Help);
             }
             _ => {}
         }
@@ -374,8 +452,8 @@ impl TuiApp {
                 self.status_widget.report(Self::MSG_READING_LIBRARY);
                 self.library_manager.list();
             }
-            KeyCode::Char('h') | KeyCode::Char('H') => {
-                self.mode = AppMode::Help;
+            KeyCode::Char('h') | KeyCode::Char('H') | KeyCode::Char('?') => {
+                self.switch_to_tab(AppTab::Help);
             }
             KeyCode::Esc => self.close_details_or_leave_library(),
             _ => {}
@@ -389,7 +467,7 @@ impl TuiApp {
     /// inside it to dismiss.
     fn close_details_or_leave_library(&mut self) {
         if self.details.take().is_none() {
-            self.switch_to(AppMode::ModelTable);
+            self.switch_to_tab(AppTab::Search);
         }
     }
 
@@ -447,37 +525,42 @@ impl TuiApp {
 
     fn handle_install_progress_keys(&mut self, key: KeyEvent) {
         if key.code == KeyCode::Esc {
-            self.mode = self.previous_mode.take().unwrap_or(AppMode::ModelTable);
+            self.search_mode = AppMode::ModelTable;
+            self.mode = AppMode::ModelTable;
         }
     }
 
     fn handle_help_keys(&mut self, key: KeyEvent) {
         if matches!(
             key.code,
-            KeyCode::Esc | KeyCode::Char('h') | KeyCode::Char('H')
+            KeyCode::Esc | KeyCode::Char('h') | KeyCode::Char('H') | KeyCode::Char('?')
         ) {
-            self.mode = self.previous_mode.unwrap_or(AppMode::Search);
+            let back = self.previous_tab.take().unwrap_or(AppTab::Search);
+            self.switch_to_tab(back);
         }
     }
 
     /// Render the TUI application.
     pub fn draw(&mut self, frame: &mut Frame) {
         let area = frame.area();
+        frame.render_widget(Block::default().style(self.theme.content()), area);
+
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints(Self::MAIN_LAYOUT_CONSTRAINTS)
             .split(area);
 
-        self.draw_header(frame, chunks[0]);
-        self.draw_content(frame, chunks[1]);
-        self.status_widget.draw(frame, chunks[2]);
+        self.tabs_widget.draw(frame, chunks[0], self.active_tab());
+        self.draw_header(frame, chunks[1]);
+        self.draw_content(frame, chunks[2]);
+        self.status_widget.draw(frame, chunks[3]);
 
         if let Some(entry) = self.details.as_ref() {
-            Self::draw_details_popup(frame, area, entry);
+            self.draw_details_popup(frame, area, entry);
         }
 
         if let Some(spec) = self.pending_removal.as_ref() {
-            Self::draw_removal_prompt(frame, area, spec);
+            self.draw_removal_prompt(frame, area, spec);
         }
 
         if let Some(error) = self.last_error.as_ref() {
@@ -491,40 +574,26 @@ impl TuiApp {
                 self.search_widget.draw(frame, area);
             }
             AppMode::ModelTable => {
-                Self::draw_banner(
-                    frame,
-                    area,
-                    Self::MODEL_TABLE_HEADER,
-                    Self::MODEL_TABLE_TITLE,
-                    Color::Cyan,
-                );
+                let header = if self.is_installing {
+                    Self::MODEL_TABLE_HEADER_INSTALLING
+                } else {
+                    Self::MODEL_TABLE_HEADER
+                };
+                self.draw_banner(frame, area, header, Self::MODEL_TABLE_TITLE);
             }
             AppMode::InstallProgress => {
-                Self::draw_banner(
+                self.draw_banner(
                     frame,
                     area,
                     Self::INSTALL_PROGRESS_HEADER,
                     Self::INSTALL_PROGRESS_TITLE,
-                    Color::Yellow,
                 );
             }
             AppMode::Library => {
-                Self::draw_banner(
-                    frame,
-                    area,
-                    Self::LIBRARY_HEADER,
-                    Self::LIBRARY_TITLE,
-                    Color::Magenta,
-                );
+                self.draw_banner(frame, area, Self::LIBRARY_HEADER, Self::LIBRARY_TITLE);
             }
             AppMode::Help => {
-                Self::draw_banner(
-                    frame,
-                    area,
-                    Self::HELP_HEADER,
-                    Self::HELP_TITLE,
-                    Color::Green,
-                );
+                self.draw_banner(frame, area, Self::HELP_HEADER, Self::HELP_TITLE);
             }
         }
     }
@@ -550,67 +619,76 @@ impl TuiApp {
     }
 
     fn draw_banner(
+        &self,
         frame: &mut Frame,
         area: Rect,
         header: &'static str,
         title: &'static str,
-        color: Color,
     ) {
         let banner = Paragraph::new(header)
-            .style(Style::default().fg(color))
-            .block(Block::default().borders(Borders::ALL).title(title));
+            .style(self.theme.content_emphasis())
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(title)
+                    .title_style(self.theme.title())
+                    .border_style(self.theme.border())
+                    .style(self.theme.content()),
+            );
         frame.render_widget(banner, area);
     }
 
     fn draw_search_help(&self, frame: &mut Frame, area: Rect) {
         let help = Paragraph::new(Self::SEARCH_HELP_TEXT)
-            .style(Style::default().fg(Color::Gray))
+            .style(self.theme.content())
             .block(
                 Block::default()
                     .borders(Borders::ALL)
-                    .title(Self::SEARCH_HELP_TITLE),
+                    .title(Self::SEARCH_HELP_TITLE)
+                    .title_style(self.theme.title())
+                    .border_style(self.theme.border())
+                    .style(self.theme.content()),
             )
             .wrap(Wrap { trim: true });
         frame.render_widget(help, area);
     }
 
-    fn draw_details_popup(frame: &mut Frame, area: Rect, entry: &ManagedModel) {
+    fn draw_details_popup(&self, frame: &mut Frame, area: Rect, entry: &ManagedModel) {
         let popup_area = LayoutHelper::centered_rect(
             Self::DETAILS_POPUP_WIDTH_PCT,
             Self::DETAILS_POPUP_HEIGHT_PCT,
             area,
         );
-        let color = if entry.is_broken() {
-            Color::Red
-        } else {
-            Color::Cyan
-        };
         let details = Paragraph::new(ModelDetails::describing(entry).to_lines().join("\n"))
-            .style(Style::default().fg(Color::White))
+            .style(self.theme.content())
             .block(
                 Block::default()
                     .title(Self::DETAILS_TITLE)
+                    .title_style(self.theme.title())
                     .borders(Borders::ALL)
-                    .style(Style::default().bg(Color::Black).fg(color)),
+                    .border_style(self.theme.border())
+                    .style(self.theme.content()),
             )
             .wrap(Wrap { trim: false });
         frame.render_widget(Clear, popup_area);
         frame.render_widget(details, popup_area);
     }
 
-    fn draw_removal_prompt(frame: &mut Frame, area: Rect, spec: &ModelSpec) {
+    fn draw_removal_prompt(&self, frame: &mut Frame, area: Rect, spec: &ModelSpec) {
         let popup_area = LayoutHelper::centered_rect(
             Self::PROMPT_POPUP_WIDTH_PCT,
             Self::PROMPT_POPUP_HEIGHT_PCT,
             area,
         );
         let prompt = Paragraph::new(format!("{spec}\n\n{}", Self::PROMPT_ANSWERS))
-            .style(Style::default().fg(Color::White))
+            .style(self.theme.content())
             .block(
                 Block::default()
                     .title(Self::PROMPT_TITLE)
+                    .title_style(self.theme.title())
                     .borders(Borders::ALL)
-                    .style(Style::default().bg(Color::Black).fg(Color::Yellow)),
+                    .border_style(self.theme.border())
+                    .style(self.theme.content()),
             )
             .wrap(Wrap { trim: true });
         frame.render_widget(Clear, popup_area);
@@ -637,31 +715,35 @@ impl TuiApp {
 }
 
 impl TuiApp {
-    const MAIN_LAYOUT_CONSTRAINTS: [Constraint; 3] = [
+    const MAIN_LAYOUT_CONSTRAINTS: [Constraint; 4] = [
+        Constraint::Length(Self::TABS_HEIGHT),
         Constraint::Length(Self::HEADER_HEIGHT),
         Constraint::Min(Self::CONTENT_MIN_HEIGHT),
         Constraint::Length(Self::STATUS_HEIGHT),
     ];
 
+    const TABS_HEIGHT: u16 = 3;
     const HEADER_HEIGHT: u16 = 3;
     const CONTENT_MIN_HEIGHT: u16 = 10;
     const STATUS_HEIGHT: u16 = 3;
 
     const MODEL_TABLE_HEADER: &'static str =
-        "Models (↑/↓ navigate, Enter install, l library, Esc search, h help)";
+        "Models (↑/↓ navigate, Enter install, Esc search again, Tab change tab, h help)";
+    const MODEL_TABLE_HEADER_INSTALLING: &'static str =
+        "Models (↑/↓ navigate, p / Enter view progress, Esc search again, Tab change tab, h help)";
     const MODEL_TABLE_TITLE: &'static str = "Models";
 
     const INSTALL_PROGRESS_HEADER: &'static str = "Installing Model... (Esc to return)";
     const INSTALL_PROGRESS_TITLE: &'static str = "Install Progress";
 
     const LIBRARY_HEADER: &'static str =
-        "Library (↑/↓ navigate, i inspect, v verify, d delete, p prune, r reload, Esc back)";
+        "Library (↑/↓ navigate, i inspect, v verify, d delete, p prune, r reload, Tab change tab)";
     const LIBRARY_TITLE: &'static str = "Installed Models";
 
-    const HELP_HEADER: &'static str = "Help (Esc/h to close)";
+    const HELP_HEADER: &'static str = "Help (Esc/h returns to the previous tab)";
     const HELP_TITLE: &'static str = "Help";
 
-    const SEARCH_HELP_TEXT: &'static str = "Enter search query and press Enter to search models.\nTab cycles search, models, library, help.\nEsc for help.";
+    const SEARCH_HELP_TEXT: &'static str = "Enter search query and press Enter to search models.\nTab / Shift+Tab move between tabs; Alt+1..Alt+3 jump straight to one.\nEsc opens the help tab.";
     const SEARCH_HELP_TITLE: &'static str = "Search";
 
     const ERROR_TITLE: &'static str = "Error";
