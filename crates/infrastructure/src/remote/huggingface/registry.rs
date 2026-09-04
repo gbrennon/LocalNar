@@ -11,14 +11,16 @@ const DEFAULT_ENDPOINT: &str = "https://huggingface.co";
 const INSTALLABLE_EXTENSIONS: [&str; 2] = ["gguf", "safetensors"];
 
 fn is_installable_format(file_name: &ModelFileName) -> bool {
-    file_name
-        .as_str()
-        .rsplit_once('.')
-        .is_some_and(|(_, extension)| {
-            INSTALLABLE_EXTENSIONS
-                .iter()
-                .any(|ext| extension.eq_ignore_ascii_case(ext))
-        })
+    let name = file_name.as_str();
+    let basename = name.rsplit('/').next().unwrap_or(name);
+    if basename.to_ascii_lowercase().starts_with("mmproj") {
+        return false;
+    }
+    name.rsplit_once('.').is_some_and(|(_, extension)| {
+        INSTALLABLE_EXTENSIONS
+            .iter()
+            .any(|ext| extension.eq_ignore_ascii_case(ext))
+    })
 }
 
 /// Transport contract for retrieving raw JSON from the Hugging Face Hub catalog.

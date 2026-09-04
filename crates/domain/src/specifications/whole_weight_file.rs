@@ -12,9 +12,16 @@ use crate::{
 pub struct WholeWeightFile;
 
 impl Specification<ModelFileName> for WholeWeightFile {
-    /// Satisfied when the name does not mark the file as a split part.
     fn is_satisfied_by(&self, candidate: &ModelFileName) -> bool {
-        !MultiPartShard.is_satisfied_by(candidate)
+        !MultiPartShard.is_satisfied_by(candidate) && !Self::is_projector(candidate)
+    }
+}
+
+impl WholeWeightFile {
+    fn is_projector(candidate: &ModelFileName) -> bool {
+        let name = candidate.as_str();
+        let basename = name.rsplit('/').next().unwrap_or(name);
+        basename.to_ascii_lowercase().starts_with("mmproj")
     }
 }
 
@@ -46,5 +53,11 @@ mod whole_weight_file_tests {
     #[test]
     fn a_split_part_is_excluded_regardless_of_extension() {
         assert!(!is_whole("notes-00001-of-00003.md"));
+    }
+
+    #[test]
+    fn auxiliary_projector_files_are_excluded() {
+        assert!(!is_whole("mmproj-F16.gguf"));
+        assert!(!is_whole("mmproj-BF16.gguf"));
     }
 }
