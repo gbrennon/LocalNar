@@ -22,7 +22,8 @@ LocalNar stores models in a structured on-disk hierarchy rooted at
 ### Finding the exact path
 
 - **Inside LocalNar TUI**:
-  1. Press `Tab` or `l` to switch to **Library** mode.
+  1. Press `Alt+2` (or cycle with `Tab`) to switch to the **Library** screen.
+     *(Screens use `Alt+1` for Search, `Alt+2` for Library, and `Alt+3` for Help).*
   2. Select the model using `↑` / `↓`.
   3. Press `i` or `Enter` to inspect the model. The exact absolute path to the
      `.gguf` file is shown on screen.
@@ -38,8 +39,9 @@ LocalNar stores models in a structured on-disk hierarchy rooted at
 Before loading a model into an inference engine, verify that the download is
 complete and uncorrupted:
 
-- **Inside LocalNar**: In Library mode, select the model and press `v`. The
-  state badge will confirm **verified** against the upstream SHA-256 digest.
+- **Inside LocalNar**: On the Library screen (`Alt+2` or `Tab`), select the model
+  and press `v`. The state badge will confirm **verified** against the upstream
+  SHA-256 digest.
 - **Via command line**:
   ```sh
   MODEL_PATH="/path/to/model.gguf"
