@@ -19,9 +19,9 @@ install started.
 
 ## Managing installed models
 
-`Tab` and `Shift+Tab` cycle search -> models -> library -> help, and `l` jumps
-straight to the library from the model table.
-
+`Tab` and `Shift+Tab` cycle between tabs (Search -> Library -> Help). You can also
+jump directly to any screen with `Alt+1` (Search), `Alt+2` (Library), or `Alt+3`
+(Help).
 Library mode gives full control over the models already on this machine:
 
 | Key | Action |

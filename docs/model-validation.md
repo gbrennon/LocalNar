@@ -22,7 +22,8 @@ LocalNar stores models in a structured on-disk hierarchy rooted at
 ### Finding the exact path
 
 - **Inside LocalNar TUI**:
-  1. Press `Tab` or `l` to switch to **Library** mode.
+  1. Press `Alt+2` (or cycle with `Tab`) to switch to the **Library** screen.
+     *(Screens use `Alt+1` for Search, `Alt+2` for Library, and `Alt+3` for Help).*
   2. Select the model using `↑` / `↓`.
   3. Press `i` or `Enter` to inspect the model. The exact absolute path to the
      `.gguf` file is shown on screen.
@@ -38,8 +39,9 @@ LocalNar stores models in a structured on-disk hierarchy rooted at
 Before loading a model into an inference engine, verify that the download is
 complete and uncorrupted:
 
-- **Inside LocalNar**: In Library mode, select the model and press `v`. The
-  state badge will confirm **verified** against the upstream SHA-256 digest.
+- **Inside LocalNar**: On the Library screen (`Alt+2` or `Tab`), select the model
+  and press `v`. The state badge will confirm **verified** against the upstream
+  SHA-256 digest.
 - **Via command line**:
   ```sh
   MODEL_PATH="/path/to/model.gguf"
@@ -100,7 +102,6 @@ llama-cli \
   -c 8192 \
   -p "Explain the concept of entropy in simple terms:"
 ```
-
 ### Hybrid GPU + CPU offload (Model exceeds VRAM)
 
 ```sh
@@ -115,6 +116,10 @@ llama-cli \
   -b 2048 \
   -ub 512
 ```
+
+> **Tip**: For scripted non-interactive execution, pass `-st` (or `--single-turn`)
+> so the program outputs the generation and immediately exits instead of waiting
+> for interactive user input in a conversation loop.
 
 ### Pure CPU execution
 
@@ -160,23 +165,135 @@ curl http://127.0.0.1:8080/v1/chat/completions \
 
 ## 6. Performance benchmarking with `llama-bench`
 
-To benchmark throughput and distinguish compute throughput from memory bandwidth:
+`llama-bench` strips away tokenizer, chat templating, and disk overhead to measure
+pure hardware execution speed.
+
+### Basic run
 
 ```sh
 llama-bench \
   -m "/path/to/model.gguf" \
-  -ngl 40 \
+  -ngl 99 \
   -fa 1 \
   -p 512 \
   -n 128
 ```
 
-- `-p 512 -n 0`: Benchmarks **prompt ingestion (prefill)** speed (tokens/sec). Ingesting prompt batches exercises parallel matrix cores (GPU compute utilization will approach 100%).
-- `-p 0 -n 128`: Benchmarks **autoregressive token generation** speed (tokens/sec).
+Sample output:
+```text
+| model          | size     | params  | backend | ngl | fa | test  | t/s             |
+| -------------- | -------- | ------- | ------- | --- | -- | ----- | --------------- |
+| qwen2 14B Q4_0 | 7.93 GiB | 14.77 B | CUDA    | 99  | 1  | pp512 | 2906.89 ± 72.39 |
+| qwen2 14B Q4_0 | 7.93 GiB | 14.77 B | CUDA    | 99  | 1  | tg128 |   60.47 ± 0.12  |
+```
+
+- **`pp512` (Prompt Processing / Prefill)**: Tokens/sec while ingesting a 512-token prompt.
+  Runs dense matrix multiplications (GEMM), pushing GPU compute cores to **90%–100%**.
+- **`tg128` (Text Generation / Decode)**: Tokens/sec while generating output tokens.
+  Memory-bandwidth bound.
+
+### Matrix benchmarking across context windows
+
+Pass comma-separated values to test multiple context lengths in a single run, and
+use `-o md` to output directly in Markdown format:
+
+```sh
+llama-bench \
+  -m "/path/to/model.gguf" \
+  -ngl 99 \
+  -fa 1 \
+  -p 512,1024,2048 \
+  -n 0,128 \
+  -o md
+```
+
+### Evaluating layer scaling (GPU vs. CPU split)
+
+To measure the exact throughput degradation caused by leaving layers on the CPU:
+
+```sh
+llama-bench \
+  -m "/path/to/model.gguf" \
+  -ngl 0,20,40,99 \
+  -fa 1 \
+  -p 512 \
+  -n 64
+```
 
 ---
 
-## 7. Troubleshooting common issues
+## 7. Quality evaluation with `llama-perplexity`
+
+Perplexity (PPL) measures how accurately a model predicts text tokens. A **lower**
+score indicates higher quality and less degradation from quantization.
+
+### Testing with any local file
+
+The `-f` flag requires a real text file on disk. You can evaluate perplexity immediately
+using any local file (e.g. `README.md`):
+
+```sh
+llama-perplexity \
+  -m "/path/to/model.gguf" \
+  -f README.md \
+  -ngl 99 \
+  -c 512
+```
+
+Sample output:
+```text
+perplexity: calculating perplexity over 2 chunks, n_ctx=512, batch_size=2048
+[1]11.3007,[2]10.5921,
+Final estimate: PPL = 10.5921 +/- 1.45250
+```
+
+### Standard WikiText-2 benchmark
+
+For standardized scores comparable against published model cards:
+
+```sh
+# 1. Download and extract the standard dataset
+wget https://huggingface.co/datasets/ggml-org/ci/resolve/main/wikitext-2-raw-v1.zip
+unzip wikitext-2-raw-v1.zip
+
+# 2. Calculate standard perplexity
+llama-perplexity \
+  -m "/path/to/model.gguf" \
+  -f wikitext-2-raw/wiki.test.raw \
+  -ngl 99 \
+  -c 2048
+```
+
+---
+
+## 8. Speculative decoding and companion tools
+
+### Accelerating generation with speculative decoding (`-md`)
+
+When running a 14B or 27B model, you can pair it with a tiny draft model (e.g. 0.5B
+or 1.5B) to boost generation speed from ~60 t/s up to **90–110+ t/s**:
+
+```sh
+llama-cli \
+  -m "/path/to/base-model-14B.gguf" \
+  -md "/path/to/draft-model-0.5B.gguf" \
+  -ngl 99 \
+  -ngld 99 \
+  -fa on
+```
+
+### Other utilities in the suite
+
+| Tool | Purpose | Typical Command |
+|---|---|---|
+| **`llama-tokenize`** | Inspect token decomposition and count prompt tokens | `llama-tokenize -m <model.gguf> -p "Sample text"` |
+| **`llama-embedding`** | Generate vector embeddings for RAG or search | `llama-embedding -m <model.gguf> -p "Search query"` |
+| **`llama-simple-chat`** | Minimal chat interface with zero TUI dependencies | `llama-simple-chat -m <model.gguf> -ngl 99` |
+| **`llama-quantize`** | Convert unquantized (`F16`/`BF16`) weights to `Q4_K_M` or `IQ4_XS` | `llama-quantize <input.gguf> <output.gguf> Q4_K_M` |
+
+---
+
+## 9. Troubleshooting common issues
 
 ### CUDA out of memory (`cudaMalloc failed`)
 
@@ -187,8 +304,28 @@ llama-bench \
   3. Add `-ctk q8_0 -ctv q8_0` to compress the KV cache.
   4. Ensure Flash Attention is enabled (`-fa on`).
 
-### GPU compute utilization reads 25%–35% in `nvidia-smi`
+### GPU reads ~25%–35% and CPU reads < 10%
 
-- **Cause**: This is normal behavior during **hybrid CPU/GPU execution**.
-- **Explanation**: In an autoregressive model, layers execute sequentially for each token. When 40 layers run on GPU and 25 on CPU, the GPU finishes its 40 layers in milliseconds and then pauses idle while the CPU processes the remaining 25 layers in system RAM. The GPU active duty cycle is only ~25%–35% of total elapsed time.
-- **Fix**: To achieve 100% GPU utilization during generation, the model must fit entirely in VRAM (`-ngl 99`).
+A common point of confusion during hybrid execution is why **both** GPU and CPU report low utilization percentages in `nvidia-smi` and `top`/`htop`:
+
+1. **The Sequential Ping-Pong (Duty Cycle)**:
+   - Generating each token is strictly sequential.
+   - The GPU computes layers 0–41 in ~40 ms. During this time, the CPU is completely idle (0% CPU).
+   - The CPU computes layers 42–64 in ~120 ms. During this time, the GPU is completely idle (0% GPU).
+   - Because both devices take turns waiting on each other, neither device can ever register a continuous 100% active duty cycle during generation.
+
+2. **The CPU Memory-Bandwidth Wall**:
+   - Why doesn't the CPU spike to 100% during its turn?
+   - Single-token generation requires streaming ~5.5 GB of model weights from system DDR5 RAM to CPU cache once per token.
+   - Dual-channel DDR5 bandwidth (~50–60 GB/s) saturates almost instantaneously.
+   - Once the memory bus is saturated, the CPU execution units (ALUs/AVX cores) spend most clock cycles stalled waiting on memory cache lines.
+   - Operating system metrics (`top`, `htop`) measure active instruction retirement across all logical threads (e.g. 16 threads on an 8-core CPU), so memory-stalled threads register as **< 10%–15% CPU utilization**.
+
+3. **How to observe 90%+ GPU compute utilization**:
+   - **Prompt Ingestion (Prefill)**: When feeding a large prompt (e.g. 1,000–2,000 tokens), the entire prompt is evaluated simultaneously via batch matrix-matrix multiplication (GEMM). During prefill, GPU tensor cores run at full parallelism, and GPU utilization will spike to **90%–100%**.
+     ```sh
+     # Test prompt prefill saturation with a large input:
+     llama-cli -m "/path/to/model.gguf" -ngl 40 -fa on -c 8192 -p "$(seq -s ' ' 1000)"
+     ```
+   - **100% GPU Offload**: Use a model whose entire weight footprint fits inside VRAM (`-ngl 99`). This eliminates the CPU wait entirely, producing continuous 80%–100% GPU utilization during generation.
+
