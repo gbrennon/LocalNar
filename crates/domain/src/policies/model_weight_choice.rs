@@ -201,4 +201,20 @@ mod model_weight_choice_tests {
 
         assert_eq!(ascending, descending);
     }
+
+    #[test]
+    fn a_repository_offering_only_projector_files_yields_no_candidate() {
+        assert_eq!(chosen(&[("mmproj-F16.gguf", 904_000_000)]), None);
+    }
+
+    #[test]
+    fn an_equal_precision_chooses_model_weight_over_smaller_projector() {
+        assert_eq!(
+            chosen(&[
+                ("model-BF16.gguf", 16_000_000_000),
+                ("mmproj-BF16.gguf", 907_000_000),
+            ]),
+            Some("model-BF16.gguf".to_owned())
+        );
+    }
 }
