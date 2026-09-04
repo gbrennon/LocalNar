@@ -63,3 +63,10 @@ leftover, proven or not, and a file the manager did not put there is never
 touched.
 
 Taarna struck only what had earned it. So does `p`.
+
+## Validating models
+
+Instructions for testing and validating models downloaded by LocalNar with
+`llama-cli`, `llama-server`, and `llama-bench` across different hardware
+configurations are documented in
+[`docs/model-validation.md`](model-validation.md).
