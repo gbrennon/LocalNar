@@ -149,10 +149,7 @@ impl TuiApp {
             match event {
                 AppEvent::SearchCompleted(results) => {
                     self.model_table_widget.show(results);
-                    self.search_mode = AppMode::ModelTable;
-                    if self.mode.tab() == AppTab::Search {
-                        self.mode = AppMode::ModelTable;
-                    }
+                    self.leave_search_tab_for(AppMode::ModelTable);
                     self.status_widget.report(Self::MSG_SEARCH_COMPLETED);
                 }
                 AppEvent::SearchFailed(err) => {
@@ -160,10 +157,7 @@ impl TuiApp {
                 }
                 AppEvent::InstallStarted => {
                     self.is_installing = true;
-                    self.search_mode = AppMode::InstallProgress;
-                    if self.mode.tab() == AppTab::Search {
-                        self.mode = AppMode::InstallProgress;
-                    }
+                    self.leave_search_tab_for(AppMode::InstallProgress);
                     self.progress_widget.reset();
                     self.status_widget.report(Self::MSG_INSTALL_STARTED);
                 }
@@ -177,10 +171,7 @@ impl TuiApp {
                 }
                 AppEvent::InstallCompleted(model) => {
                     self.is_installing = false;
-                    self.search_mode = AppMode::ModelTable;
-                    if self.mode == AppMode::InstallProgress {
-                        self.mode = AppMode::ModelTable;
-                    }
+                    self.leave_install_progress_for(AppMode::ModelTable);
                     self.status_widget.report(format!(
                         "{}{}",
                         Self::MSG_INSTALL_COMPLETED,
@@ -190,10 +181,7 @@ impl TuiApp {
                 }
                 AppEvent::InstallFailed(err) => {
                     self.is_installing = false;
-                    self.search_mode = AppMode::ModelTable;
-                    if self.mode == AppMode::InstallProgress {
-                        self.mode = AppMode::ModelTable;
-                    }
+                    self.leave_install_progress_for(AppMode::ModelTable);
                     self.raise_failure(err);
                 }
                 AppEvent::LibraryListed(inventory) => {
@@ -254,28 +242,32 @@ impl TuiApp {
         }
     }
 
+    /// Moves out of the search tab once a search or install has landed,
+    /// remembering the destination so a later tab switch can restore it.
+    fn leave_search_tab_for(&mut self, target: AppMode) {
+        self.search_mode = target;
+        if self.mode.tab() == AppTab::Search {
+            self.mode = target;
+        }
+    }
+
+    /// Moves out of install progress once the attempt settles, remembering the
+    /// results view for a later tab switch.
+    fn leave_install_progress_for(&mut self, target: AppMode) {
+        self.search_mode = target;
+        if self.mode == AppMode::InstallProgress {
+            self.mode = target;
+        }
+    }
+
     /// Handle a key event based on current mode.
     pub async fn handle_key_event(&mut self, key: KeyEvent) {
-        if self.last_error.is_some() {
-            self.last_error = None;
+        if self.dismiss_error_or_quit(&key) {
             return;
         }
 
-        if EventHandler::is_quit_key(&key) {
-            self.event_sender.send(AppEvent::Quit).ok();
+        if self.handle_navigation_key(&key) {
             return;
-        }
-
-        match key.code {
-            KeyCode::Tab => return self.switch_to_tab(self.active_tab().next()),
-            KeyCode::BackTab => return self.switch_to_tab(self.active_tab().previous()),
-            KeyCode::Char(digit) if key.modifiers.contains(KeyModifiers::ALT) => {
-                if let Some(tab) = AppTab::from_shortcut(digit) {
-                    self.switch_to_tab(tab);
-                }
-                return;
-            }
-            _ => {}
         }
 
         match self.mode {
@@ -284,6 +276,41 @@ impl TuiApp {
             AppMode::InstallProgress => self.handle_install_progress_keys(key),
             AppMode::Library => self.handle_library_keys(key),
             AppMode::Help => self.handle_help_keys(key),
+        }
+    }
+
+    /// Clears a pending error and answers whether the key was consumed by it
+    /// or by a quit request.
+    fn dismiss_error_or_quit(&mut self, key: &KeyEvent) -> bool {
+        if self.last_error.is_some() {
+            self.last_error = None;
+            return true;
+        }
+        if EventHandler::is_quit_key(key) {
+            self.event_sender.send(AppEvent::Quit).ok();
+            return true;
+        }
+        false
+    }
+
+    /// Answers whether the key navigates between tabs or the shortcut tabs.
+    fn handle_navigation_key(&mut self, key: &KeyEvent) -> bool {
+        match key.code {
+            KeyCode::Tab => {
+                self.switch_to_tab(self.active_tab().next());
+                true
+            }
+            KeyCode::BackTab => {
+                self.switch_to_tab(self.active_tab().previous());
+                true
+            }
+            KeyCode::Char(digit) if key.modifiers.contains(KeyModifiers::ALT) => {
+                if let Some(tab) = AppTab::from_shortcut(digit) {
+                    self.switch_to_tab(tab);
+                }
+                true
+            }
+            _ => false,
         }
     }
 
@@ -299,18 +326,28 @@ impl TuiApp {
 
         if leaving != tab {
             self.previous_tab = Some(leaving);
-
-            if leaving == AppTab::Search {
-                self.search_mode = self.mode;
-            }
-
-            if leaving == AppTab::Library {
-                self.details = None;
-                self.pending_removal = None;
-            }
+            self.remember_leaving(leaving);
         }
 
-        self.mode = match tab {
+        self.mode = self.mode_for_tab(tab);
+
+        self.refresh_library_if_unread(tab);
+    }
+
+    /// Remembers what leaving a tab costs, so a later return can restore it.
+    fn remember_leaving(&mut self, leaving: AppTab) {
+        if leaving == AppTab::Search {
+            self.search_mode = self.mode;
+        }
+        if leaving == AppTab::Library {
+            self.details = None;
+            self.pending_removal = None;
+        }
+    }
+
+    /// Resolves the mode a tab maps to, honoring any in-flight install.
+    fn mode_for_tab(&self, tab: AppTab) -> AppMode {
+        match tab {
             AppTab::Search => {
                 if self.is_installing {
                     AppMode::InstallProgress
@@ -320,8 +357,12 @@ impl TuiApp {
             }
             AppTab::Library => AppMode::Library,
             AppTab::Help => AppMode::Help,
-        };
+        }
+    }
 
+    /// Reads the library on first entry so the operator never faces an unread
+    /// screen.
+    fn refresh_library_if_unread(&mut self, tab: AppTab) {
         if tab == AppTab::Library && self.library_table_widget.inventory().is_none() {
             self.status_widget.report(Self::MSG_READING_LIBRARY);
             self.library_manager.list();

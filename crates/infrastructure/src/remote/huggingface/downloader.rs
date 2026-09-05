@@ -122,12 +122,7 @@ impl HubDownloadTransport for HfHubTokioTransport {
         remote: &RemoteModelFile,
         progress: &dyn DownloadProgressPort,
     ) -> Result<ModelArtifact, ModelDownloadError> {
-        tokio::fs::create_dir_all(&self.staging_dir)
-            .await
-            .map_err(|err| ModelDownloadError::Transport {
-                file: remote.file().to_string(),
-                cause: err.to_string(),
-            })?;
+        self.ensure_staging_dir(remote).await?;
 
         let api_repo = build_api_repo(
             &self.endpoint,
@@ -136,27 +131,50 @@ impl HubDownloadTransport for HfHubTokioTransport {
             remote,
         )?;
 
-        let (tx, mut rx) = mpsc::unbounded_channel::<DownloadProgress>();
-        let bridge = ProgressBridge::new(tx);
+        let downloaded = run_download(api_repo, remote, progress).await?;
 
-        let file_name = remote.file().as_str().to_string();
-        let download_handle =
-            tokio::spawn(async move { api_repo.download_with_progress(&file_name, bridge).await });
+        validate_download_size(&downloaded, remote.size(), remote.file().as_str()).await
+    }
+}
 
-        while let Some(event) = rx.recv().await {
-            progress.report(event);
-        }
-
-        let download_result = download_handle
+impl HfHubTokioTransport {
+    /// Creates the staging directory downloads land in before they are
+    /// committed.
+    async fn ensure_staging_dir(&self, remote: &RemoteModelFile) -> Result<(), ModelDownloadError> {
+        tokio::fs::create_dir_all(&self.staging_dir)
             .await
             .map_err(|err| ModelDownloadError::Transport {
                 file: remote.file().to_string(),
                 cause: err.to_string(),
-            })?
-            .map_err(|err| map_api_error(&err, remote.file().as_str()))?;
-
-        validate_download_size(&download_result, remote.size(), remote.file().as_str()).await
+            })
     }
+}
+
+/// Runs the download on a task, pumping its progress to `progress`, and reports
+/// where the bytes landed.
+async fn run_download(
+    api_repo: ApiRepo,
+    remote: &RemoteModelFile,
+    progress: &dyn DownloadProgressPort,
+) -> Result<PathBuf, ModelDownloadError> {
+    let (tx, mut rx) = mpsc::unbounded_channel::<DownloadProgress>();
+    let bridge = ProgressBridge::new(tx);
+
+    let file_name = remote.file().as_str().to_string();
+    let download_handle =
+        tokio::spawn(async move { api_repo.download_with_progress(&file_name, bridge).await });
+
+    while let Some(event) = rx.recv().await {
+        progress.report(event);
+    }
+
+    download_handle
+        .await
+        .map_err(|err| ModelDownloadError::Transport {
+            file: remote.file().to_string(),
+            cause: err.to_string(),
+        })?
+        .map_err(|err| map_api_error(&err, remote.file().as_str()))
 }
 
 fn build_api_repo(

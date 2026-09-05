@@ -54,12 +54,11 @@ impl Quantization {
             .count();
         let bit_width = after_prefix[..digit_count].parse::<u8>().ok()?;
 
-        let remainder = &after_prefix[digit_count..];
-        if !remainder.is_empty() && !remainder.starts_with(Self::TAG_REMAINDER_SEPARATOR) {
-            return None;
-        }
+        Self::has_valid_remainder(&after_prefix[digit_count..]).then_some(Self { label, bit_width })
+    }
 
-        Some(Self { label, bit_width })
+    fn has_valid_remainder(remainder: &str) -> bool {
+        remainder.is_empty() || remainder.starts_with(Self::TAG_REMAINDER_SEPARATOR)
     }
 }
 

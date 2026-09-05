@@ -1,6 +1,9 @@
 //! Clearing the leftovers a library's directory tree accumulates.
 
-use std::{cmp::Reverse, path::Path};
+use std::{
+    cmp::Reverse,
+    path::{Path, PathBuf},
+};
 
 use localnar_application::errors::LibraryError;
 use localnar_domain::{ByteLength, DiscardedStray};
@@ -46,20 +49,36 @@ impl<'root> LibrarySweep<'root> {
         let mut discarded = Vec::new();
 
         for note in LibraryTree::files_below(self.root).await? {
-            let Some(replica) = DiskModelLibrary::companion_of(&note) else {
-                continue;
-            };
-
-            if LibraryTree::something_occupies(&replica).await? {
-                continue;
+            if let Some(stray) = Self::discard_if_orphaned_note(note).await? {
+                discarded.push(stray);
             }
-
-            let reclaimed = LibraryTree::occupied_space(&note).await?;
-            LibraryTree::discard_file(&note).await?;
-            discarded.push(DiscardedStray::new(note, reclaimed));
         }
 
         Ok(discarded)
+    }
+
+    /// Discards `note` when it is a digest note whose replica is gone, naming it
+    /// discarded, and leaves it untouched otherwise.
+    async fn discard_if_orphaned_note(
+        note: PathBuf,
+    ) -> Result<Option<DiscardedStray>, LibraryError> {
+        if !Self::is_orphaned_note(&note).await? {
+            return Ok(None);
+        }
+
+        let reclaimed = LibraryTree::occupied_space(&note).await?;
+        LibraryTree::discard_file(&note).await?;
+
+        Ok(Some(DiscardedStray::new(note, reclaimed)))
+    }
+
+    /// Answers whether `note` is a digest note whose replica no longer exists.
+    async fn is_orphaned_note(note: &Path) -> Result<bool, LibraryError> {
+        let Some(replica) = DiskModelLibrary::companion_of(note) else {
+            return Ok(false);
+        };
+
+        Ok(!LibraryTree::something_occupies(&replica).await?)
     }
 
     /// Discards every directory that holds nothing.

@@ -1,6 +1,6 @@
 use std::ops::ControlFlow;
 
-use localnar_domain::{InstalledModel, ModelSpec, ModelState};
+use localnar_domain::{Checksum, InstalledModel, ModelSpec, ModelState};
 
 use crate::{
     errors::install_model_error::InstallModelError,
@@ -83,6 +83,62 @@ where
         self.fetch_and_commit(spec).await
     }
 
+    /// Settle on the installed replica for `spec`.
+    async fn settle(
+        &self,
+        spec: &ModelSpec,
+    ) -> Result<ControlFlow<InstalledModel, ModelState>, InstallModelError> {
+        Ok(ControlFlow::Break(self.library.locate(spec).await?))
+    }
+
+    /// Fetch the missing bytes once; a repeated attempt means upstream never
+    /// delivered them.
+    async fn advance_missing(
+        &self,
+        spec: &ModelSpec,
+        fetched: &mut bool,
+    ) -> Result<ControlFlow<InstalledModel, ModelState>, InstallModelError> {
+        if *fetched {
+            return Err(InstallModelError::UpstreamUnavailable);
+        }
+        *fetched = true;
+        Ok(ControlFlow::Continue(self.fetch_and_commit(spec).await?))
+    }
+
+    /// Verify freshly downloaded bytes once; if verification already ran, the
+    /// replica is treated as installed.
+    async fn advance_downloaded(
+        &self,
+        spec: &ModelSpec,
+        verified: &mut bool,
+    ) -> Result<ControlFlow<InstalledModel, ModelState>, InstallModelError> {
+        if *verified {
+            return self.settle(spec).await;
+        }
+        *verified = true;
+        Ok(ControlFlow::Continue(self.verify(spec).await?))
+    }
+
+    /// Repair a checksum mismatch once; a second mismatch is unresolvable.
+    async fn advance_mismatch(
+        &self,
+        spec: &ModelSpec,
+        expected: &Checksum,
+        actual: &Checksum,
+        verified: &mut bool,
+        repaired: &mut bool,
+    ) -> Result<ControlFlow<InstalledModel, ModelState>, InstallModelError> {
+        if *repaired {
+            return Err(InstallModelError::UnresolvedIntegrity {
+                expected: expected.to_string(),
+                actual: actual.to_string(),
+            });
+        }
+        *repaired = true;
+        *verified = false;
+        Ok(ControlFlow::Continue(self.repair(spec).await?))
+    }
+
     /// Takes a single step from `state`, either settling on an installed
     /// replica or reporting the next state to drive towards.
     ///
@@ -99,34 +155,12 @@ where
         repaired: &mut bool,
     ) -> Result<ControlFlow<InstalledModel, ModelState>, InstallModelError> {
         match state {
-            ModelState::Verified => Ok(ControlFlow::Break(self.library.locate(spec).await?)),
-
-            ModelState::Missing => {
-                if *fetched {
-                    return Err(InstallModelError::UpstreamUnavailable);
-                }
-                *fetched = true;
-                Ok(ControlFlow::Continue(self.fetch_and_commit(spec).await?))
-            }
-
-            ModelState::Downloaded => {
-                if *verified {
-                    return Ok(ControlFlow::Break(self.library.locate(spec).await?));
-                }
-                *verified = true;
-                Ok(ControlFlow::Continue(self.verify(spec).await?))
-            }
-
+            ModelState::Verified => self.settle(spec).await,
+            ModelState::Missing => self.advance_missing(spec, fetched).await,
+            ModelState::Downloaded => self.advance_downloaded(spec, verified).await,
             ModelState::IntegrityMismatch { expected, actual } => {
-                if *repaired {
-                    return Err(InstallModelError::UnresolvedIntegrity {
-                        expected: expected.to_string(),
-                        actual: actual.to_string(),
-                    });
-                }
-                *repaired = true;
-                *verified = false;
-                Ok(ControlFlow::Continue(self.repair(spec).await?))
+                self.advance_mismatch(spec, &expected, &actual, verified, repaired)
+                    .await
             }
         }
     }
