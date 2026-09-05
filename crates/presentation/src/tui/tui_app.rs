@@ -326,18 +326,28 @@ impl TuiApp {
 
         if leaving != tab {
             self.previous_tab = Some(leaving);
-
-            if leaving == AppTab::Search {
-                self.search_mode = self.mode;
-            }
-
-            if leaving == AppTab::Library {
-                self.details = None;
-                self.pending_removal = None;
-            }
+            self.remember_leaving(leaving);
         }
 
-        self.mode = match tab {
+        self.mode = self.mode_for_tab(tab);
+
+        self.refresh_library_if_unread(tab);
+    }
+
+    /// Remembers what leaving a tab costs, so a later return can restore it.
+    fn remember_leaving(&mut self, leaving: AppTab) {
+        if leaving == AppTab::Search {
+            self.search_mode = self.mode;
+        }
+        if leaving == AppTab::Library {
+            self.details = None;
+            self.pending_removal = None;
+        }
+    }
+
+    /// Resolves the mode a tab maps to, honoring any in-flight install.
+    fn mode_for_tab(&self, tab: AppTab) -> AppMode {
+        match tab {
             AppTab::Search => {
                 if self.is_installing {
                     AppMode::InstallProgress
@@ -347,8 +357,12 @@ impl TuiApp {
             }
             AppTab::Library => AppMode::Library,
             AppTab::Help => AppMode::Help,
-        };
+        }
+    }
 
+    /// Reads the library on first entry so the operator never faces an unread
+    /// screen.
+    fn refresh_library_if_unread(&mut self, tab: AppTab) {
         if tab == AppTab::Library && self.library_table_widget.inventory().is_none() {
             self.status_widget.report(Self::MSG_READING_LIBRARY);
             self.library_manager.list();
