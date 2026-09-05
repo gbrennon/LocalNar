@@ -97,17 +97,31 @@ impl LibraryTree {
         let mut unwalked = vec![root.to_path_buf()];
 
         while let Some(directory) = unwalked.pop() {
-            for entry in Self::entries_of(&directory).await? {
-                let path = entry.path();
-                if Self::leads_deeper(&entry).await? {
-                    unwalked.push(path);
-                } else {
-                    files.push(path);
-                }
-            }
+            let (mut subdirectories, mut here) = Self::partition_children(&directory).await?;
+            unwalked.append(&mut subdirectories);
+            files.append(&mut here);
         }
 
         Ok(files)
+    }
+
+    /// Splits what `directory` holds into the sub-directories a walk descends
+    /// into and the files it collects, following no link out of the library.
+    async fn partition_children(
+        directory: &Path,
+    ) -> Result<(Vec<PathBuf>, Vec<PathBuf>), LibraryError> {
+        let mut directories = Vec::new();
+        let mut files = Vec::new();
+
+        for entry in Self::entries_of(directory).await? {
+            if Self::leads_deeper(&entry).await? {
+                directories.push(entry.path());
+            } else {
+                files.push(entry.path());
+            }
+        }
+
+        Ok((directories, files))
     }
 
     /// Lists every directory the tree under `root` holds, excluding the root
@@ -120,11 +134,10 @@ impl LibraryTree {
         let mut unwalked = vec![root.to_path_buf()];
 
         while let Some(directory) = unwalked.pop() {
-            for entry in Self::entries_of(&directory).await? {
-                if Self::leads_deeper(&entry).await? {
-                    unwalked.push(entry.path());
-                    directories.push(entry.path());
-                }
+            let (subdirectories, _files) = Self::partition_children(&directory).await?;
+            for subdirectory in subdirectories {
+                unwalked.push(subdirectory.clone());
+                directories.push(subdirectory);
             }
         }
 
