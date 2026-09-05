@@ -32,6 +32,32 @@ where
     pub fn new(library: Library, eviction: Eviction) -> Self {
         Self { library, eviction }
     }
+
+    /// Rejects removal of a replica the library does not hold.
+    async fn ensure_present(&self, spec: &ModelSpec) -> Result<(), RemoveModelError> {
+        if matches!(
+            self.library.installed_state(spec).await?,
+            ModelState::Missing
+        ) {
+            return Err(RemoveModelError::NotInstalled {
+                model: spec.to_string(),
+            });
+        }
+        Ok(())
+    }
+
+    /// Rejects a removal that did not actually let go of the replica.
+    async fn ensure_absent(&self, spec: &ModelSpec) -> Result<(), RemoveModelError> {
+        if !matches!(
+            self.library.installed_state(spec).await?,
+            ModelState::Missing
+        ) {
+            return Err(RemoveModelError::StillInstalled {
+                model: spec.to_string(),
+            });
+        }
+        Ok(())
+    }
 }
 
 impl<Library, Eviction> RemoveModelPort for RemoveModelService<Library, Eviction>
@@ -45,25 +71,11 @@ where
     /// The replica's state is never a reason to refuse: a proven model is as
     /// removable as a broken one. Only its absence is.
     async fn execute(&self, spec: &ModelSpec) -> Result<RemovedModel, RemoveModelError> {
-        if matches!(
-            self.library.installed_state(spec).await?,
-            ModelState::Missing
-        ) {
-            return Err(RemoveModelError::NotInstalled {
-                model: spec.to_string(),
-            });
-        }
+        self.ensure_present(spec).await?;
 
         let removal = self.eviction.evict(spec).await?;
 
-        if !matches!(
-            self.library.installed_state(spec).await?,
-            ModelState::Missing
-        ) {
-            return Err(RemoveModelError::StillInstalled {
-                model: spec.to_string(),
-            });
-        }
+        self.ensure_absent(spec).await?;
 
         Ok(removal)
     }
