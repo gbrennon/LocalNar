@@ -1,0 +1,50 @@
+rules:
+  - id: rust-avoid-public-tuple-structs
+    languages:
+      - rust
+    message: "Public tuple structs are not allowed"
+    severity: ERROR
+    patterns:
+      - pattern: pub struct $NAME(...);
+
+  - id: rust-avoid-public-unit-structs
+    languages:
+      - rust
+    message: "Public unit structs are not allowed"
+    severity: ERROR
+    patterns:
+      - pattern: pub struct $NAME;
+
+  - id: rust-struct-fields-must-not-be-public
+    languages:
+      - rust
+    message: "Struct fields must not be public"
+    severity: ERROR
+    patterns:
+      - pattern: |
+          struct $NAME {
+            ...
+            pub $FIELD: $TYPE,
+            ...
+          }
+
+  - id: rust-no-inline-modules
+    languages:
+      - rust
+    message: "Inline modules are not allowed; use a separate module file"
+    severity: ERROR
+    pattern: |
+      mod $NAME {
+        ...
+      }
+
+  - id: rust-no-setters
+    languages:
+      - rust
+    message: "Setters are not allowed; expose behavior instead"
+    severity: ERROR
+    patterns:
+      - pattern-either:
+          - pattern: fn set_$FIELD(...) { ... }
+          - pattern: pub fn set_$FIELD(...) { ... }
+          - pattern: pub(crate) fn set_$FIELD(...) { ... }

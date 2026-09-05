@@ -1,0 +1,57 @@
+rules:
+  - id: rust-no-deep-if-nesting
+    languages:
+      - rust
+    message: "Control-flow nesting exceeds maximum depth of 2"
+    severity: ERROR
+    patterns:
+      - pattern-inside: |
+          if $A {
+            ...
+          }
+      - pattern-inside: |
+          if $B {
+            ...
+          }
+      - pattern: |
+          if $C {
+            ...
+          }
+
+  - id: rust-no-deep-loop-nesting
+    languages:
+      - rust
+    message: "Loop nesting exceeds maximum depth of 2"
+    severity: ERROR
+    patterns:
+      - pattern-inside: |
+          for $A in $B {
+            ...
+          }
+      - pattern-inside: |
+          for $C in $D {
+            ...
+          }
+      - pattern: |
+          for $E in $F {
+            ...
+          }
+
+  - id: rust-no-deep-while-nesting
+    languages:
+      - rust
+    message: "While nesting exceeds maximum depth of 2"
+    severity: ERROR
+    patterns:
+      - pattern-inside: |
+          while $A {
+            ...
+          }
+      - pattern-inside: |
+          while $B {
+            ...
+          }
+      - pattern: |
+          while $C {
+            ...
+          }
