@@ -27,20 +27,24 @@ impl Checksum {
         if literal.len() != HEX_DIGITS {
             return Err(DomainError::InvalidChecksumLiteral(literal.to_owned()));
         }
-        let mut raw = [0u8; DIGEST_BYTES];
-        let characters: Vec<char> = literal.chars().collect();
-        for (index, byte) in raw.iter_mut().enumerate() {
-            let high = decode_hex_digit(characters[index * 2], literal)?;
-            let low = decode_hex_digit(characters[index * 2 + 1], literal)?;
-            *byte = (high << 4) | low;
-        }
-        Ok(Self(raw))
+        let raw: Vec<u8> = literal
+            .as_bytes()
+            .chunks_exact(2)
+            .map(|pair| decode_hex_pair(pair, literal))
+            .collect::<Result<_, _>>()?;
+        Ok(Self(raw.try_into().expect("length is checked above")))
     }
 
     /// Renders the digest as a lowercase hexadecimal string.
     pub fn to_hex(self) -> String {
         self.0.iter().map(|byte| format!("{byte:02x}")).collect()
     }
+}
+
+fn decode_hex_pair(pair: &[u8], literal: &str) -> Result<u8, DomainError> {
+    let high = decode_hex_digit(char::from(pair[0]), literal)?;
+    let low = decode_hex_digit(char::from(pair[1]), literal)?;
+    Ok((high << 4) | low)
 }
 
 fn decode_hex_digit(character: char, literal: &str) -> Result<u8, DomainError> {
