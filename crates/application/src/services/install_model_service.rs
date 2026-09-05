@@ -1,3 +1,5 @@
+use std::ops::ControlFlow;
+
 use localnar_domain::{InstalledModel, ModelSpec, ModelState};
 
 use crate::{
@@ -80,6 +82,54 @@ where
     async fn repair(&self, spec: &ModelSpec) -> Result<ModelState, InstallModelError> {
         self.fetch_and_commit(spec).await
     }
+
+    /// Takes a single step from `state`, either settling on an installed
+    /// replica or reporting the next state to drive towards.
+    ///
+    /// Each attempt flag guards its transition so the driving loop performs at
+    /// most one fetch, one verification, and one repair; a guard that has
+    /// already fired turns an otherwise repeatable transition into a terminal
+    /// error or location.
+    async fn advance(
+        &self,
+        spec: &ModelSpec,
+        state: ModelState,
+        fetched: &mut bool,
+        verified: &mut bool,
+        repaired: &mut bool,
+    ) -> Result<ControlFlow<InstalledModel, ModelState>, InstallModelError> {
+        match state {
+            ModelState::Verified => Ok(ControlFlow::Break(self.library.locate(spec).await?)),
+
+            ModelState::Missing => {
+                if *fetched {
+                    return Err(InstallModelError::UpstreamUnavailable);
+                }
+                *fetched = true;
+                Ok(ControlFlow::Continue(self.fetch_and_commit(spec).await?))
+            }
+
+            ModelState::Downloaded => {
+                if *verified {
+                    return Ok(ControlFlow::Break(self.library.locate(spec).await?));
+                }
+                *verified = true;
+                Ok(ControlFlow::Continue(self.verify(spec).await?))
+            }
+
+            ModelState::IntegrityMismatch { expected, actual } => {
+                if *repaired {
+                    return Err(InstallModelError::UnresolvedIntegrity {
+                        expected: expected.to_string(),
+                        actual: actual.to_string(),
+                    });
+                }
+                *repaired = true;
+                *verified = false;
+                Ok(ControlFlow::Continue(self.repair(spec).await?))
+            }
+        }
+    }
 }
 
 impl<Registry, Downloader, Library, Progress> InstallModelPort
@@ -104,36 +154,12 @@ where
         let mut repaired = false;
 
         loop {
-            match state {
-                ModelState::Verified => return Ok(self.library.locate(spec).await?),
-
-                ModelState::Missing => {
-                    if fetched {
-                        return Err(InstallModelError::UpstreamUnavailable);
-                    }
-                    fetched = true;
-                    state = self.fetch_and_commit(spec).await?;
-                }
-
-                ModelState::Downloaded => {
-                    if verified {
-                        return Ok(self.library.locate(spec).await?);
-                    }
-                    verified = true;
-                    state = self.verify(spec).await?;
-                }
-
-                ModelState::IntegrityMismatch { expected, actual } => {
-                    if repaired {
-                        return Err(InstallModelError::UnresolvedIntegrity {
-                            expected: expected.to_string(),
-                            actual: actual.to_string(),
-                        });
-                    }
-                    repaired = true;
-                    verified = false;
-                    state = self.repair(spec).await?;
-                }
+            match self
+                .advance(spec, state, &mut fetched, &mut verified, &mut repaired)
+                .await?
+            {
+                ControlFlow::Break(installed) => return Ok(installed),
+                ControlFlow::Continue(next) => state = next,
             }
         }
     }

@@ -39,17 +39,48 @@ impl<'root> InventoryWalk<'root> {
         let mut replicas = Vec::new();
 
         for (owner, owner_path) in Self::child_directories(self.root).await? {
-            for (name, name_path) in Self::child_directories(&owner_path).await? {
-                for (revision, revision_path) in Self::child_directories(&name_path).await? {
-                    let repository = format!("{owner}/{name}");
-                    replicas.extend(
-                        Self::replicas_within(&repository, &revision, &revision_path).await?,
-                    );
-                }
-            }
+            replicas.extend(Self::replicas_under_owner(&owner, &owner_path).await?);
         }
 
         replicas.sort_by_cached_key(|replica| replica.spec().to_string());
+
+        Ok(replicas)
+    }
+
+    /// Describes every replica held beneath one owner directory, across all of
+    /// its model-name directories.
+    ///
+    /// Only directories carry the next segment of the hierarchy, so a name that
+    /// reads as text is walked further and anything else stands for no model.
+    async fn replicas_under_owner(
+        owner: &str,
+        owner_path: &Path,
+    ) -> Result<Vec<ManagedModel>, LibraryError> {
+        let mut replicas = Vec::new();
+
+        for (name, name_path) in Self::child_directories(owner_path).await? {
+            replicas.extend(Self::replicas_under_name(owner, &name, &name_path).await?);
+        }
+
+        Ok(replicas)
+    }
+
+    /// Describes every replica held beneath one model-name directory, across
+    /// all of its revision directories.
+    ///
+    /// The owner and name together form the repository each replica is named
+    /// for, so both are carried down to the revision that finally holds files.
+    async fn replicas_under_name(
+        owner: &str,
+        name: &str,
+        name_path: &Path,
+    ) -> Result<Vec<ManagedModel>, LibraryError> {
+        let mut replicas = Vec::new();
+
+        for (revision, revision_path) in Self::child_directories(name_path).await? {
+            let repository = format!("{owner}/{name}");
+            replicas.extend(Self::replicas_within(&repository, &revision, &revision_path).await?);
+        }
 
         Ok(replicas)
     }
