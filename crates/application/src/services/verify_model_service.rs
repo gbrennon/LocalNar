@@ -28,6 +28,33 @@ where
     pub fn new(library: Library) -> Self {
         Self { library }
     }
+
+    /// Rejects verification of a replica the library does not hold.
+    async fn ensure_present(&self, spec: &ModelSpec) -> Result<(), VerifyModelError> {
+        if matches!(
+            self.library.installed_state(spec).await?,
+            ModelState::Missing
+        ) {
+            return Err(VerifyModelError::NotInstalled {
+                model: spec.to_string(),
+            });
+        }
+        Ok(())
+    }
+
+    /// Rejects a replica that disappeared before it could be proven.
+    async fn require_installed(
+        &self,
+        spec: &ModelSpec,
+        state: ModelState,
+    ) -> Result<ModelState, VerifyModelError> {
+        if matches!(state, ModelState::Missing) {
+            return Err(VerifyModelError::NotInstalled {
+                model: spec.to_string(),
+            });
+        }
+        Ok(state)
+    }
 }
 
 impl<Library> VerifyModelPort for VerifyModelService<Library>
@@ -44,13 +71,7 @@ where
     /// A replica that disappears midway through is reported as not installed
     /// rather than as a library fault, since that is what the operator now has.
     async fn execute(&self, spec: &ModelSpec) -> Result<ManagedModel, VerifyModelError> {
-        let state = self.library.installed_state(spec).await?;
-
-        if matches!(state, ModelState::Missing) {
-            return Err(VerifyModelError::NotInstalled {
-                model: spec.to_string(),
-            });
-        }
+        self.ensure_present(spec).await?;
 
         let replica = self.library.locate(spec).await?;
         let Some(recorded) = replica.digest() else {
@@ -58,12 +79,7 @@ where
         };
 
         let proven = self.library.verify_integrity(spec, Some(recorded)).await?;
-
-        if matches!(proven, ModelState::Missing) {
-            return Err(VerifyModelError::NotInstalled {
-                model: spec.to_string(),
-            });
-        }
+        let proven = self.require_installed(spec, proven).await?;
 
         Ok(ManagedModel::new(replica, proven))
     }
