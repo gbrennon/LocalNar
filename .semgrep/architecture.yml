@@ -1,0 +1,22 @@
+rules:
+  - id: rust-domain-no-infrastructure-dependencies
+    languages:
+      - rust
+    message: "Domain layer must not depend on infrastructure"
+    severity: ERROR
+    patterns:
+      - pattern: use $MODULE;
+      - metavariable-regex:
+          metavariable: $MODULE
+          regex: "^crate::infrastructure"
+
+  - id: rust-domain-no-presentation-dependencies
+    languages:
+      - rust
+    message: "Domain layer must not depend on presentation"
+    severity: ERROR
+    patterns:
+      - pattern: use $MODULE;
+      - metavariable-regex:
+          metavariable: $MODULE
+          regex: "^crate::presentation"
