@@ -132,6 +132,8 @@ mod model_inventory_tests {
 
         assert_eq!(inventory.total_size(), ByteLength::new(3_500));
         assert_eq!(inventory.count(), 2);
+        assert_eq!(inventory.entries().len(), 2);
+        assert_eq!(inventory.entries()[0].size(), ByteLength::new(1_000));
     }
 
     #[test]

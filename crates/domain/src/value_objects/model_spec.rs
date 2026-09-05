@@ -83,6 +83,14 @@ mod model_spec_tests {
     }
 
     #[test]
+    fn the_repository_and_file_name_the_model_are_exposed() {
+        let spec = spec_marked_with(Vec::new());
+
+        assert_eq!(spec.repository().identifier().as_str(), "org/name");
+        assert_eq!(spec.file().as_str(), "model.gguf");
+    }
+
+    #[test]
     fn tags_are_absent_from_the_rendered_identity() {
         let spec = spec_marked_with(vec![ModelTag::new("text-generation").expect("valid tag")]);
 

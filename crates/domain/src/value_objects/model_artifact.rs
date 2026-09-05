@@ -32,3 +32,18 @@ impl ModelArtifact {
         self.size
     }
 }
+
+#[cfg(test)]
+mod model_artifact_tests {
+    use std::path::Path;
+
+    use crate::value_objects::{ByteLength, ModelArtifact};
+
+    #[test]
+    fn a_staged_artifact_reports_where_its_bytes_sit_and_how_large_they_are() {
+        let artifact = ModelArtifact::new("/tmp/staging/qwen.gguf", ByteLength::new(4_096));
+
+        assert_eq!(artifact.staged_at(), Path::new("/tmp/staging/qwen.gguf"));
+        assert_eq!(artifact.size(), ByteLength::new(4_096));
+    }
+}
