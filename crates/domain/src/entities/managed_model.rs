@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::{ByteLength, Checksum, InstalledModel, ModelSpec, ModelState};
+use crate::{ByteLength, Checksum, InstalledModel, ModelSpec, ModelState, ModelTag};
 
 /// A replica the local library holds, read together with its current state.
 ///
@@ -29,6 +29,12 @@ impl ManagedModel {
     /// The model this entry holds a replica of.
     pub fn spec(&self) -> &ModelSpec {
         self.replica.spec()
+    }
+
+    /// The capabilities the managed model is marked with, empty when none are
+    /// known.
+    pub fn tags(&self) -> &[ModelTag] {
+        self.replica.tags()
     }
 
     /// Where the replica's bytes live.
@@ -81,21 +87,39 @@ mod managed_model_tests {
     use super::ManagedModel;
     use crate::{
         ByteLength, Checksum, InstalledModel, ModelFileName, ModelRepository, ModelRepositoryId,
-        ModelSpec, ModelState,
+        ModelSpec, ModelState, ModelTag,
     };
 
     fn spec() -> ModelSpec {
+        spec_marked_with(vec![])
+    }
+
+    fn spec_marked_with(tags: Vec<ModelTag>) -> ModelSpec {
         ModelSpec::new(
             ModelRepository::at_default_revision(
                 ModelRepositoryId::parse("unsloth/Qwen3-8B-GGUF").expect("valid id"),
             ),
             ModelFileName::new("Qwen3-8B-Q4_K_M.gguf").expect("valid file name"),
-            vec![],
+            tags,
         )
     }
 
     fn replica(digest: Option<Checksum>) -> InstalledModel {
         InstalledModel::new(spec(), "/models/qwen.gguf", ByteLength::new(2_048), digest)
+    }
+
+    #[test]
+    fn a_managed_model_exposes_the_capabilities_of_its_replica() {
+        let tags = vec![ModelTag::new("text-generation").expect("valid tag")];
+        let replica = InstalledModel::new(
+            spec_marked_with(tags.clone()),
+            "/models/qwen.gguf",
+            ByteLength::new(2_048),
+            None,
+        );
+        let entry = ManagedModel::new(replica, ModelState::Downloaded);
+
+        assert_eq!(entry.tags(), tags.as_slice());
     }
 
     #[test]
@@ -109,6 +133,15 @@ mod managed_model_tests {
         assert_eq!(entry.digest(), Some(digest));
         assert_eq!(entry.size(), ByteLength::new(2_048));
         assert_eq!(entry.spec(), &spec());
+    }
+
+    #[test]
+    fn an_entry_exposes_the_replica_and_state_it_was_built_from() {
+        let expected_replica = replica(None);
+        let entry = ManagedModel::new(expected_replica.clone(), ModelState::Downloaded);
+
+        assert_eq!(entry.replica(), &expected_replica);
+        assert_eq!(entry.state(), &ModelState::Downloaded);
     }
 
     #[test]

@@ -1,14 +1,19 @@
 use crate::value_objects::{
-    ByteLength, ModelProfile, ModelRepositoryId, ModelSpec, Quantization, RemoteModelFile,
+    ByteLength, ModelProfile, ModelRepositoryId, ModelSpec, ModelTag, Quantization, RemoteModelFile,
 };
 
 /// One catalog entry described as a single candidate an operator can act on.
 ///
 /// A repository publishes many files, but only one of them stands for the model
 /// an operator means to install, so this value describes that one file: what the
-/// model is called, what installing it costs, and at what precision. It is built
-/// from the chosen weight file alone, so its size and quantization can never
-/// disagree with the install intent it carries.
+/// model is called, what installing it costs, at what precision, and the
+/// capabilities it is marked with. It is built from the chosen weight file
+/// alone, so its size, quantization, and tags can never disagree with the
+/// install intent it carries.
+///
+/// The tags are read straight from the install intent this description carries,
+/// so a model shown in search results is marked with exactly the capabilities it
+/// will keep once installed.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ModelInfo {
     spec: ModelSpec,
@@ -48,6 +53,11 @@ impl ModelInfo {
         self.quantization.as_ref()
     }
 
+    /// The capabilities the model is marked with, empty when none are known.
+    pub fn tags(&self) -> &[ModelTag] {
+        self.spec.tags()
+    }
+
     /// What the catalog disclosed about serving the model.
     pub fn profile(&self) -> &ModelProfile {
         &self.profile
@@ -58,7 +68,7 @@ impl ModelInfo {
 mod model_info_tests {
     use crate::value_objects::{
         ByteLength, ContextLength, ModelFileName, ModelInfo, ModelProfile, ModelRepository,
-        ModelRepositoryId, ParameterCount, RemoteModelFile,
+        ModelRepositoryId, ModelTag, ParameterCount, RemoteModelFile,
     };
 
     fn weight(file_name: &str, size: u64) -> RemoteModelFile {
@@ -100,6 +110,29 @@ mod model_info_tests {
         let info = ModelInfo::describing(&weight("model.gguf", 4_000), ModelProfile::UNDISCLOSED);
 
         assert_eq!(info.quantization(), None);
+    }
+
+    #[test]
+    fn a_description_carries_the_capabilities_the_chosen_weight_is_marked_with() {
+        let tags = vec![
+            ModelTag::new("text-generation").expect("valid tag"),
+            ModelTag::new("conversational").expect("valid tag"),
+        ];
+        let weight = weight("Qwen3-8B-Q4_K_M.gguf", 5_027_784_064).with_tags(tags.clone());
+
+        let info = ModelInfo::describing(&weight, ModelProfile::UNDISCLOSED);
+
+        assert_eq!(info.tags(), tags.as_slice());
+    }
+
+    #[test]
+    fn a_description_of_an_unmarked_weight_shows_no_capabilities() {
+        let info = ModelInfo::describing(
+            &weight("Qwen3-8B-Q4_K_M.gguf", 5_027_784_064),
+            ModelProfile::UNDISCLOSED,
+        );
+
+        assert!(info.tags().is_empty());
     }
 
     #[test]
