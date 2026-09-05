@@ -1,11 +1,14 @@
 //! Reading the replicas held by a library's directory hierarchy.
 
-use std::path::{Path, PathBuf};
+use std::{
+    fs::Metadata,
+    path::{Path, PathBuf},
+};
 
 use localnar_application::errors::LibraryError;
 use localnar_domain::{
-    ByteLength, InstalledModel, ManagedModel, ModelFileName, ModelRepository, ModelRepositoryId,
-    ModelRevision, ModelSpec, ModelState,
+    ByteLength, Checksum, InstalledModel, ManagedModel, ModelFileName, ModelRepository,
+    ModelRepositoryId, ModelRevision, ModelSpec, ModelState,
 };
 
 use super::{library_tree::LibraryTree, model_library::DiskModelLibrary};
@@ -130,38 +133,61 @@ impl<'root> InventoryWalk<'root> {
         let mut replicas = Vec::new();
 
         for entry in LibraryTree::entries_of(directory).await? {
-            let path = entry.path();
-            let Some(described) = LibraryTree::describe(&path).await? else {
-                continue;
-            };
-
-            if !described.is_file() || DiskModelLibrary::companion_of(&path).is_some() {
-                continue;
+            if let Some(replica) = Self::replica_at(repository, revision, entry.path()).await? {
+                replicas.push(replica);
             }
-
-            let Some(file) = path.file_name().and_then(|file| file.to_str()) else {
-                continue;
-            };
-
-            let Some(spec) = Self::named_model(repository, revision, file) else {
-                continue;
-            };
-
-            let digest =
-                DiskModelLibrary::recorded_digest(&DiskModelLibrary::sidecar_of(&path)).await;
-            let state = match digest {
-                Some(_) => ModelState::Verified,
-                None => ModelState::Downloaded,
-            };
-            let size = ByteLength::new(described.len());
-
-            replicas.push(ManagedModel::new(
-                InstalledModel::new(spec, path, size, digest),
-                state,
-            ));
         }
 
         Ok(replicas)
+    }
+
+    /// Describes the replica held at `path`, or nothing when `path` holds none.
+    async fn replica_at(
+        repository: &str,
+        revision: &str,
+        path: PathBuf,
+    ) -> Result<Option<ManagedModel>, LibraryError> {
+        let Some(described) = LibraryTree::describe(&path).await? else {
+            return Ok(None);
+        };
+
+        if !Self::is_replica_file(&described, &path) {
+            return Ok(None);
+        }
+
+        let Some(spec) = Self::spec_at(&path, repository, revision) else {
+            return Ok(None);
+        };
+
+        let digest = DiskModelLibrary::recorded_digest(&DiskModelLibrary::sidecar_of(&path)).await;
+        let state = Self::state_of(&digest);
+        let size = ByteLength::new(described.len());
+
+        Ok(Some(ManagedModel::new(
+            InstalledModel::new(spec, path, size, digest),
+            state,
+        )))
+    }
+
+    /// Answers whether `path` is a replica rather than a digest note or a
+    /// directory.
+    fn is_replica_file(described: &Metadata, path: &Path) -> bool {
+        described.is_file() && DiskModelLibrary::companion_of(path).is_none()
+    }
+
+    /// Names the model held at `path`, when its segments name one.
+    fn spec_at(path: &Path, repository: &str, revision: &str) -> Option<ModelSpec> {
+        let file = path.file_name().and_then(|file| file.to_str())?;
+        Self::named_model(repository, revision, file)
+    }
+
+    /// The state a replica is read back in, given whether a digest was recorded
+    /// for it.
+    fn state_of(digest: &Option<Checksum>) -> ModelState {
+        match digest {
+            Some(_) => ModelState::Verified,
+            None => ModelState::Downloaded,
+        }
     }
 
     /// Names the model the given path segments stand for, or nothing when they

@@ -184,6 +184,96 @@ impl DiskModelLibrary {
         let digest: [u8; 32] = hasher.finalize().into();
         Ok(Checksum::from_bytes(digest))
     }
+
+    /// Creates the parent directory of `path`, treating a path without one as
+    /// already in place.
+    async fn ensure_parent_dir(path: &Path, model: &ModelSpec) -> Result<(), LibraryError> {
+        let Some(parent) = path.parent() else {
+            return Ok(());
+        };
+
+        tokio::fs::create_dir_all(parent)
+            .await
+            .map_err(|err| LibraryError::Unwritable {
+                model: model.to_string(),
+                cause: err.to_string(),
+            })
+    }
+
+    /// Moves the staged artifact into `destination`, freeing whatever occupies
+    /// it first and clearing the staging copy after.
+    async fn place_staged_artifact(
+        staged: &Path,
+        destination: &Path,
+        model: &ModelSpec,
+    ) -> Result<(), LibraryError> {
+        Self::vacate(destination, model).await?;
+        tokio::fs::copy(staged, destination)
+            .await
+            .map_err(|err| LibraryError::Unwritable {
+                model: model.to_string(),
+                cause: err.to_string(),
+            })?;
+        let _ = tokio::fs::remove_file(staged).await;
+
+        Ok(())
+    }
+
+    /// Answers whether the filesystem holds a replica for `model`.
+    async fn file_present(&self, path: &Path, model: &ModelSpec) -> Result<bool, LibraryError> {
+        tokio::fs::try_exists(path)
+            .await
+            .map_err(|err| LibraryError::Unverifiable {
+                model: model.to_string(),
+                cause: err.to_string(),
+            })
+    }
+
+    /// Hashes the replica and records the verdict, proving or refusing `model`.
+    async fn verify_against(
+        &self,
+        path: &Path,
+        model: &ModelSpec,
+        expected: Checksum,
+    ) -> Result<ModelState, LibraryError> {
+        let actual = self.compute_sha256(path, model).await?;
+        if actual == expected {
+            self.record_verified(model, actual).await
+        } else {
+            Ok(self.record_mismatch(model, expected, actual).await)
+        }
+    }
+
+    /// Persists the proven digest beside the replica and reports it verified.
+    async fn record_verified(
+        &self,
+        model: &ModelSpec,
+        checksum: Checksum,
+    ) -> Result<ModelState, LibraryError> {
+        let checksum_path = self.checksum_file_path(model);
+        Self::ensure_parent_dir(&checksum_path, model).await?;
+        tokio::fs::write(&checksum_path, checksum.to_hex())
+            .await
+            .map_err(|err| LibraryError::Unwritable {
+                model: model.to_string(),
+                cause: err.to_string(),
+            })?;
+
+        Ok(ModelState::Verified)
+    }
+
+    /// Clears any stale digest note and reports the mismatch.
+    async fn record_mismatch(
+        &self,
+        model: &ModelSpec,
+        expected: Checksum,
+        actual: Checksum,
+    ) -> ModelState {
+        let checksum_path = self.checksum_file_path(model);
+        let _ = tokio::fs::remove_file(&checksum_path).await;
+
+        ModelState::IntegrityMismatch { expected, actual }
+    }
 }
 
 impl Default for DiskModelLibrary {
@@ -223,28 +313,14 @@ impl ModelLibraryPort for DiskModelLibrary {
         artifact: &ModelArtifact,
     ) -> Result<ModelState, LibraryError> {
         let destination = self.model_file_path(model);
-        if let Some(parent) = destination.parent() {
-            tokio::fs::create_dir_all(parent)
-                .await
-                .map_err(|err| LibraryError::Unwritable {
-                    model: model.to_string(),
-                    cause: err.to_string(),
-                })?;
-        }
+        Self::ensure_parent_dir(&destination, model).await?;
 
         let checksum_path = self.checksum_file_path(model);
         let _ = tokio::fs::remove_file(&checksum_path).await;
 
         let staged = artifact.staged_at();
         if staged != destination {
-            Self::vacate(&destination, model).await?;
-            tokio::fs::copy(staged, &destination).await.map_err(|err| {
-                LibraryError::Unwritable {
-                    model: model.to_string(),
-                    cause: err.to_string(),
-                }
-            })?;
-            let _ = tokio::fs::remove_file(staged).await;
+            Self::place_staged_artifact(staged, &destination, model).await?;
         }
 
         Self::confirm_committed(&destination, model).await?;
@@ -258,48 +334,13 @@ impl ModelLibraryPort for DiskModelLibrary {
         expected: Option<Checksum>,
     ) -> Result<ModelState, LibraryError> {
         let path = self.model_file_path(model);
-        let file_exists =
-            tokio::fs::try_exists(&path)
-                .await
-                .map_err(|err| LibraryError::Unverifiable {
-                    model: model.to_string(),
-                    cause: err.to_string(),
-                })?;
-
-        if !file_exists {
+        if !self.file_present(&path, model).await? {
             return Ok(ModelState::Missing);
         }
 
-        let Some(expected_checksum) = expected else {
-            return Ok(ModelState::Downloaded);
-        };
-
-        let actual_checksum = self.compute_sha256(&path, model).await?;
-
-        if actual_checksum == expected_checksum {
-            let checksum_path = self.checksum_file_path(model);
-            if let Some(parent) = checksum_path.parent() {
-                tokio::fs::create_dir_all(parent).await.map_err(|err| {
-                    LibraryError::Unwritable {
-                        model: model.to_string(),
-                        cause: err.to_string(),
-                    }
-                })?;
-            }
-            tokio::fs::write(&checksum_path, actual_checksum.to_hex())
-                .await
-                .map_err(|err| LibraryError::Unwritable {
-                    model: model.to_string(),
-                    cause: err.to_string(),
-                })?;
-            Ok(ModelState::Verified)
-        } else {
-            let checksum_path = self.checksum_file_path(model);
-            let _ = tokio::fs::remove_file(&checksum_path).await;
-            Ok(ModelState::IntegrityMismatch {
-                expected: expected_checksum,
-                actual: actual_checksum,
-            })
+        match expected {
+            Some(expected_checksum) => self.verify_against(&path, model, expected_checksum).await,
+            None => Ok(ModelState::Downloaded),
         }
     }
 
