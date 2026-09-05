@@ -29,7 +29,9 @@ impl Checksum {
         }
         let raw: Vec<u8> = literal
             .as_bytes()
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .map(|pair| decode_hex_pair(pair, literal))
             .collect::<Result<_, _>>()?;
         Ok(Self(raw.try_into().expect("length is checked above")))
