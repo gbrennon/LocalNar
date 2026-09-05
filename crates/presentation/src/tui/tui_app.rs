@@ -149,10 +149,7 @@ impl TuiApp {
             match event {
                 AppEvent::SearchCompleted(results) => {
                     self.model_table_widget.show(results);
-                    self.search_mode = AppMode::ModelTable;
-                    if self.mode.tab() == AppTab::Search {
-                        self.mode = AppMode::ModelTable;
-                    }
+                    self.leave_search_tab_for(AppMode::ModelTable);
                     self.status_widget.report(Self::MSG_SEARCH_COMPLETED);
                 }
                 AppEvent::SearchFailed(err) => {
@@ -160,10 +157,7 @@ impl TuiApp {
                 }
                 AppEvent::InstallStarted => {
                     self.is_installing = true;
-                    self.search_mode = AppMode::InstallProgress;
-                    if self.mode.tab() == AppTab::Search {
-                        self.mode = AppMode::InstallProgress;
-                    }
+                    self.leave_search_tab_for(AppMode::InstallProgress);
                     self.progress_widget.reset();
                     self.status_widget.report(Self::MSG_INSTALL_STARTED);
                 }
@@ -177,10 +171,7 @@ impl TuiApp {
                 }
                 AppEvent::InstallCompleted(model) => {
                     self.is_installing = false;
-                    self.search_mode = AppMode::ModelTable;
-                    if self.mode == AppMode::InstallProgress {
-                        self.mode = AppMode::ModelTable;
-                    }
+                    self.leave_install_progress_for(AppMode::ModelTable);
                     self.status_widget.report(format!(
                         "{}{}",
                         Self::MSG_INSTALL_COMPLETED,
@@ -190,10 +181,7 @@ impl TuiApp {
                 }
                 AppEvent::InstallFailed(err) => {
                     self.is_installing = false;
-                    self.search_mode = AppMode::ModelTable;
-                    if self.mode == AppMode::InstallProgress {
-                        self.mode = AppMode::ModelTable;
-                    }
+                    self.leave_install_progress_for(AppMode::ModelTable);
                     self.raise_failure(err);
                 }
                 AppEvent::LibraryListed(inventory) => {
@@ -251,6 +239,24 @@ impl TuiApp {
                     self.should_quit = true;
                 }
             }
+        }
+    }
+
+    /// Moves out of the search tab once a search or install has landed,
+    /// remembering the destination so a later tab switch can restore it.
+    fn leave_search_tab_for(&mut self, target: AppMode) {
+        self.search_mode = target;
+        if self.mode.tab() == AppTab::Search {
+            self.mode = target;
+        }
+    }
+
+    /// Moves out of install progress once the attempt settles, remembering the
+    /// results view for a later tab switch.
+    fn leave_install_progress_for(&mut self, target: AppMode) {
+        self.search_mode = target;
+        if self.mode == AppMode::InstallProgress {
+            self.mode = target;
         }
     }
 
