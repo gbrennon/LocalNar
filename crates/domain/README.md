@@ -124,8 +124,10 @@ candidate in isolation and composes with the others by boolean logic.
 
 A model is *marked with* capability [`ModelTag`]s (for example
 `text-generation`, `conversational`). Tags are descriptive: they travel with a
-model's identity but are excluded from it, so two replicas of the same model are
-equal regardless of their tags.
+model's identity but are excluded from it. [`ModelSpec`] equality and hashing
+consider only the repository and file, so two intents for the same model compare
+equal and hash alike however they were tagged — a spec-keyed lookup never splits
+a model apart by the adjectives a catalog happened to attach.
 
 Tags flow along the lifecycle without being re-derived:
 

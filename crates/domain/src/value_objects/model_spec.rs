@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, hash::Hash};
 
 use crate::value_objects::{ModelFileName, ModelRepository, ModelTag};
 
@@ -8,12 +8,28 @@ use crate::value_objects::{ModelFileName, ModelRepository, ModelTag};
 /// the pair is the identity; a search result can be turned into this intent
 /// without asking the operator for anything further. The tags the model is
 /// marked with travel alongside that identity as descriptive capabilities and
-/// take no part in it.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+/// take no part in it: equality and hashing consider only the repository and
+/// file, so two intents for the same model are equal however they were tagged.
+#[derive(Clone, Debug)]
 pub struct ModelSpec {
     repository: ModelRepository,
     file: ModelFileName,
     tags: Vec<ModelTag>,
+}
+
+impl PartialEq for ModelSpec {
+    fn eq(&self, other: &Self) -> bool {
+        self.repository == other.repository && self.file == other.file
+    }
+}
+
+impl Eq for ModelSpec {}
+
+impl Hash for ModelSpec {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.repository.hash(state);
+        self.file.hash(state);
+    }
 }
 
 impl ModelSpec {
@@ -55,12 +71,24 @@ mod model_spec_tests {
     };
 
     fn spec_marked_with(tags: Vec<ModelTag>) -> ModelSpec {
-        let identifier = ModelRepositoryId::parse("org/name").expect("valid id");
+        named_spec_marked_with("org/name", "model.gguf", tags)
+    }
+
+    fn named_spec_marked_with(id: &str, file: &str, tags: Vec<ModelTag>) -> ModelSpec {
+        let identifier = ModelRepositoryId::parse(id).expect("valid id");
         ModelSpec::new(
             ModelRepository::at_default_revision(identifier),
-            ModelFileName::new("model.gguf").expect("valid file name"),
+            ModelFileName::new(file).expect("valid file name"),
             tags,
         )
+    }
+
+    fn hash_of(spec: &ModelSpec) -> u64 {
+        use std::hash::{DefaultHasher, Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+        spec.hash(&mut hasher);
+        hasher.finish()
     }
 
     #[test]
@@ -95,5 +123,28 @@ mod model_spec_tests {
         let spec = spec_marked_with(vec![ModelTag::new("text-generation").expect("valid tag")]);
 
         assert_eq!(spec.to_string(), "org/name@main::model.gguf");
+    }
+
+    #[test]
+    fn two_intents_for_the_same_model_are_equal_however_they_were_tagged() {
+        let untagged = spec_marked_with(Vec::new());
+        let tagged = spec_marked_with(vec![ModelTag::new("text-generation").expect("valid tag")]);
+        let differently_tagged =
+            spec_marked_with(vec![ModelTag::new("conversational").expect("valid tag")]);
+
+        assert_eq!(untagged, tagged);
+        assert_eq!(tagged, differently_tagged);
+        assert_eq!(hash_of(&untagged), hash_of(&tagged));
+        assert_eq!(hash_of(&tagged), hash_of(&differently_tagged));
+    }
+
+    #[test]
+    fn intents_for_different_models_are_not_equal() {
+        let spec = named_spec_marked_with("org/name", "model.gguf", Vec::new());
+        let other_file = named_spec_marked_with("org/name", "other.gguf", Vec::new());
+        let other_repository = named_spec_marked_with("org/other", "model.gguf", Vec::new());
+
+        assert_ne!(spec, other_file);
+        assert_ne!(spec, other_repository);
     }
 }
