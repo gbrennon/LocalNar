@@ -262,26 +262,12 @@ impl TuiApp {
 
     /// Handle a key event based on current mode.
     pub async fn handle_key_event(&mut self, key: KeyEvent) {
-        if self.last_error.is_some() {
-            self.last_error = None;
+        if self.dismiss_error_or_quit(&key) {
             return;
         }
 
-        if EventHandler::is_quit_key(&key) {
-            self.event_sender.send(AppEvent::Quit).ok();
+        if self.handle_navigation_key(&key) {
             return;
-        }
-
-        match key.code {
-            KeyCode::Tab => return self.switch_to_tab(self.active_tab().next()),
-            KeyCode::BackTab => return self.switch_to_tab(self.active_tab().previous()),
-            KeyCode::Char(digit) if key.modifiers.contains(KeyModifiers::ALT) => {
-                if let Some(tab) = AppTab::from_shortcut(digit) {
-                    self.switch_to_tab(tab);
-                }
-                return;
-            }
-            _ => {}
         }
 
         match self.mode {
@@ -290,6 +276,41 @@ impl TuiApp {
             AppMode::InstallProgress => self.handle_install_progress_keys(key),
             AppMode::Library => self.handle_library_keys(key),
             AppMode::Help => self.handle_help_keys(key),
+        }
+    }
+
+    /// Clears a pending error and answers whether the key was consumed by it
+    /// or by a quit request.
+    fn dismiss_error_or_quit(&mut self, key: &KeyEvent) -> bool {
+        if self.last_error.is_some() {
+            self.last_error = None;
+            return true;
+        }
+        if EventHandler::is_quit_key(key) {
+            self.event_sender.send(AppEvent::Quit).ok();
+            return true;
+        }
+        false
+    }
+
+    /// Answers whether the key navigates between tabs or the shortcut tabs.
+    fn handle_navigation_key(&mut self, key: &KeyEvent) -> bool {
+        match key.code {
+            KeyCode::Tab => {
+                self.switch_to_tab(self.active_tab().next());
+                true
+            }
+            KeyCode::BackTab => {
+                self.switch_to_tab(self.active_tab().previous());
+                true
+            }
+            KeyCode::Char(digit) if key.modifiers.contains(KeyModifiers::ALT) => {
+                if let Some(tab) = AppTab::from_shortcut(digit) {
+                    self.switch_to_tab(tab);
+                }
+                true
+            }
+            _ => false,
         }
     }
 
