@@ -1,0 +1,32 @@
+rules:
+  - id: rust-struct-fields-must-not-be-public
+    languages:
+      - rust
+    message: "Struct fields must not be public; expose behavior instead"
+    severity: ERROR
+    patterns:
+      - pattern-regex: '(?m)^\s*pub(?:\([^)]*\))?\s+(?!fn\b|const\b|static\b|mod\b|use\b|type\b|enum\b|struct\b|trait\b|async\b|unsafe\b|extern\b)\w+\s*:'
+
+  - id: rust-avoid-public-tuple-struct-fields
+    languages:
+      - rust
+    message: "Tuple struct fields must not be public; encapsulate the inner value"
+    severity: ERROR
+    patterns:
+      - pattern-regex: '(?m)^\s*pub(?:\([^)]*\))?\s+struct\s+\w+\s*\(\s*pub\b'
+
+  - id: rust-no-setters
+    languages:
+      - rust
+    message: "Setters are not allowed; expose intention-revealing behavior instead"
+    severity: ERROR
+    patterns:
+      - pattern-regex: '(?m)\bfn\s+set_\w+\s*\('
+
+  - id: rust-no-inline-modules
+    languages:
+      - rust
+    message: "Inline modules are not allowed; use a separate module file (test modules excepted)"
+    severity: ERROR
+    patterns:
+      - pattern-regex: '(?m)^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+(?!\w*tests?\b)\w+\s*\{'
