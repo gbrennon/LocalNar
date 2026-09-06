@@ -82,8 +82,11 @@ The crate is organized by the *kind* of concept, not by feature:
 
 ### `value_objects/`
 
-Values identified by what they hold rather than by identity. Each is immutable,
-compares by contents, and validates itself on construction.
+Values identified by what they hold rather than by identity. Each is immutable
+and, unless it declares an explicit identity, compares by its contents and
+validates itself on construction. [`ModelSpec`] is the deliberate exception: it
+declares `(repository, file)` as its identity and compares on that alone (see
+Capability tags below).
 
 - Identity & location: [`ModelRepositoryId`], [`ModelRevision`],
   [`ModelRepository`], [`ModelFileName`], [`ModelSpec`].
@@ -129,20 +132,24 @@ consider only the repository and file, so two intents for the same model compare
 equal and hash alike however they were tagged — a spec-keyed lookup never splits
 a model apart by the adjectives a catalog happened to attach.
 
-Tags flow along the lifecycle without being re-derived:
+Tags flow along the lifecycle attached to the [`ModelSpec`] the file produces:
 
 ```
-RemoteModelFile::with_tags(..)  ->  RemoteModelFile::to_spec()  ->  ModelSpec
-        |                                                              |
-        +--> ModelInfo::describing(..)  --(ModelInfo::tags)-->        |
-                                                                       v
-                          InstalledModel / ManagedModel (spec carries the tags)
+RemoteModelFile::with_tags(..)
+        |
+        v
+RemoteModelFile::to_spec()  ->  ModelSpec (carries the tags)
+        |                              |
+        |                              +--> InstalledModel / ManagedModel
+        v                                   (read the tags off the spec)
+ModelInfo::describing(..)  ->  ModelInfo::tags() (reads the spec's tags)
 ```
 
-Because the tags live on the [`ModelSpec`] the file produces, a model discovered
-in search keeps exactly the capabilities it will still report once installed.
-The vocabulary is intentionally open — any non-blank label is a valid tag — so
-the domain stays free of any single catalog's taxonomy.
+The tags describe a model for as long as an install intent is held in memory;
+they are not persisted by the durable library, so a replica read back off disk
+reports no tags until it is described from the catalog again. The vocabulary is
+intentionally open — any non-blank label is a valid tag — so the domain stays
+free of any single catalog's taxonomy.
 
 ## Conventions
 

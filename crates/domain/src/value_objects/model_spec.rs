@@ -1,4 +1,7 @@
-use std::{fmt, hash::Hash};
+use std::{
+    fmt,
+    hash::{Hash, Hasher},
+};
 
 use crate::value_objects::{ModelFileName, ModelRepository, ModelTag};
 
@@ -10,6 +13,11 @@ use crate::value_objects::{ModelFileName, ModelRepository, ModelTag};
 /// marked with travel alongside that identity as descriptive capabilities and
 /// take no part in it: equality and hashing consider only the repository and
 /// file, so two intents for the same model are equal however they were tagged.
+///
+/// `PartialEq`, `Eq`, and `Hash` are implemented by hand over that same pair and
+/// must be kept in lockstep. A future `Ord`/`PartialOrd` has to be hand-written
+/// over `(repository, file)` too rather than derived, or it would order by
+/// `tags` and break the requirement that ordering agree with equality.
 #[derive(Clone, Debug)]
 pub struct ModelSpec {
     repository: ModelRepository,
@@ -26,7 +34,7 @@ impl PartialEq for ModelSpec {
 impl Eq for ModelSpec {}
 
 impl Hash for ModelSpec {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         self.repository.hash(state);
         self.file.hash(state);
     }

@@ -39,8 +39,10 @@ impl InstalledModel {
 
     /// The capabilities the replica is marked with, empty when none are known.
     ///
-    /// A replica keeps the tags the model was installed under, so its
-    /// capabilities can be read without consulting the catalog again.
+    /// The tags come from the install intent the replica was built from and are
+    /// not part of what the durable library records: a replica reconstructed by
+    /// reading the library back off disk reports no tags until it is described
+    /// again from the catalog.
     pub fn tags(&self) -> &[ModelTag] {
         self.spec.tags()
     }

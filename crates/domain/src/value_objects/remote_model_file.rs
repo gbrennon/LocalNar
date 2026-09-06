@@ -48,6 +48,8 @@ impl RemoteModelFile {
     ///
     /// The tags travel with the install intent this file produces, so a model
     /// installed from a search result keeps the capabilities it was found by.
+    /// This replaces any tags already set rather than adding to them, so an
+    /// adapter states the whole capability set in a single call.
     pub fn with_tags(mut self, tags: Vec<ModelTag>) -> Self {
         self.tags = tags;
         self
