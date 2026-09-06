@@ -56,3 +56,53 @@ impl fmt::Display for DomainError {
 }
 
 impl Error for DomainError {}
+
+#[cfg(test)]
+mod domain_error_tests {
+    use std::error::Error;
+
+    use crate::errors::DomainError;
+
+    #[test]
+    fn each_variant_renders_a_distinct_message() {
+        assert_eq!(
+            DomainError::BlankSearchQuery.to_string(),
+            "a search query must not be blank"
+        );
+        assert_eq!(
+            DomainError::EmptyRevision.to_string(),
+            "a repository revision must not be blank"
+        );
+        assert_eq!(
+            DomainError::MalformedRepository("owner".to_owned()).to_string(),
+            "repository identifier `owner` must follow `<owner>/<name>`"
+        );
+        assert_eq!(
+            DomainError::InvalidFileName("../escape".to_owned()).to_string(),
+            "file name `../escape` is not a valid single repository file"
+        );
+        assert_eq!(
+            DomainError::InvalidChecksumLiteral("zz".to_owned()).to_string(),
+            "`zz` is not a valid 64-character hexadecimal digest"
+        );
+        assert_eq!(
+            DomainError::InvalidModelTag.to_string(),
+            "a model tag must not be blank"
+        );
+        assert_eq!(
+            DomainError::IntegrityMismatch {
+                expected: "aa".to_owned(),
+                actual: "bb".to_owned(),
+            }
+            .to_string(),
+            "checksum mismatch: expected `aa`, computed `bb`"
+        );
+    }
+
+    #[test]
+    fn a_domain_error_is_a_standard_error_without_a_source() {
+        let error = DomainError::BlankSearchQuery;
+
+        assert!(error.source().is_none());
+    }
+}

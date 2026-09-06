@@ -119,4 +119,12 @@ mod checksum_tests {
         let right = Checksum::from_bytes([1u8; 32]);
         assert_ne!(left, right);
     }
+
+    #[test]
+    fn display_and_debug_render_the_lowercase_hex_digest() {
+        let digest = Checksum::parse(SAMPLE_HEX).expect("sample must parse");
+
+        assert_eq!(format!("{digest}"), SAMPLE_HEX);
+        assert_eq!(format!("{digest:?}"), SAMPLE_HEX);
+    }
 }

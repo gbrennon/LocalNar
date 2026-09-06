@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::value_objects::{ByteLength, Checksum, ModelSpec};
+use crate::value_objects::{ByteLength, Checksum, ModelSpec, ModelTag};
 
 /// A model replica that is present in the durable library.
 ///
@@ -37,6 +37,16 @@ impl InstalledModel {
         &self.spec
     }
 
+    /// The capabilities the replica is marked with, empty when none are known.
+    ///
+    /// The tags come from the install intent the replica was built from and are
+    /// not part of what the durable library records: a replica reconstructed by
+    /// reading the library back off disk reports no tags until it is described
+    /// again from the catalog.
+    pub fn tags(&self) -> &[ModelTag] {
+        self.spec.tags()
+    }
+
     /// Where the bytes live.
     pub fn path(&self) -> &Path {
         &self.path
@@ -63,15 +73,20 @@ mod installed_model_tests {
     use super::InstalledModel;
     use crate::value_objects::{
         ByteLength, Checksum, ModelFileName, ModelRepository, ModelRepositoryId, ModelSpec,
+        ModelTag,
     };
 
     fn spec() -> ModelSpec {
+        spec_marked_with(vec![])
+    }
+
+    fn spec_marked_with(tags: Vec<ModelTag>) -> ModelSpec {
         ModelSpec::new(
             ModelRepository::at_default_revision(
                 ModelRepositoryId::parse("unsloth/Qwen3-8B-GGUF").expect("valid id"),
             ),
             ModelFileName::new("Qwen3-8B-Q4_K_M.gguf").expect("valid file name"),
-            vec![],
+            tags,
         )
     }
 
@@ -83,6 +98,19 @@ mod installed_model_tests {
         assert!(!replica.is_verified());
         assert_eq!(replica.path().to_str(), Some("/models/qwen.gguf"));
         assert_eq!(replica.size(), ByteLength::new(4_096));
+    }
+
+    #[test]
+    fn a_replica_carries_the_capabilities_it_was_installed_under() {
+        let tags = vec![ModelTag::new("text-generation").expect("valid tag")];
+        let replica = InstalledModel::new(
+            spec_marked_with(tags.clone()),
+            "/models/qwen.gguf",
+            ByteLength::new(4_096),
+            None,
+        );
+
+        assert_eq!(replica.tags(), tags.as_slice());
     }
 
     #[test]
