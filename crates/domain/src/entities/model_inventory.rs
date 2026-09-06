@@ -83,16 +83,20 @@ mod model_inventory_tests {
     use super::ModelInventory;
     use crate::{
         ByteLength, Checksum, InstalledModel, ManagedModel, ModelFileName, ModelRepository,
-        ModelRepositoryId, ModelSpec, ModelState,
+        ModelRepositoryId, ModelSpec, ModelState, ModelTag,
     };
 
     fn spec(file: &str) -> ModelSpec {
+        spec_marked_with(file, vec![])
+    }
+
+    fn spec_marked_with(file: &str, tags: Vec<ModelTag>) -> ModelSpec {
         ModelSpec::new(
             ModelRepository::at_default_revision(
                 ModelRepositoryId::parse("unsloth/Qwen3-8B-GGUF").expect("valid id"),
             ),
             ModelFileName::new(file).expect("valid file name"),
-            vec![],
+            tags,
         )
     }
 
@@ -132,7 +136,6 @@ mod model_inventory_tests {
 
         assert_eq!(inventory.total_size(), ByteLength::new(3_500));
         assert_eq!(inventory.count(), 2);
-        assert_eq!(inventory.entries().len(), 2);
         assert_eq!(inventory.entries()[0].size(), ByteLength::new(1_000));
     }
 
@@ -156,6 +159,30 @@ mod model_inventory_tests {
 
         assert_eq!(inventory.verified_count(), 1);
         assert_eq!(inventory.broken_count(), 1);
+    }
+
+    #[test]
+    fn a_model_is_found_by_a_probe_that_is_tagged_differently_than_the_entry() {
+        let stored = ManagedModel::new(
+            InstalledModel::new(
+                spec_marked_with("a.gguf", vec![ModelTag::new("text-generation").unwrap()]),
+                "/models/a.gguf",
+                ByteLength::new(1_024),
+                None,
+            ),
+            ModelState::Downloaded,
+        );
+        let inventory = ModelInventory::new("/models", vec![stored]);
+
+        assert!(inventory.find(&spec("a.gguf")).is_some());
+        assert!(
+            inventory
+                .find(&spec_marked_with(
+                    "a.gguf",
+                    vec![ModelTag::new("conversational").unwrap()]
+                ))
+                .is_some()
+        );
     }
 
     #[test]
