@@ -21,7 +21,8 @@ impl WholeWeightFile {
     fn is_projector(candidate: &ModelFileName) -> bool {
         let name = candidate.as_str();
         let basename = name.rsplit('/').next().unwrap_or(name);
-        basename.to_ascii_lowercase().starts_with("mmproj")
+        let normalized = basename.to_ascii_lowercase();
+        normalized.contains("mmproj")
     }
 }
 
@@ -59,5 +60,7 @@ mod whole_weight_file_tests {
     fn auxiliary_projector_files_are_excluded() {
         assert!(!is_whole("mmproj-F16.gguf"));
         assert!(!is_whole("mmproj-BF16.gguf"));
+        assert!(!is_whole("Qwen2-VL-7B-Instruct-mmproj-f16.gguf"));
+        assert!(!is_whole("llava-v1.5-7b-mmproj-model-f16.gguf"));
     }
 }
