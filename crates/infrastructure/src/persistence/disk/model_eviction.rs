@@ -25,6 +25,7 @@ impl ModelEvictionPort for DiskModelLibrary {
 
         LibraryTree::discard_file(&path).await?;
         LibraryTree::discard_file(&self.checksum_file_path(model)).await?;
+        LibraryTree::discard_file(&self.tags_file_path(model)).await?;
         LibraryTree::discard_emptied_ancestors(self.root(), &path).await?;
 
         Ok(RemovedModel::new(model.clone(), path, reclaimed))

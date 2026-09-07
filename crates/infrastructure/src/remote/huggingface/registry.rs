@@ -2,10 +2,15 @@ use futures::future::join_all;
 use localnar_application::{errors::RegistryReadError, ports::outbound::RemoteModelRegistryPort};
 use localnar_domain::{
     ByteLength, Checksum, ContextLength, ModelFileName, ModelInfo, ModelProfile, ModelRepository,
-    ModelRepositoryId, ModelWeightChoice, ParameterCount, RemoteModelFile, SearchQuery,
+    ModelRepositoryId, ModelTag, ModelWeightChoice, ParameterCount, RemoteModelFile, SearchQuery,
 };
 use reqwest::Client;
 use serde::{Deserialize, de::DeserializeOwned};
+
+pub trait HubTransport: Send + Sync {
+    /// Performs a GET request against `path` and deserializes the JSON response.
+    async fn get_json<T: DeserializeOwned>(&self, path: &str) -> Result<T, RegistryReadError>;
+}
 
 const DEFAULT_ENDPOINT: &str = "https://huggingface.co";
 const INSTALLABLE_EXTENSIONS: [&str; 2] = ["gguf", "safetensors"];
@@ -16,29 +21,164 @@ fn is_installable_format(file_name: &ModelFileName) -> bool {
     if basename.to_ascii_lowercase().starts_with("mmproj") {
         return false;
     }
-    name.rsplit_once('.').is_some_and(|(_, extension)| {
-        INSTALLABLE_EXTENSIONS
+    name.rsplit_once('.')
+        .is_some_and(|(_, extension)| INSTALLABLE_EXTENSIONS.contains(&extension))
+}
+
+#[derive(Debug, Deserialize)]
+struct ModelRepoInfoResponse {
+    tags: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct HfApiRegistry<Transport = ReqwestHubTransport> {
+    transport: Transport,
+}
+
+impl<Transport: HubTransport> HfApiRegistry<Transport> {
+    pub fn new(transport: Transport) -> Self {
+        Self { transport }
+    }
+
+    async fn fetch_model_repo_info(
+        &self,
+        identifier: &ModelRepositoryId,
+    ) -> Result<ModelRepoInfoResponse, RegistryReadError> {
+        let path = format!("api/models/{}/{}", identifier.owner(), identifier.name());
+        self.transport.get_json(&path).await
+    }
+
+    async fn offered_files(
+        &self,
+        repository: &ModelRepository,
+    ) -> Result<Vec<RemoteModelFile>, RegistryReadError> {
+        let path = format!(
+            "api/models/{}/{}/revision/{}?blobs=true",
+            repository.identifier().owner(),
+            repository.identifier().name(),
+            repository.revision().as_str()
+        );
+
+        let details: RepositoryRevisionResponse = self.transport.get_json(&path).await?;
+
+        Ok(details
+            .siblings
+            .unwrap_or_default()
             .iter()
-            .any(|ext| extension.eq_ignore_ascii_case(ext))
-    })
+            .filter_map(|sibling| sibling.to_remote_file(repository))
+            .filter(|file| is_installable_format(file.file()))
+            .collect::<Vec<RemoteModelFile>>())
+    }
+
+    async fn describe(&self, entry: &CatalogEntryResponse) -> Option<ModelInfo> {
+        let identifier = ModelRepositoryId::parse(&entry.id).ok()?;
+        let repository = ModelRepository::at_default_revision(identifier);
+        let offered = self.offered_files(&repository).await.ok()?;
+
+        let tags = match self.fetch_model_repo_info(repository.identifier()).await {
+            Ok(info) => info
+                .tags
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|tag| ModelTag::new(tag).ok())
+                .collect::<Vec<ModelTag>>(),
+            Err(_) => Vec::new(),
+        };
+
+        let offered_with_tags = offered
+            .into_iter()
+            .map(|file| file.with_tags(tags.clone()))
+            .collect::<Vec<RemoteModelFile>>();
+
+        ModelWeightChoice::among(&offered_with_tags)
+            .map(|weight| ModelInfo::describing(weight, entry.to_profile()))
+    }
 }
 
-/// Transport contract for retrieving raw JSON from the Hugging Face Hub catalog.
-pub trait HubTransport: Send + Sync {
-    /// Performs a GET request against `path` and deserializes the JSON response.
-    async fn get_json<T: DeserializeOwned>(&self, path: &str) -> Result<T, RegistryReadError>;
+#[derive(Debug, Deserialize)]
+struct RepositoryRevisionResponse {
+    siblings: Option<Vec<RepositoryFileResponse>>,
 }
 
-/// Production HTTP transport for the Hugging Face Hub catalog.
+#[derive(Debug, Deserialize)]
+struct RepositoryFileResponse {
+    rfilename: String,
+    size: Option<u64>,
+    lfs: Option<LfsInfo>,
+}
+
+impl RepositoryFileResponse {
+    fn to_remote_file(&self, repository: &ModelRepository) -> Option<RemoteModelFile> {
+        let file = ModelFileName::new(&self.rfilename).ok()?;
+        Some(RemoteModelFile::new(
+            repository.clone(),
+            file,
+            ByteLength::new(self.byte_size()),
+            self.advertised_checksum(),
+        ))
+    }
+
+    fn byte_size(&self) -> u64 {
+        self.lfs
+            .as_ref()
+            .and_then(|lfs| lfs.size)
+            .or(self.size)
+            .unwrap_or_default()
+    }
+
+    fn advertised_checksum(&self) -> Option<Checksum> {
+        self.lfs
+            .as_ref()
+            .and_then(|lfs| lfs.sha256.as_deref())
+            .and_then(|digest| Checksum::parse(digest).ok())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct LfsInfo {
+    size: Option<u64>,
+    sha256: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CatalogEntryResponse {
+    id: String,
+    #[serde(rename = "gguf")]
+    model_metadata: Option<ModelMetadataResponse>,
+}
+
+impl CatalogEntryResponse {
+    fn to_profile(&self) -> ModelProfile {
+        self.model_metadata
+            .as_ref()
+            .map(ModelMetadataResponse::to_profile)
+            .unwrap_or(ModelProfile::UNDISCLOSED)
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct ModelMetadataResponse {
+    total: Option<u64>,
+    context_length: Option<u32>,
+}
+
+impl ModelMetadataResponse {
+    fn to_profile(&self) -> ModelProfile {
+        ModelProfile::new(
+            self.total.map(ParameterCount::new),
+            self.context_length.map(ContextLength::new),
+        )
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ReqwestHubTransport {
-    endpoint: String,
     client: Client,
+    endpoint: String,
     token: Option<String>,
 }
 
 impl ReqwestHubTransport {
-    /// Builds an HTTP transport for the given endpoint and optional authorization token.
     pub fn new(
         endpoint: impl Into<String>,
         token: Option<String>,
@@ -49,7 +189,6 @@ impl ReqwestHubTransport {
                 repository: String::new(),
                 cause: format!("failed to build HTTP client: {err}"),
             })?;
-
         Ok(Self {
             endpoint: endpoint.into(),
             client,
@@ -57,7 +196,6 @@ impl ReqwestHubTransport {
         })
     }
 
-    /// Resolves configuration from `HF_ENDPOINT` and `HF_TOKEN` environment variables.
     pub fn from_env() -> Result<Self, RegistryReadError> {
         let endpoint =
             std::env::var("HF_ENDPOINT").unwrap_or_else(|_| DEFAULT_ENDPOINT.to_string());
@@ -66,16 +204,25 @@ impl ReqwestHubTransport {
             .filter(|t| !t.trim().is_empty());
         Self::new(endpoint, token)
     }
+
+    /// Returns the base endpoint URL.
+    pub fn endpoint(&self) -> &str {
+        &self.endpoint
+    }
+
+    /// Formats the complete URL for a given relative API path.
+    pub fn url_for(&self, path: &str) -> String {
+        format!(
+            "{}/{}",
+            self.endpoint.trim_end_matches('/'),
+            path.trim_start_matches('/')
+        )
+    }
 }
 
 impl HubTransport for ReqwestHubTransport {
     async fn get_json<T: DeserializeOwned>(&self, path: &str) -> Result<T, RegistryReadError> {
-        let url = format!(
-            "{}/{}",
-            self.endpoint.trim_end_matches('/'),
-            path.trim_start_matches('/')
-        );
-
+        let url = self.url_for(path);
         let mut request = self.client.get(&url);
         if let Some(token) = &self.token {
             request = request.bearer_auth(token);
@@ -112,64 +259,59 @@ impl HubTransport for ReqwestHubTransport {
     }
 }
 
-/// Hugging Face Hub catalog adapter for resolving files and searching models.
-#[derive(Debug, Clone)]
-pub struct HfApiRegistry<Transport = ReqwestHubTransport> {
-    transport: Transport,
+impl HfApiRegistry<ReqwestHubTransport> {
+    pub fn from_env() -> Result<Self, RegistryReadError> {
+        Ok(Self::new(ReqwestHubTransport::from_env()?))
+    }
+}
+
+impl<Transport: HubTransport> RemoteModelRegistryPort for HfApiRegistry<Transport> {
+    async fn resolve_model_file(
+        &self,
+        repository: &ModelRepository,
+        file: &ModelFileName,
+    ) -> Result<RemoteModelFile, RegistryReadError> {
+        let offered = self
+            .offered_files(repository)
+            .await
+            .map_err(|failure| Self::as_file_failure(failure, repository, file))?;
+
+        let tags = match self.fetch_model_repo_info(repository.identifier()).await {
+            Ok(info) => info
+                .tags
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|tag| ModelTag::new(tag).ok())
+                .collect::<Vec<ModelTag>>(),
+            Err(_) => Vec::new(),
+        };
+
+        offered
+            .into_iter()
+            .map(|offer| offer.with_tags(tags.clone()))
+            .find(|offer| offer.file() == file)
+            .ok_or_else(|| RegistryReadError::FileNotFound {
+                repository: repository.to_string(),
+                file: file.to_string(),
+            })
+    }
+
+    async fn search_models(
+        &self,
+        query: &SearchQuery,
+    ) -> Result<Vec<ModelInfo>, RegistryReadError> {
+        let entries: Vec<CatalogEntryResponse> =
+            self.transport.get_json(&Self::search_path(query)).await?;
+
+        let described = join_all(entries.iter().map(|entry| self.describe(entry))).await;
+
+        Ok(described.into_iter().flatten().collect())
+    }
 }
 
 impl<Transport: HubTransport> HfApiRegistry<Transport> {
     const SEARCH_RESULT_LIMIT: usize = 10;
     const GGUF_EXPANSION: &'static str = "expand%5B%5D=gguf";
-
-    /// Builds a registry with an injected transport.
-    pub fn new(transport: Transport) -> Self {
-        Self { transport }
-    }
-
-    /// Returns a reference to the inner transport.
-    pub fn transport(&self) -> &Transport {
-        &self.transport
-    }
-
-    /// Describes one catalog entry as the single candidate it offers, if any.
-    ///
-    /// The catalog lists an entry's file names without their sizes, so the
-    /// entry's own revision is read to learn what each file weighs before the
-    /// domain picks the one file that stands for the model. An entry whose
-    /// revision cannot be read, whose identifier is malformed, or that publishes
-    /// no installable weight yields nothing.
-    async fn describe(&self, entry: &CatalogEntryResponse) -> Option<ModelInfo> {
-        let identifier = ModelRepositoryId::parse(&entry.id).ok()?;
-        let repository = ModelRepository::at_default_revision(identifier);
-        let offered = self.offered_files(&repository).await.ok()?;
-
-        ModelWeightChoice::among(&offered)
-            .map(|weight| ModelInfo::describing(weight, entry.to_profile()))
-    }
-
-    /// Reads every file a repository revision publishes, with its size and digest.
-    async fn offered_files(
-        &self,
-        repository: &ModelRepository,
-    ) -> Result<Vec<RemoteModelFile>, RegistryReadError> {
-        let path = format!(
-            "api/models/{}/{}/revision/{}?blobs=true",
-            repository.identifier().owner(),
-            repository.identifier().name(),
-            repository.revision().as_str()
-        );
-
-        let details: RepositoryRevisionResponse = self.transport.get_json(&path).await?;
-
-        Ok(details
-            .siblings
-            .unwrap_or_default()
-            .iter()
-            .filter_map(|sibling| sibling.to_remote_file(repository))
-            .filter(|file| is_installable_format(file.file()))
-            .collect())
-    }
 
     fn search_path(query: &SearchQuery) -> String {
         format!(
@@ -195,117 +337,8 @@ impl<Transport: HubTransport> HfApiRegistry<Transport> {
     }
 }
 
-impl HfApiRegistry<ReqwestHubTransport> {
-    /// Resolves configuration from environment variables.
-    pub fn from_env() -> Result<Self, RegistryReadError> {
-        Ok(Self::new(ReqwestHubTransport::from_env()?))
-    }
-}
-
-impl<Transport: HubTransport> RemoteModelRegistryPort for HfApiRegistry<Transport> {
-    async fn resolve_model_file(
-        &self,
-        repository: &ModelRepository,
-        file: &ModelFileName,
-    ) -> Result<RemoteModelFile, RegistryReadError> {
-        let offered = self
-            .offered_files(repository)
-            .await
-            .map_err(|failure| Self::as_file_failure(failure, repository, file))?;
-
-        offered
-            .into_iter()
-            .find(|offer| offer.file() == file)
-            .ok_or_else(|| RegistryReadError::FileNotFound {
-                repository: repository.to_string(),
-                file: file.to_string(),
-            })
-    }
-
-    async fn search_models(
-        &self,
-        query: &SearchQuery,
-    ) -> Result<Vec<ModelInfo>, RegistryReadError> {
-        let entries: Vec<CatalogEntryResponse> =
-            self.transport.get_json(&Self::search_path(query)).await?;
-
-        let described = join_all(entries.iter().map(|entry| self.describe(entry))).await;
-
-        Ok(described.into_iter().flatten().collect())
-    }
-}
-
-#[derive(Debug, Deserialize)]
-struct RepositoryRevisionResponse {
-    siblings: Option<Vec<RepositoryFileResponse>>,
-}
-
-#[derive(Debug, Deserialize)]
-struct RepositoryFileResponse {
-    rfilename: String,
-    size: Option<u64>,
-    lfs: Option<LargeFileResponse>,
-}
-
-impl RepositoryFileResponse {
-    fn to_remote_file(&self, repository: &ModelRepository) -> Option<RemoteModelFile> {
-        let file = ModelFileName::new(&self.rfilename).ok()?;
-
-        Some(RemoteModelFile::new(
-            repository.clone(),
-            file,
-            ByteLength::new(self.byte_size()),
-            self.advertised_checksum(),
-        ))
-    }
-
-    fn byte_size(&self) -> u64 {
-        self.lfs
-            .as_ref()
-            .and_then(|lfs| lfs.size)
-            .or(self.size)
-            .unwrap_or_default()
-    }
-
-    fn advertised_checksum(&self) -> Option<Checksum> {
-        self.lfs
-            .as_ref()
-            .and_then(|lfs| lfs.sha256.as_deref())
-            .and_then(|digest| Checksum::parse(digest).ok())
-    }
-}
-
-#[derive(Debug, Deserialize)]
-struct LargeFileResponse {
-    size: Option<u64>,
-    sha256: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct CatalogEntryResponse {
-    id: String,
-    #[serde(rename = "gguf")]
-    model_metadata: Option<ModelMetadataResponse>,
-}
-
-impl CatalogEntryResponse {
-    fn to_profile(&self) -> ModelProfile {
-        self.model_metadata
-            .as_ref()
-            .map(ModelMetadataResponse::to_profile)
-            .unwrap_or(ModelProfile::UNDISCLOSED)
-    }
-}
-#[derive(Debug, Deserialize)]
-struct ModelMetadataResponse {
-    total: Option<u64>,
-    context_length: Option<u32>,
-}
-impl ModelMetadataResponse {
-    fn to_profile(&self) -> ModelProfile {
-        ModelProfile::new(
-            self.total.map(ParameterCount::new),
-            self.context_length.map(ContextLength::new),
-        )
+impl<Transport: HubTransport + Default> Default for HfApiRegistry<Transport> {
+    fn default() -> Self {
+        Self::new(<Transport as Default>::default())
     }
 }

@@ -3,7 +3,7 @@ use localnar_application::ports::outbound::{
 };
 use localnar_domain::{
     ByteLength, Checksum, ModelArtifact, ModelFileName, ModelRepository, ModelRepositoryId,
-    ModelRevision, ModelSpec, ModelState,
+    ModelRevision, ModelSpec, ModelState, ModelTag,
 };
 use localnar_infrastructure::DiskModelLibrary;
 use sha2::{Digest, Sha256};
@@ -323,4 +323,85 @@ async fn a_sweep_of_a_clean_library_discards_nothing() {
             .find(&model)
             .is_some()
     );
+}
+
+#[tokio::test]
+async fn a_sweep_discards_an_orphan_tags_sidecar() {
+    let temp = TempDir::new().expect("temp dir");
+    let library = DiskModelLibrary::new(temp.path());
+    let orphan = temp
+        .path()
+        .join("owner")
+        .join("Model-1")
+        .join("main")
+        .join("vanished.gguf.tags");
+    tokio::fs::create_dir_all(orphan.parent().expect("parent dir"))
+        .await
+        .expect("make dir");
+    tokio::fs::write(&orphan, "conversational\ntools")
+        .await
+        .expect("write note");
+
+    let discarded = library.discard_strays().await.expect("sweep");
+
+    assert!(
+        discarded.iter().any(|stray| stray.path() == orphan),
+        "the orphan tags note must be discarded"
+    );
+    assert!(!orphan.exists());
+}
+
+#[tokio::test]
+async fn enumerating_library_includes_model_tags_from_sidecars() {
+    let temp = TempDir::new().expect("temp dir");
+    let library = DiskModelLibrary::new(temp.path());
+    let repository = ModelRepository::new(
+        ModelRepositoryId::parse("owner/Model-1").expect("valid id"),
+        ModelRevision::new("main").expect("valid revision"),
+    );
+    let file = ModelFileName::new("model.gguf").expect("valid file");
+    let tagged_spec = ModelSpec::new(
+        repository,
+        file,
+        vec![
+            ModelTag::new("conversational").expect("valid tag"),
+            ModelTag::new("text-generation").expect("valid tag"),
+        ],
+    );
+
+    install_proven(&library, &tagged_spec, b"model-bytes").await;
+
+    let inventory = library.enumerate().await.expect("enumerate");
+    let found = inventory.find(&tagged_spec).expect("model in inventory");
+    let tags = found.tags().iter().map(|t| t.as_str()).collect::<Vec<_>>();
+    assert_eq!(tags, vec!["conversational", "text-generation"]);
+}
+
+#[tokio::test]
+async fn evicting_an_installed_model_removes_its_tags_sidecar() {
+    let temp = TempDir::new().expect("temp dir");
+    let library = DiskModelLibrary::new(temp.path());
+    let repository = ModelRepository::new(
+        ModelRepositoryId::parse("owner/Model-1").expect("valid id"),
+        ModelRevision::new("main").expect("valid revision"),
+    );
+    let file = ModelFileName::new("model.gguf").expect("valid file");
+    let tagged_spec = ModelSpec::new(
+        repository,
+        file,
+        vec![ModelTag::new("roleplay").expect("valid tag")],
+    );
+
+    install_proven(&library, &tagged_spec, b"model-bytes").await;
+
+    let tags_path = temp
+        .path()
+        .join("owner")
+        .join("Model-1")
+        .join("main")
+        .join("model.gguf.tags");
+    assert!(tags_path.exists());
+
+    library.evict(&tagged_spec).await.expect("evict");
+    assert!(!tags_path.exists());
 }

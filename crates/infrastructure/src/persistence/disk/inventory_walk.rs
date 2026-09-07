@@ -8,7 +8,7 @@ use std::{
 use localnar_application::errors::LibraryError;
 use localnar_domain::{
     ByteLength, Checksum, InstalledModel, ManagedModel, ModelFileName, ModelRepository,
-    ModelRepositoryId, ModelRevision, ModelSpec, ModelState,
+    ModelRepositoryId, ModelRevision, ModelSpec, ModelState, ModelTag,
 };
 
 use super::{library_tree::LibraryTree, model_library::DiskModelLibrary};
@@ -155,7 +155,9 @@ impl<'root> InventoryWalk<'root> {
             return Ok(None);
         }
 
-        let Some(spec) = Self::spec_at(&path, repository, revision) else {
+        let tags = DiskModelLibrary::recorded_tags(&DiskModelLibrary::tags_sidecar_of(&path)).await;
+
+        let Some(spec) = Self::spec_at(&path, repository, revision, tags) else {
             return Ok(None);
         };
 
@@ -176,9 +178,14 @@ impl<'root> InventoryWalk<'root> {
     }
 
     /// Names the model held at `path`, when its segments name one.
-    fn spec_at(path: &Path, repository: &str, revision: &str) -> Option<ModelSpec> {
+    fn spec_at(
+        path: &Path,
+        repository: &str,
+        revision: &str,
+        tags: Vec<ModelTag>,
+    ) -> Option<ModelSpec> {
         let file = path.file_name().and_then(|file| file.to_str())?;
-        Self::named_model(repository, revision, file)
+        Self::named_model(repository, revision, file, tags)
     }
 
     /// The state a replica is read back in, given whether a digest was recorded
@@ -196,7 +203,12 @@ impl<'root> InventoryWalk<'root> {
     /// The library writes each model at a path built from its name, so the name
     /// is read back out of the path. Segments the domain refuses never came
     /// from a name it accepted, so whatever left them there was not an install.
-    fn named_model(repository: &str, revision: &str, file: &str) -> Option<ModelSpec> {
+    fn named_model(
+        repository: &str,
+        revision: &str,
+        file: &str,
+        tags: Vec<ModelTag>,
+    ) -> Option<ModelSpec> {
         let identifier = ModelRepositoryId::parse(repository).ok()?;
         let revision = ModelRevision::new(revision).ok()?;
         let file = ModelFileName::new(file).ok()?;
@@ -204,7 +216,7 @@ impl<'root> InventoryWalk<'root> {
         Some(ModelSpec::new(
             ModelRepository::new(identifier, revision),
             file,
-            vec![],
+            tags,
         ))
     }
 }
