@@ -2,6 +2,7 @@ mod app_event;
 mod app_mode;
 mod app_tab;
 mod components;
+mod download_speed_tracker;
 mod events;
 mod layout_helper;
 mod library_manager;
@@ -20,6 +21,7 @@ pub use components::{
     TabsWidget,
     themes::{self, GBadwolf, Theme},
 };
+pub use download_speed_tracker::DownloadSpeedTracker;
 pub use events::EventHandler;
 pub use layout_helper::LayoutHelper;
 pub use library_manager::LibraryManager;
