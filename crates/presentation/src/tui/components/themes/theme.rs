@@ -34,4 +34,7 @@ pub trait Theme: Send + Sync {
 
     /// Style for error or broken status messages.
     fn status_error(&self) -> Style;
+    fn gauge(&self) -> Style {
+        self.highlight()
+    }
 }

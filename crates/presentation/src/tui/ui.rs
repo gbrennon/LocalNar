@@ -1,8 +1,9 @@
+use std::time::Duration;
+
 use crossterm::event::Event;
 use ratatui::Terminal;
 
 use crate::tui::{TuiApp, events::EventHandler};
-
 /// Application runner managing the main TUI event loop.
 pub struct AppRunner;
 
@@ -30,12 +31,12 @@ impl AppRunner {
                     Event::Key(key) => {
                         app.handle_key_event(key).await;
                     }
-                    Event::Resize(_, _) => {
-                        // Terminal resized - next draw will use new size
-                    }
+                    Event::Resize(_, _) => {}
                     _ => {}
                 }
             }
+
+            tokio::time::sleep(Duration::from_millis(16)).await;
         }
         Ok(())
     }

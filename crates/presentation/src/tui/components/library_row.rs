@@ -1,4 +1,4 @@
-use localnar_domain::ManagedModel;
+use localnar_domain::{ByteLength, ManagedModel, ModelSpec, Quantization};
 
 /// One locally installed model rendered as the cells of a single table row.
 ///
@@ -11,14 +11,22 @@ pub struct LibraryRow {
     repository: String,
     file: String,
     state: String,
+    quantization: String,
     size: String,
+    capabilities: String,
     digest: String,
 }
 
 impl LibraryRow {
-    /// The heading of each cell, in the order the cells are rendered.
-    pub const HEADINGS: [&'static str; 5] = ["Repository", "File", "State", "Size", "Digest"];
-
+    pub const HEADINGS: [&'static str; 7] = [
+        "Repository",
+        "File",
+        "State",
+        "Quant",
+        "Size",
+        "Capabilities",
+        "Digest",
+    ];
     /// What the state cell shows for a replica proven against its digest.
     pub const VERIFIED: &'static str = "verified";
 
@@ -32,21 +40,69 @@ impl LibraryRow {
 
     /// What the state cell shows for a replica that is no longer there.
     pub const ABSENT: &'static str = "absent";
+    pub const DOWNLOADING: &'static str = "downloading";
 
     /// What the digest cell shows for a replica holding no recorded digest.
     pub const UNRECORDED: &'static str = "-";
+    pub const UNDISCLOSED: &'static str = "-";
 
     /// How many leading hexadecimal digits of a digest the row shows.
     pub const DIGEST_PREFIX_LENGTH: usize = 12;
 
-    /// Renders the cells of the row that stands for `entry`.
     pub fn describing(entry: &ManagedModel) -> Self {
+        let tags_string = entry
+            .spec()
+            .tags()
+            .iter()
+            .map(|tag| tag.as_str())
+            .collect::<Vec<&str>>()
+            .join(", ");
+        let tags_display = if tags_string.is_empty() {
+            Self::UNDISCLOSED.to_owned()
+        } else {
+            tags_string
+        };
         Self {
             repository: entry.spec().repository().to_string(),
             file: entry.spec().file().to_string(),
             state: Self::state_of(entry).to_owned(),
+            quantization: Quantization::for_file(entry.spec().file())
+                .map(|quantization| quantization.to_string())
+                .unwrap_or_else(|| Self::UNDISCLOSED.to_owned()),
             size: entry.size().to_string(),
+            capabilities: tags_display,
             digest: Self::abbreviated_digest(entry),
+        }
+    }
+
+    pub fn downloading(spec: &ModelSpec, size: Option<ByteLength>, progress: Option<f64>) -> Self {
+        let state_label = match progress {
+            Some(progress_ratio) => format!("downloading ({:.1}%)", progress_ratio * 100.0),
+            None => Self::DOWNLOADING.to_owned(),
+        };
+        let tags_string = spec
+            .tags()
+            .iter()
+            .map(|tag| tag.as_str())
+            .collect::<Vec<&str>>()
+            .join(", ");
+        let tags_display = if tags_string.is_empty() {
+            Self::UNDISCLOSED.to_owned()
+        } else {
+            tags_string
+        };
+        Self {
+            repository: spec.repository().to_string(),
+            file: spec.file().to_string(),
+            state: state_label,
+            quantization: Quantization::for_file(spec.file())
+                .map(|quantization| quantization.to_string())
+                .unwrap_or_else(|| Self::UNDISCLOSED.to_owned()),
+            size: size
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| Self::UNRECORDED.to_owned()),
+            capabilities: tags_display,
+            digest: Self::UNRECORDED.to_owned(),
         }
     }
 
@@ -65,28 +121,38 @@ impl LibraryRow {
         &self.state
     }
 
-    /// The space the replica occupies.
     pub fn size(&self) -> &str {
         &self.size
     }
 
-    /// The recorded digest, abbreviated to fit a row.
+    pub fn quantization(&self) -> &str {
+        &self.quantization
+    }
+
+    pub fn capabilities(&self) -> &str {
+        &self.capabilities
+    }
+
     pub fn digest(&self) -> &str {
         &self.digest
     }
-
     /// Whether the row stands for a replica the operator should act on.
     pub fn is_broken(&self) -> bool {
         self.state == Self::BROKEN
     }
+    pub fn is_downloading(&self) -> bool {
+        self.state.starts_with(Self::DOWNLOADING)
+    }
 
     /// The cells in the order the headings name them.
-    pub fn into_cells(self) -> [String; 5] {
+    pub fn into_cells(self) -> [String; 7] {
         [
             self.repository,
             self.file,
             self.state,
+            self.quantization,
             self.size,
+            self.capabilities,
             self.digest,
         ]
     }

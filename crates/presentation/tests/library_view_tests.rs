@@ -1,11 +1,11 @@
 use localnar_domain::{
     ByteLength, Checksum, InstalledModel, ManagedModel, ModelFileName, ModelInventory,
-    ModelRepository, ModelRepositoryId, ModelSpec, ModelState,
+    ModelRepository, ModelRepositoryId, ModelSpec, ModelState, ModelTag,
 };
 use localnar_presentation::tui::{LibraryRow, LibraryTableWidget, ModelDetails};
 use ratatui::{Terminal, backend::TestBackend};
 
-const TERMINAL_WIDTH: u16 = 100;
+const TERMINAL_WIDTH: u16 = 140;
 const TERMINAL_HEIGHT: u16 = 12;
 const BORDER: char = '│';
 
@@ -103,7 +103,9 @@ fn a_row_shows_the_repository_file_state_size_and_digest_of_one_installed_model(
     assert_eq!(row.repository(), "unsloth/Qwen3-8B-GGUF@main");
     assert_eq!(row.file(), "Qwen3-8B-Q4_K_M.gguf");
     assert_eq!(row.state(), LibraryRow::VERIFIED);
+    assert_eq!(row.quantization(), "Q4_K_M");
     assert_eq!(row.size(), "4.7 GiB");
+    assert_eq!(row.capabilities(), "-");
     assert_eq!(row.digest(), "abababababab");
 }
 
@@ -135,7 +137,9 @@ fn a_rows_cells_follow_the_order_of_the_headings() {
             "unsloth/Qwen3-8B-GGUF@main".to_owned(),
             "Qwen3-8B-Q4_K_M.gguf".to_owned(),
             LibraryRow::VERIFIED.to_owned(),
+            "Q4_K_M".to_owned(),
             "4.7 GiB".to_owned(),
+            "-".to_owned(),
             "abababababab".to_owned(),
         ]
     );
@@ -253,6 +257,8 @@ fn the_table_renders_one_row_per_installed_model_under_the_headings() {
 
     assert!(lines[1].contains("Repository"), "headings: {}", lines[1]);
     assert!(lines[1].contains("State"), "headings: {}", lines[1]);
+    assert!(lines[1].contains("Quant"), "headings: {}", lines[1]);
+    assert!(lines[1].contains("Capabilities"), "headings: {}", lines[1]);
     assert!(lines[1].contains("Digest"), "headings: {}", lines[1]);
     assert!(
         lines[2].contains("unsloth/Qwen3-8B-GGUF"),
@@ -335,4 +341,113 @@ fn the_details_of_an_unproven_replica_show_no_digest_and_no_disagreement() {
     let rendered = details.to_lines().join("\n");
     assert!(rendered.contains(ModelDetails::UNPROVEN), "{rendered}");
     assert!(rendered.contains(ModelDetails::UNRECORDED), "{rendered}");
+}
+
+#[test]
+fn the_details_show_quantization_and_capabilities_of_the_model() {
+    let tagged_spec = ModelSpec::new(
+        ModelRepository::at_default_revision(
+            ModelRepositoryId::parse("unsloth/Qwen3-8B-GGUF").expect("valid id"),
+        ),
+        ModelFileName::new("Qwen3-8B-Q4_K_M.gguf").expect("valid file name"),
+        vec![
+            ModelTag::new("conversational").expect("valid tag"),
+            ModelTag::new("text-generation").expect("valid tag"),
+        ],
+    );
+    let entry = ManagedModel::new(
+        InstalledModel::new(
+            tagged_spec,
+            "/models/unsloth/Qwen3-8B-GGUF/main/Qwen3-8B-Q4_K_M.gguf",
+            ByteLength::new(5_027_784_064),
+            Some(Checksum::from_bytes(RECORDED_DIGEST)),
+        ),
+        ModelState::Verified,
+    );
+
+    let details = ModelDetails::describing(&entry);
+    let rendered = details.to_lines().join("\n");
+
+    assert!(
+        rendered.contains("Q4_K_M"),
+        "quantization in details: {rendered}"
+    );
+    assert!(
+        rendered.contains("conversational, text-generation"),
+        "capabilities in details: {rendered}"
+    );
+
+    let labels: Vec<&str> = details.facts().iter().map(|(label, _)| *label).collect();
+    assert!(labels.contains(&ModelDetails::QUANTIZATION), "{labels:?}");
+    assert!(labels.contains(&ModelDetails::CAPABILITIES), "{labels:?}");
+}
+#[test]
+fn a_downloading_model_appears_in_the_library_table() {
+    let mut widget = LibraryTableWidget::new();
+    let downloading_spec = spec("meta-llama/Llama-3-8B", "llama-3-8b.gguf");
+    widget.track_download(
+        downloading_spec,
+        Some(ByteLength::new(4_000_000_000)),
+        Some(0.452),
+    );
+
+    let lines = rendered_lines(&mut widget);
+
+    assert!(
+        lines[2].contains("meta-llama/Llama-3-8B"),
+        "row: {}",
+        lines[2]
+    );
+    assert!(lines[2].contains("llama-3-8b.gguf"), "row: {}", lines[2]);
+    assert!(
+        lines[2].contains("downloading (45.2%)"),
+        "row: {}",
+        lines[2]
+    );
+    assert!(lines[2].contains("3.7 GiB"), "row: {}", lines[2]);
+}
+
+#[test]
+fn a_downloading_model_updates_existing_entry_in_library_table() {
+    let mut widget = LibraryTableWidget::new();
+    widget.show(stocked_library());
+
+    let updating_spec = spec("unsloth/Qwen3-8B-GGUF", "Qwen3-8B-Q4_K_M.gguf");
+    widget.track_download(updating_spec, None, Some(0.80));
+
+    let lines = rendered_lines(&mut widget);
+
+    assert!(
+        lines[2].contains("unsloth/Qwen3-8B-GGUF"),
+        "row: {}",
+        lines[2]
+    );
+    assert!(
+        lines[2].contains("downloading (80.0%)"),
+        "row: {}",
+        lines[2]
+    );
+    assert!(
+        lines[3].contains("ggml-org/gemma-3-270m-GGUF"),
+        "row: {}",
+        lines[3]
+    );
+    assert!(lines[3].contains("unproven"), "row: {}", lines[3]);
+}
+
+#[test]
+fn library_row_shows_downloading_state() {
+    let downloading_spec = spec("unsloth/Qwen3-8B-GGUF", "Qwen3-8B-Q4_K_M.gguf");
+    let row = LibraryRow::downloading(
+        &downloading_spec,
+        Some(ByteLength::new(5_000_000_000)),
+        Some(0.50),
+    );
+
+    assert_eq!(row.state(), "downloading (50.0%)");
+    assert!(row.is_downloading());
+    assert_eq!(row.quantization(), "Q4_K_M");
+    assert_eq!(row.digest(), LibraryRow::UNRECORDED);
+    assert_eq!(row.repository(), "unsloth/Qwen3-8B-GGUF@main");
+    assert_eq!(row.file(), "Qwen3-8B-Q4_K_M.gguf");
 }

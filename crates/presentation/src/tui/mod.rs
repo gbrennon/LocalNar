@@ -16,7 +16,8 @@ pub use app_event::AppEvent;
 pub use app_mode::AppMode;
 pub use app_tab::AppTab;
 pub use components::{
-    LibraryRow, LibraryTableWidget, ModelDetails, ModelRow, ModelTableWidget, TabsWidget,
+    LibraryRow, LibraryTableWidget, ModelDetails, ModelRow, ModelTableWidget, ProgressWidget,
+    TabsWidget,
     themes::{self, GBadwolf, Theme},
 };
 pub use events::EventHandler;
