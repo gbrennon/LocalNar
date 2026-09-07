@@ -363,6 +363,9 @@ async fn a_custom_theme_can_be_injected() {
         fn status_error(&self) -> Style {
             Style::default().fg(Color::Red)
         }
+        fn status_installing(&self) -> Style {
+            Style::default().fg(Color::Yellow)
+        }
     }
 
     let models_root = TempDir::new().expect("temp dir");
