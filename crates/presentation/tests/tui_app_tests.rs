@@ -3,8 +3,8 @@ use std::sync::Arc;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use localnar_application::services::SearchModelsService;
 use localnar_domain::{
-    ByteLength, Checksum, InstalledModel, ModelFileName, ModelRepository, ModelRepositoryId,
-    ModelSpec,
+    ByteLength, Checksum, InstalledModel, ManagedModel, ModelFileName, ModelRepository,
+    ModelRepositoryId, ModelSpec, ModelState,
 };
 use localnar_infrastructure::{
     DiskModelLibrary, HfApiRegistry, HfHubDownloader, ReqwestHubTransport,
@@ -132,4 +132,79 @@ async fn app_displays_download_speed_rate_in_progress_screen() {
     let progress_screen = render_screen(&mut app);
     assert!(progress_screen.contains("62.0%"), "{progress_screen}");
     assert!(progress_screen.contains("24.5 MiB/s"), "{progress_screen}");
+}
+
+#[tokio::test]
+async fn verifying_a_model_updates_status_without_opening_details_popup() {
+    let temp_dir = TempDir::new().expect("temp dir");
+    let mut app = create_app(&temp_dir);
+    let sender = app.event_sender();
+    let spec = test_spec();
+
+    app.handle_key_event(KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE))
+        .await;
+    app.handle_events().await;
+
+    let installed_replica = InstalledModel::new(
+        spec,
+        temp_dir.path().join("model.gguf"),
+        ByteLength::new(4_000_000_000),
+        Some(Checksum::from_bytes([0xaa; 32])),
+    );
+    let managed = ManagedModel::new(installed_replica, ModelState::Verified);
+
+    sender
+        .send(AppEvent::ModelVerified(managed))
+        .expect("send verified");
+    app.handle_events().await;
+
+    let screen = render_screen(&mut app);
+    assert!(screen.contains("Verified:"), "{screen}");
+    assert!(
+        !screen.contains("Installed Model (Esc to close)"),
+        "{screen}"
+    );
+}
+
+#[tokio::test]
+async fn verifying_a_model_while_inspecting_refreshes_open_details_popup() {
+    let temp_dir = TempDir::new().expect("temp dir");
+    let mut app = create_app(&temp_dir);
+    let sender = app.event_sender();
+    let spec = test_spec();
+
+    app.handle_key_event(KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE))
+        .await;
+    app.handle_events().await;
+
+    let installed_replica = InstalledModel::new(
+        spec,
+        temp_dir.path().join("model.gguf"),
+        ByteLength::new(4_000_000_000),
+        Some(Checksum::from_bytes([0xaa; 32])),
+    );
+    let unproven = ManagedModel::new(installed_replica.clone(), ModelState::Downloaded);
+    sender
+        .send(AppEvent::ModelInspected(unproven))
+        .expect("send inspected");
+    app.handle_events().await;
+
+    let screen_before = render_screen(&mut app);
+    assert!(
+        screen_before.contains("Installed Model (Esc to close)"),
+        "{screen_before}"
+    );
+
+    let verified = ManagedModel::new(installed_replica, ModelState::Verified);
+    sender
+        .send(AppEvent::ModelVerified(verified))
+        .expect("send verified");
+    app.handle_events().await;
+
+    let screen_after = render_screen(&mut app);
+    assert!(
+        screen_after.contains("Installed Model (Esc to close)"),
+        "{screen_after}"
+    );
+    assert!(screen_after.contains("Verified:"), "{screen_after}");
 }
