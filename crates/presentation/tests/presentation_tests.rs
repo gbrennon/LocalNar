@@ -307,3 +307,33 @@ fn progress_widget_renders_gauge_and_status() {
         "status text: {rendered}"
     );
 }
+#[test]
+fn progress_widget_renders_speed_rate_in_status_message() {
+    let mut widget = ProgressWidget::new();
+    widget.advance(
+        0.55,
+        "Downloading: 550.0 MiB / 1.0 GiB (55.0%) @ 15.2 MiB/s".to_owned(),
+    );
+
+    let backend = TestBackend::new(TERMINAL_WIDTH, TERMINAL_HEIGHT);
+    let mut terminal = Terminal::new(backend).expect("a test terminal");
+    terminal
+        .draw(|frame| widget.draw(frame, frame.area()))
+        .expect("render succeeds");
+
+    let buffer = terminal.backend().buffer().clone();
+    let rendered = (0..TERMINAL_HEIGHT)
+        .map(|y| {
+            (0..TERMINAL_WIDTH)
+                .map(|x| buffer[(x, y)].symbol())
+                .collect::<String>()
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    assert!(rendered.contains("55.0%"), "progress label: {rendered}");
+    assert!(
+        rendered.contains("15.2 MiB/s"),
+        "speed rate in status text: {rendered}"
+    );
+}
