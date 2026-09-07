@@ -112,3 +112,24 @@ async fn app_reloads_library_when_switching_to_library_tab() {
     assert!(screen.contains("File"), "{screen}");
     assert!(screen.contains("State"), "{screen}");
 }
+
+#[tokio::test]
+async fn app_displays_download_speed_rate_in_progress_screen() {
+    let temp_dir = TempDir::new().expect("temp dir");
+    let mut app = create_app(&temp_dir);
+    let sender = app.event_sender();
+
+    sender.send(AppEvent::InstallStarted).expect("send started");
+    sender
+        .send(AppEvent::InstallProgress(
+            0.62,
+            "Downloading: 620.0 MiB / 1.0 GiB (62.0%) @ 24.5 MiB/s".to_owned(),
+        ))
+        .expect("send progress");
+
+    app.handle_events().await;
+
+    let progress_screen = render_screen(&mut app);
+    assert!(progress_screen.contains("62.0%"), "{progress_screen}");
+    assert!(progress_screen.contains("24.5 MiB/s"), "{progress_screen}");
+}
