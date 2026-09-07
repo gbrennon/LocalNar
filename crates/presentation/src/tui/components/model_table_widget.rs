@@ -4,7 +4,7 @@ use localnar_domain::ModelInfo;
 use ratatui::{
     Frame,
     layout::{Constraint, Rect},
-    widgets::{Block, Borders, Row, Table, TableState},
+    widgets::TableState,
 };
 
 use crate::tui::components::{
@@ -25,9 +25,10 @@ impl ModelTableWidget {
     const HIGHLIGHT_SYMBOL: &'static str = "> ";
     const NAME_MIN_WIDTH: u16 = 24;
     const QUANTIZATION_WIDTH: u16 = 8;
-    const SIZE_WIDTH: u16 = 10;
+    const SIZE_WIDTH: u16 = 9;
     const PARAMETERS_WIDTH: u16 = 8;
     const CONTEXT_WIDTH: u16 = 8;
+    const CAPABILITIES_WIDTH: u16 = 12;
     const COLUMN_SPACING: u16 = 1;
 
     /// Builds an empty table with default theme.
@@ -92,15 +93,34 @@ impl ModelTableWidget {
 
     /// Renders the table into `area`.
     pub fn draw(&mut self, frame: &mut Frame, area: Rect) {
+        if self.models.is_empty() {
+            // Show a centered message when no models are available
+            let text = ratatui::widgets::Paragraph::new("Fetching models...")
+                .style(self.theme.content())
+                .alignment(ratatui::layout::Alignment::Center)
+                .block(
+                    ratatui::widgets::Block::default()
+                        .borders(ratatui::widgets::Borders::ALL)
+                        .title(Self::TITLE)
+                        .title_style(self.theme.title())
+                        .border_style(self.theme.border())
+                        .style(self.theme.content()),
+                );
+            frame.render_widget(text, area);
+            return;
+        }
         let rows = self.models.iter().map(|info| {
-            Row::new(ModelRow::describing(info).into_cells()).style(self.theme.content())
+            ratatui::widgets::Row::new(ModelRow::describing(info).into_cells())
+                .style(self.theme.content())
         });
 
-        let table = Table::new(rows, Self::COLUMN_WIDTHS)
-            .header(Row::new(ModelRow::HEADINGS).style(self.theme.content_emphasis()))
+        let table = ratatui::widgets::Table::new(rows, Self::COLUMN_WIDTHS)
+            .header(
+                ratatui::widgets::Row::new(ModelRow::HEADINGS).style(self.theme.content_emphasis()),
+            )
             .block(
-                Block::default()
-                    .borders(Borders::ALL)
+                ratatui::widgets::Block::default()
+                    .borders(ratatui::widgets::Borders::ALL)
                     .title(Self::TITLE)
                     .title_style(self.theme.title())
                     .border_style(self.theme.border())
@@ -130,12 +150,13 @@ impl ModelTableWidget {
 impl ModelTableWidget {
     const FIRST_ROW: usize = 0;
 
-    const COLUMN_WIDTHS: [Constraint; 5] = [
+    const COLUMN_WIDTHS: [Constraint; 6] = [
         Constraint::Min(Self::NAME_MIN_WIDTH),
         Constraint::Length(Self::QUANTIZATION_WIDTH),
         Constraint::Length(Self::SIZE_WIDTH),
         Constraint::Length(Self::PARAMETERS_WIDTH),
         Constraint::Length(Self::CONTEXT_WIDTH),
+        Constraint::Length(Self::CAPABILITIES_WIDTH),
     ];
 }
 

@@ -1,4 +1,4 @@
-use localnar_domain::{ManagedModel, ModelState};
+use localnar_domain::{ManagedModel, ModelState, Quantization};
 
 /// One installed model rendered as the labeled facts of a details view.
 ///
@@ -23,7 +23,12 @@ impl ModelDetails {
     /// The label of the weight file the replica holds.
     pub const FILE: &'static str = "File";
 
-    /// The label of the verdict the library holds the replica under.
+    /// The quantization scheme the model file employs.
+    pub const QUANTIZATION: &'static str = "Quantization";
+
+    /// The capability tags advertised for the model.
+    pub const CAPABILITIES: &'static str = "Capabilities";
+
     pub const STATE: &'static str = "State";
 
     /// The label of the space the replica occupies.
@@ -58,6 +63,18 @@ impl ModelDetails {
 
     /// Renders the facts of `entry`.
     pub fn describing(entry: &ManagedModel) -> Self {
+        let tags_string = entry
+            .tags()
+            .iter()
+            .map(|tag| tag.as_str())
+            .collect::<Vec<&str>>()
+            .join(", ");
+        let tags_display = if tags_string.is_empty() {
+            Self::UNRECORDED.to_string()
+        } else {
+            tags_string
+        };
+
         let mut facts = vec![
             (
                 Self::REPOSITORY,
@@ -68,6 +85,13 @@ impl ModelDetails {
                 entry.spec().repository().revision().as_str().to_owned(),
             ),
             (Self::FILE, entry.spec().file().to_string()),
+            (
+                Self::QUANTIZATION,
+                Quantization::for_file(entry.spec().file())
+                    .map(|quantization| quantization.to_string())
+                    .unwrap_or_else(|| Self::UNRECORDED.to_owned()),
+            ),
+            (Self::CAPABILITIES, tags_display),
             (Self::STATE, Self::state_of(entry).to_owned()),
             (Self::SIZE, entry.size().to_string()),
             (
@@ -98,7 +122,7 @@ impl ModelDetails {
     pub fn to_lines(&self) -> Vec<String> {
         self.facts
             .iter()
-            .map(|(label, value)| format!("{label:<11}{value}"))
+            .map(|(label, value)| format!("{label:<14}{value}"))
             .collect()
     }
 
