@@ -216,9 +216,7 @@ impl TuiApp {
                     self.raise_failure(err);
                 }
                 AppEvent::ModelVerified(entry) => {
-                    self.status_widget.report(Self::verdict_of(&entry));
-                    self.details = Some(entry);
-                    self.library_manager.list();
+                    self.on_model_verified(entry);
                 }
                 AppEvent::ModelVerificationFailed(err) => {
                     self.raise_failure(err);
@@ -568,6 +566,16 @@ impl TuiApp {
         } else {
             format!("{}{}", Self::MSG_VERDICT_UNPROVEN, entry.spec())
         }
+    }
+
+    /// Handles successful model verification by reporting the verdict,
+    /// refreshing open details if any, and reloading the library listing.
+    fn on_model_verified(&mut self, entry: ManagedModel) {
+        self.status_widget.report(Self::verdict_of(&entry));
+        if self.details.is_some() {
+            self.details = Some(entry);
+        }
+        self.library_manager.list();
     }
 
     fn handle_install_progress_keys(&mut self, key: KeyEvent) {
