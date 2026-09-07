@@ -1,7 +1,7 @@
 use localnar_application::{errors::LibraryError, ports::outbound::ModelLibraryPort};
 use localnar_domain::{
     ByteLength, Checksum, ModelArtifact, ModelFileName, ModelRepository, ModelRepositoryId,
-    ModelRevision, ModelSpec, ModelState,
+    ModelRevision, ModelSpec, ModelState, ModelTag,
 };
 use localnar_infrastructure::DiskModelLibrary;
 use sha2::{Digest, Sha256};
@@ -147,4 +147,52 @@ async fn locate_fails_when_model_is_not_installed() {
 
     let result = library.locate(&spec).await;
     assert!(matches!(result, Err(LibraryError::Unreadable { .. })));
+}
+
+#[tokio::test]
+async fn commit_artifact_persists_tags_sidecar_and_locate_recovers_them() {
+    let temp_dir = TempDir::new().expect("temp dir");
+    let library = DiskModelLibrary::new(temp_dir.path());
+    let repo_id = ModelRepositoryId::parse("unsloth/Qwen3-8B-GGUF").expect("valid id");
+    let revision = ModelRevision::new("main").expect("valid revision");
+    let repository = ModelRepository::new(repo_id, revision);
+    let file = ModelFileName::new("Qwen3-8B-Q4_K_M.gguf").expect("valid file");
+    let tagged_spec = ModelSpec::new(
+        repository.clone(),
+        file.clone(),
+        vec![
+            ModelTag::new("conversational").expect("valid tag"),
+            ModelTag::new("tools").expect("valid tag"),
+        ],
+    );
+
+    let staged_dir = TempDir::new().expect("staged dir");
+    let staged_path = staged_dir.path().join("model.bin");
+    let content = b"binary-weights";
+    tokio::fs::write(&staged_path, content)
+        .await
+        .expect("write staged");
+
+    let artifact = ModelArtifact::new(&staged_path, ByteLength::new(content.len() as u64));
+    library
+        .commit_artifact(&tagged_spec, &artifact)
+        .await
+        .expect("commit");
+
+    let tags_file_path = temp_dir
+        .path()
+        .join("unsloth")
+        .join("Qwen3-8B-GGUF")
+        .join("main")
+        .join("Qwen3-8B-Q4_K_M.gguf.tags");
+    assert!(tags_file_path.exists());
+
+    let untagged_spec = ModelSpec::new(repository, file, vec![]);
+    let located = library.locate(&untagged_spec).await.expect("locate");
+    let recovered_tags = located
+        .tags()
+        .iter()
+        .map(|t| t.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(recovered_tags, vec!["conversational", "tools"]);
 }

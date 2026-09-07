@@ -1,14 +1,20 @@
+use std::sync::{Arc, Mutex};
+
 use localnar_application::{errors::RegistryReadError, ports::outbound::RemoteModelRegistryPort};
 use localnar_domain::{
     ByteLength, Checksum, ContextLength, ModelFileName, ModelRepository, ModelRepositoryId,
     ModelRevision, ParameterCount, SearchQuery,
 };
-use localnar_infrastructure::{HfApiRegistry, HubTransport};
+use localnar_infrastructure::{HfApiRegistry, HubTransport, ReqwestHubTransport};
 use serde::de::DeserializeOwned;
 
 const SEARCH_PATH: &str = "api/models?search=qwen3 gguf&limit=10&expand%5B%5D=gguf";
 const QWEN_REVISION_PATH: &str = "api/models/Qwen/Qwen3-8B-GGUF/revision/main?blobs=true";
 const UNSLOTH_REVISION_PATH: &str = "api/models/unsloth/Qwen3-8B-GGUF/revision/main?blobs=true";
+const QWEN_REPO_INFO_PATH: &str = "api/models/Qwen/Qwen3-8B-GGUF";
+const UNSLOTH_REPO_INFO_PATH: &str = "api/models/unsloth/Qwen3-8B-GGUF";
+const QWEN_REPO_INFO_JSON: &str = r#"{ "tags": ["text-generation", "conversational"] }"#;
+const UNSLOTH_REPO_INFO_JSON: &str = r#"{ "tags": ["tools", "roleplay"] }"#;
 
 const CATALOG_JSON: &str = r#"[
     {
@@ -312,6 +318,28 @@ async fn resolve_model_file_reads_the_size_and_digest_of_the_named_file() {
 }
 
 #[tokio::test]
+async fn resolve_model_file_attaches_capability_tags_from_repo_info() {
+    let registry = HfApiRegistry::new(FakeCatalogTransport::answering(&[
+        (UNSLOTH_REVISION_PATH, UNSLOTH_REVISION_JSON),
+        (UNSLOTH_REPO_INFO_PATH, UNSLOTH_REPO_INFO_JSON),
+    ]));
+    let repository = unsloth_repository();
+    let file = ModelFileName::new("Qwen3-8B-Q2_K.gguf").expect("valid file name");
+
+    let remote_file = registry
+        .resolve_model_file(&repository, &file)
+        .await
+        .expect("resolve");
+
+    let tags = remote_file
+        .tags()
+        .iter()
+        .map(|tag| tag.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(tags, vec!["tools", "roleplay"]);
+}
+
+#[tokio::test]
 async fn resolve_model_file_reports_the_file_as_missing_when_the_revision_omits_it() {
     let registry = HfApiRegistry::new(FakeCatalogTransport::answering(&[(
         UNSLOTH_REVISION_PATH,
@@ -409,5 +437,106 @@ async fn mmproj_projectors_are_filtered_out_before_the_domain_sees_them() {
             repository: repository.to_string(),
             file: mmproj.to_string(),
         }
+    );
+}
+
+#[tokio::test]
+async fn search_rows_carry_the_capabilities_from_model_repo_info() {
+    let registry = HfApiRegistry::new(FakeCatalogTransport::answering(&[
+        (SEARCH_PATH, CATALOG_JSON),
+        (QWEN_REVISION_PATH, QWEN_REVISION_JSON),
+        (UNSLOTH_REVISION_PATH, UNSLOTH_REVISION_JSON),
+        (QWEN_REPO_INFO_PATH, QWEN_REPO_INFO_JSON),
+        (UNSLOTH_REPO_INFO_PATH, UNSLOTH_REPO_INFO_JSON),
+    ]));
+
+    let rows = registry.search_models(&query()).await.expect("search");
+    let qwen_tags = rows
+        .first()
+        .expect("qwen row")
+        .tags()
+        .iter()
+        .map(|tag| tag.as_str())
+        .collect::<Vec<_>>();
+    let unsloth_tags = rows
+        .get(1)
+        .expect("unsloth row")
+        .tags()
+        .iter()
+        .map(|tag| tag.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(qwen_tags, vec!["text-generation", "conversational"]);
+    assert_eq!(unsloth_tags, vec!["tools", "roleplay"]);
+}
+
+struct RecordingTransport {
+    catalog: FakeCatalogTransport,
+    recorded_paths: Arc<Mutex<Vec<String>>>,
+}
+
+impl RecordingTransport {
+    fn new(catalog: FakeCatalogTransport, recorded_paths: Arc<Mutex<Vec<String>>>) -> Self {
+        Self {
+            catalog,
+            recorded_paths,
+        }
+    }
+}
+
+impl HubTransport for RecordingTransport {
+    async fn get_json<T: DeserializeOwned>(&self, path: &str) -> Result<T, RegistryReadError> {
+        self.recorded_paths
+            .lock()
+            .expect("lock recorded paths")
+            .push(path.to_string());
+        self.catalog.get_json(path).await
+    }
+}
+
+#[tokio::test]
+async fn search_requests_paths_with_api_models_prefix_without_nesting() {
+    let paths = Arc::new(Mutex::new(Vec::<String>::new()));
+    let recording = RecordingTransport::new(
+        FakeCatalogTransport::answering(&[
+            (SEARCH_PATH, CATALOG_JSON),
+            (QWEN_REVISION_PATH, QWEN_REVISION_JSON),
+            (UNSLOTH_REVISION_PATH, UNSLOTH_REVISION_JSON),
+            (QWEN_REPO_INFO_PATH, QWEN_REPO_INFO_JSON),
+            (UNSLOTH_REPO_INFO_PATH, UNSLOTH_REPO_INFO_JSON),
+        ]),
+        Arc::clone(&paths),
+    );
+    let registry = HfApiRegistry::new(recording);
+
+    let _ = registry.search_models(&query()).await.expect("search");
+
+    let captured = paths.lock().expect("lock paths").clone();
+    assert!(!captured.is_empty());
+    for requested_path in &captured {
+        assert!(
+            requested_path.starts_with("api/models"),
+            "expected path to start with api/models, got: {requested_path}"
+        );
+        assert!(
+            !requested_path.contains("api/api"),
+            "expected path to not contain duplicate api segment, got: {requested_path}"
+        );
+    }
+}
+
+#[test]
+fn reqwest_hub_transport_formats_api_paths_without_duplicate_api_prefix() {
+    let transport =
+        ReqwestHubTransport::new("https://huggingface.co", None).expect("transport construction");
+
+    assert_eq!(transport.endpoint(), "https://huggingface.co");
+    assert_eq!(
+        transport.url_for("api/models?search=qwen3&limit=10&expand%5B%5D=gguf"),
+        "https://huggingface.co/api/models?search=qwen3&limit=10&expand%5B%5D=gguf"
+    );
+    assert_eq!(
+        transport.url_for("api/models/unsloth/Qwen3-8B-GGUF"),
+        "https://huggingface.co/api/models/unsloth/Qwen3-8B-GGUF"
     );
 }

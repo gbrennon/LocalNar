@@ -300,6 +300,36 @@ async fn install_progress_can_be_reopened_from_model_table() {
 }
 
 #[tokio::test]
+async fn install_progress_can_be_opened_from_model_table_even_when_not_actively_installing() {
+    let models_root = TempDir::new().expect("temp dir");
+    let mut app = app(models_root.path());
+
+    app.event_sender()
+        .send(AppEvent::SearchCompleted(vec![]))
+        .ok();
+    app.handle_events().await;
+    assert_eq!(app.mode(), AppMode::ModelTable);
+
+    app.handle_key_event(pressed(KeyCode::Char('p'))).await;
+    assert_eq!(app.mode(), AppMode::InstallProgress);
+}
+
+#[tokio::test]
+async fn uppercase_p_also_opens_install_progress_from_model_table() {
+    let models_root = TempDir::new().expect("temp dir");
+    let mut app = app(models_root.path());
+
+    app.event_sender()
+        .send(AppEvent::SearchCompleted(vec![]))
+        .ok();
+    app.handle_events().await;
+    assert_eq!(app.mode(), AppMode::ModelTable);
+
+    app.handle_key_event(pressed(KeyCode::Char('P'))).await;
+    assert_eq!(app.mode(), AppMode::InstallProgress);
+}
+
+#[tokio::test]
 async fn a_custom_theme_can_be_injected() {
     struct CustomTestTheme;
     impl Theme for CustomTestTheme {

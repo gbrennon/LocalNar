@@ -41,7 +41,7 @@ impl HelpSection {
         },
         HelpLine::KeyBinding {
             key: "p",
-            description: "View install progress (while downloading)",
+            description: "View install progress",
         },
         HelpLine::KeyBinding {
             key: "h / ?",

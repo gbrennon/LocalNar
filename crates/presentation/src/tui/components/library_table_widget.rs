@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use localnar_domain::{ManagedModel, ModelInventory};
+use localnar_domain::{ByteLength, ManagedModel, ModelInventory, ModelSpec};
 use ratatui::{
     Frame,
     layout::{Constraint, Rect},
@@ -24,6 +24,7 @@ use crate::tui::components::{
 #[derive(Clone)]
 pub struct LibraryTableWidget {
     inventory: Option<ModelInventory>,
+    downloading: Option<(ModelSpec, Option<ByteLength>, Option<f64>)>,
     state: TableState,
     theme: Arc<dyn Theme>,
 }
@@ -33,10 +34,12 @@ impl LibraryTableWidget {
     const EMPTY_TITLE: &'static str = "Library (no models installed)";
     const BROKEN_TITLE_SUFFIX: &'static str = " BROKEN";
     const HIGHLIGHT_SYMBOL: &'static str = "> ";
-    const REPOSITORY_MIN_WIDTH: u16 = 22;
-    const FILE_MIN_WIDTH: u16 = 20;
-    const STATE_WIDTH: u16 = 8;
+    const REPOSITORY_MIN_WIDTH: u16 = 20;
+    const FILE_MIN_WIDTH: u16 = 18;
+    const STATE_WIDTH: u16 = 20;
+    const QUANT_WIDTH: u16 = 8;
     const SIZE_WIDTH: u16 = 10;
+    const CAPABILITIES_WIDTH: u16 = 18;
     const DIGEST_WIDTH: u16 = 12;
     const COLUMN_SPACING: u16 = 1;
 
@@ -49,6 +52,7 @@ impl LibraryTableWidget {
     pub fn with_theme(theme: Arc<dyn Theme>) -> Self {
         Self {
             inventory: None,
+            downloading: None,
             state: TableState::default(),
             theme,
         }
@@ -61,9 +65,31 @@ impl LibraryTableWidget {
         self.inventory = Some(inventory);
     }
 
+    pub fn track_download(
+        &mut self,
+        spec: ModelSpec,
+        size: Option<ByteLength>,
+        progress: Option<f64>,
+    ) {
+        self.downloading = Some((spec, size, progress));
+        if self.state.selected().is_none() {
+            self.state.select(Some(Self::FIRST_ROW));
+        }
+    }
+
+    pub fn update_download_progress(&mut self, progress: f64) {
+        if let Some((_, _, current_progress)) = self.downloading.as_mut() {
+            *current_progress = Some(progress);
+        }
+    }
+
+    pub fn clear_download(&mut self) {
+        self.downloading = None;
+    }
     /// Forgets the listing, leaving the library unread again.
     pub fn clear(&mut self) {
         self.inventory = None;
+        self.downloading = None;
         self.state.select(None);
     }
 
@@ -102,10 +128,37 @@ impl LibraryTableWidget {
 
     /// The number of rows the table holds.
     pub fn row_count(&self) -> usize {
-        self.inventory
-            .as_ref()
-            .map(ModelInventory::count)
-            .unwrap_or_default()
+        self.rows().len()
+    }
+
+    pub fn rows(&self) -> Vec<LibraryRow> {
+        let mut rows = Vec::new();
+        let mut downloading_matched = false;
+
+        if let Some(inventory) = self.inventory.as_ref() {
+            for entry in inventory.entries() {
+                if let Some((downloading_spec, _, progress)) = self.downloading.as_ref()
+                    && entry.spec() == downloading_spec
+                {
+                    rows.push(LibraryRow::downloading(
+                        entry.spec(),
+                        Some(entry.size()),
+                        *progress,
+                    ));
+                    downloading_matched = true;
+                    continue;
+                }
+                rows.push(LibraryRow::describing(entry));
+            }
+        }
+
+        if let Some((spec, size, progress)) = self.downloading.as_ref()
+            && !downloading_matched
+        {
+            rows.push(LibraryRow::downloading(spec, *size, *progress));
+        }
+
+        rows
     }
 
     /// The heading the table renders above its rows.
@@ -124,7 +177,6 @@ impl LibraryTableWidget {
         } else {
             format!(" - {broken}{}", Self::BROKEN_TITLE_SUFFIX)
         };
-
         format!(
             "Library {} - {} models, {} used{alarm}",
             inventory.root().display(),
@@ -136,24 +188,18 @@ impl LibraryTableWidget {
     /// Renders the table into `area`.
     pub fn draw(&mut self, frame: &mut Frame, area: Rect) {
         let title = self.title();
-        let rows = self
-            .inventory
-            .as_ref()
-            .map(ModelInventory::entries)
-            .unwrap_or_default()
-            .iter()
-            .map(|entry| {
-                let row = LibraryRow::describing(entry);
-                let style = if row.is_broken() {
-                    self.theme.status_error()
-                } else if entry.is_verified() {
-                    self.theme.status_success()
-                } else {
-                    self.theme.content()
-                };
-                Row::new(row.into_cells()).style(style)
-            });
-
+        let rows = self.rows().into_iter().map(|row| {
+            let style = if row.is_broken() {
+                self.theme.status_error()
+            } else if row.is_downloading() {
+                self.theme.highlight()
+            } else if row.state() == LibraryRow::VERIFIED {
+                self.theme.status_success()
+            } else {
+                self.theme.content()
+            };
+            Row::new(row.into_cells()).style(style)
+        });
         let table = Table::new(rows, Self::COLUMN_WIDTHS)
             .header(Row::new(LibraryRow::HEADINGS).style(self.theme.content_emphasis()))
             .block(
@@ -193,11 +239,13 @@ impl Default for LibraryTableWidget {
 impl LibraryTableWidget {
     const FIRST_ROW: usize = 0;
 
-    const COLUMN_WIDTHS: [Constraint; 5] = [
+    const COLUMN_WIDTHS: [Constraint; 7] = [
         Constraint::Min(Self::REPOSITORY_MIN_WIDTH),
         Constraint::Min(Self::FILE_MIN_WIDTH),
         Constraint::Length(Self::STATE_WIDTH),
+        Constraint::Length(Self::QUANT_WIDTH),
         Constraint::Length(Self::SIZE_WIDTH),
+        Constraint::Length(Self::CAPABILITIES_WIDTH),
         Constraint::Length(Self::DIGEST_WIDTH),
     ];
 }

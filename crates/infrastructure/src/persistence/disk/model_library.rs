@@ -1,7 +1,9 @@
 use std::path::{Path, PathBuf};
 
 use localnar_application::{errors::LibraryError, ports::outbound::ModelLibraryPort};
-use localnar_domain::{ByteLength, Checksum, InstalledModel, ModelArtifact, ModelSpec, ModelState};
+use localnar_domain::{
+    ByteLength, Checksum, InstalledModel, ModelArtifact, ModelSpec, ModelState, ModelTag,
+};
 use sha2::{Digest, Sha256};
 use tokio::io::AsyncReadExt;
 
@@ -58,6 +60,9 @@ impl DiskModelLibrary {
     /// The suffix that turns a replica's path into the path of its digest note.
     pub(super) const CHECKSUM_SIDECAR_SUFFIX: &'static str = ".sha256";
 
+    /// The suffix that turns a replica's path into the path of its tags note.
+    pub(super) const TAGS_SIDECAR_SUFFIX: &'static str = ".tags";
+
     /// Builds the path of the note recording the proven digest of `replica`.
     pub(super) fn sidecar_of(replica: &Path) -> PathBuf {
         let mut sidecar = replica.as_os_str().to_owned();
@@ -65,28 +70,49 @@ impl DiskModelLibrary {
         PathBuf::from(sidecar)
     }
 
-    /// Names the replica a digest note belongs to, or nothing when `path` is no
+    /// Builds the path of the note recording the capability tags of `replica`.
+    pub(super) fn tags_sidecar_of(replica: &Path) -> PathBuf {
+        let mut sidecar = replica.as_os_str().to_owned();
+        sidecar.push(Self::TAGS_SIDECAR_SUFFIX);
+        PathBuf::from(sidecar)
+    }
+
+    /// Builds the path of the note recording the capability tags of `model`.
+    pub(super) fn tags_file_path(&self, model: &ModelSpec) -> PathBuf {
+        Self::tags_sidecar_of(&self.model_file_path(model))
+    }
+
+    /// Names the replica a digest or tag note belongs to, or nothing when `path` is no
     /// such note.
-    ///
-    /// A note is named after the replica it describes, so the replica's path is
-    /// recovered from the note's own rather than searched for. A path carrying
-    /// no note suffix describes no replica and answers nothing.
     pub(super) fn companion_of(path: &Path) -> Option<PathBuf> {
-        path.to_str()?
-            .strip_suffix(Self::CHECKSUM_SIDECAR_SUFFIX)
-            .map(PathBuf::from)
+        let path_str = path.to_str()?;
+        if let Some(stripped) = path_str.strip_suffix(Self::CHECKSUM_SIDECAR_SUFFIX) {
+            return Some(PathBuf::from(stripped));
+        }
+        if let Some(stripped) = path_str.strip_suffix(Self::TAGS_SIDECAR_SUFFIX) {
+            return Some(PathBuf::from(stripped));
+        }
+        None
     }
 
     /// Reads the digest the library recorded at `sidecar_path`, if it recorded
     /// one.
-    ///
-    /// The note is the library's own record of bytes it already proved, so a
-    /// note that is absent, unreadable, or unparseable all say the same thing:
-    /// nothing was proved. Answering nothing rather than failing leaves an
-    /// unproven replica readable.
     pub(super) async fn recorded_digest(sidecar_path: &Path) -> Option<Checksum> {
         let recorded = tokio::fs::read_to_string(sidecar_path).await.ok()?;
         Checksum::parse(recorded.trim()).ok()
+    }
+
+    /// Reads the tags recorded at `tags_path`, if any were recorded.
+    pub(super) async fn recorded_tags(tags_path: &Path) -> Vec<ModelTag> {
+        let Ok(recorded) = tokio::fs::read_to_string(tags_path).await else {
+            return Vec::new();
+        };
+        recorded
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .filter_map(|tag| ModelTag::new(tag).ok())
+            .collect()
     }
 
     /// Frees `path` of whatever entry occupies it, so the library alone decides
@@ -318,6 +344,19 @@ impl ModelLibraryPort for DiskModelLibrary {
         let checksum_path = self.checksum_file_path(model);
         let _ = tokio::fs::remove_file(&checksum_path).await;
 
+        let tags_path = self.tags_file_path(model);
+        if model.tags().is_empty() {
+            let _ = tokio::fs::remove_file(&tags_path).await;
+        } else {
+            let tags_payload = model
+                .tags()
+                .iter()
+                .map(|tag| tag.as_str())
+                .collect::<Vec<_>>()
+                .join("\n");
+            let _ = tokio::fs::write(&tags_path, tags_payload).await;
+        }
+
         let staged = artifact.staged_at();
         if staged != destination {
             Self::place_staged_artifact(staged, &destination, model).await?;
@@ -357,7 +396,18 @@ impl ModelLibraryPort for DiskModelLibrary {
         let size = ByteLength::new(metadata.len());
         let digest = Self::recorded_digest(&self.checksum_file_path(model)).await;
 
-        Ok(InstalledModel::new(model.clone(), path, size, digest))
+        let spec = if model.tags().is_empty() {
+            let tags = Self::recorded_tags(&self.tags_file_path(model)).await;
+            if tags.is_empty() {
+                model.clone()
+            } else {
+                ModelSpec::new(model.repository().clone(), model.file().clone(), tags)
+            }
+        } else {
+            model.clone()
+        };
+
+        Ok(InstalledModel::new(spec, path, size, digest))
     }
 }
 

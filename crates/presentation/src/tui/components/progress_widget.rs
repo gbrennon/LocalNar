@@ -59,9 +59,11 @@ impl ProgressWidget {
                     .border_style(self.theme.border())
                     .style(self.theme.content()),
             )
-            .gauge_style(self.theme.highlight())
+            .gauge_style(self.theme.gauge())
+            .style(self.theme.content())
+            .use_unicode(true)
+            .ratio(self.progress)
             .label(format!("{:.1}%", self.progress * 100.0));
-
         frame.render_widget(gauge, chunks[0]);
 
         let message = Paragraph::new(self.message.as_str())

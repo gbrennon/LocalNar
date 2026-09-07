@@ -47,6 +47,7 @@ pub struct TuiApp {
     mode: AppMode,
     search_mode: AppMode,
     is_installing: bool,
+    installing_model: Option<ModelSpec>,
     previous_tab: Option<AppTab>,
     theme: Arc<dyn Theme>,
     tabs_widget: TabsWidget,
@@ -77,7 +78,7 @@ impl TuiApp {
         let progress_bus = ProgressBus::new(16);
         let _bridge = ProgressReporterBridge::new(&progress_bus, event_sender.clone());
         let library_manager = LibraryManager::new(library.clone(), event_sender.clone());
-
+        library_manager.list();
         Self {
             search_service,
             registry,
@@ -88,6 +89,7 @@ impl TuiApp {
             mode: AppMode::Search,
             search_mode: AppMode::Search,
             is_installing: false,
+            installing_model: None,
             previous_tab: None,
             tabs_widget: TabsWidget::with_theme(Arc::clone(&theme)),
             search_widget: SearchWidget::with_theme(Arc::clone(&theme)),
@@ -159,10 +161,15 @@ impl TuiApp {
                     self.is_installing = true;
                     self.leave_search_tab_for(AppMode::InstallProgress);
                     self.progress_widget.reset();
+                    if let Some(spec) = self.installing_model.as_ref() {
+                        self.library_table_widget
+                            .track_download(spec.clone(), None, Some(0.0));
+                    }
                     self.status_widget.report(Self::MSG_INSTALL_STARTED);
                 }
                 AppEvent::InstallProgress(progress, msg) => {
                     self.progress_widget.advance(progress, msg.clone());
+                    self.library_table_widget.update_download_progress(progress);
                     self.status_widget.report(format!(
                         "Installing: {:.1}% - {}",
                         progress * 100.0,
@@ -171,6 +178,8 @@ impl TuiApp {
                 }
                 AppEvent::InstallCompleted(model) => {
                     self.is_installing = false;
+                    self.installing_model = None;
+                    self.library_table_widget.clear_download();
                     self.leave_install_progress_for(AppMode::ModelTable);
                     self.status_widget.report(format!(
                         "{}{}",
@@ -181,6 +190,8 @@ impl TuiApp {
                 }
                 AppEvent::InstallFailed(err) => {
                     self.is_installing = false;
+                    self.installing_model = None;
+                    self.library_table_widget.clear_download();
                     self.leave_install_progress_for(AppMode::ModelTable);
                     self.raise_failure(err);
                 }
@@ -331,7 +342,9 @@ impl TuiApp {
 
         self.mode = self.mode_for_tab(tab);
 
-        self.refresh_library_if_unread(tab);
+        if tab == AppTab::Library {
+            self.library_manager.list();
+        }
     }
 
     /// Remembers what leaving a tab costs, so a later return can restore it.
@@ -357,15 +370,6 @@ impl TuiApp {
             }
             AppTab::Library => AppMode::Library,
             AppTab::Help => AppMode::Help,
-        }
-    }
-
-    /// Reads the library on first entry so the operator never faces an unread
-    /// screen.
-    fn refresh_library_if_unread(&mut self, tab: AppTab) {
-        if tab == AppTab::Library && self.library_table_widget.inventory().is_none() {
-            self.status_widget.report(Self::MSG_READING_LIBRARY);
-            self.library_manager.list();
         }
     }
 
@@ -423,11 +427,15 @@ impl TuiApp {
 
                 if let Some(model) = self.model_table_widget.selected_model() {
                     let spec = model.spec().clone();
+                    self.installing_model = Some(spec.clone());
+                    self.library_table_widget.track_download(
+                        spec.clone(),
+                        Some(model.size()),
+                        Some(0.0),
+                    );
                     self.event_sender.send(AppEvent::InstallStarted).ok();
-
                     let sender = self.event_sender.clone();
                     let install_service = self.make_install_service();
-
                     tokio::spawn(async move {
                         match localnar_application::ports::inbound::InstallModelPort::execute(
                             &install_service,
@@ -446,10 +454,8 @@ impl TuiApp {
                 }
             }
             KeyCode::Char('p') | KeyCode::Char('P') => {
-                if self.is_installing {
-                    self.mode = AppMode::InstallProgress;
-                    self.search_mode = AppMode::InstallProgress;
-                }
+                self.mode = AppMode::InstallProgress;
+                self.search_mode = AppMode::InstallProgress;
             }
             KeyCode::Char('l') | KeyCode::Char('L') => {
                 self.switch_to_tab(AppTab::Library);
@@ -768,8 +774,7 @@ impl TuiApp {
     const CONTENT_MIN_HEIGHT: u16 = 10;
     const STATUS_HEIGHT: u16 = 3;
 
-    const MODEL_TABLE_HEADER: &'static str =
-        "Models (↑/↓ navigate, Enter install, Esc search again, Tab change tab, h help)";
+    const MODEL_TABLE_HEADER: &'static str = "Models (↑/↓ navigate, Enter install, p progress, Esc search again, Tab change tab, h help)";
     const MODEL_TABLE_HEADER_INSTALLING: &'static str =
         "Models (↑/↓ navigate, p / Enter view progress, Esc search again, Tab change tab, h help)";
     const MODEL_TABLE_TITLE: &'static str = "Models";

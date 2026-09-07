@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use localnar_domain::{
     ByteLength, Checksum, ContextLength, DiscardedStray, InstalledModel, ManagedModel,
     ModelArtifact, ModelFileName, ModelInfo, ModelProfile, ModelRepository, ModelRepositoryId,
-    ModelSpec, ModelState, ParameterCount, RemoteModelFile, RemovedModel, SearchQuery,
+    ModelSpec, ModelState, ModelTag, ParameterCount, RemoteModelFile, RemovedModel, SearchQuery,
 };
 
 /// Canonical values every install and management scenario is written against.
@@ -28,6 +28,19 @@ impl ModelFixture {
             ModelRepository::at_default_revision(identifier),
             ModelFileName::new("Qwen3-8B-Q4_K_M.gguf").expect("valid file name"),
             vec![],
+        )
+    }
+
+    /// An install intent carrying capability tags.
+    pub fn tagged_spec() -> ModelSpec {
+        let identifier = ModelRepositoryId::parse("unsloth/Qwen3-8B-GGUF").expect("valid id");
+        ModelSpec::new(
+            ModelRepository::at_default_revision(identifier),
+            ModelFileName::new("Qwen3-8B-Q4_K_M.gguf").expect("valid file name"),
+            vec![
+                ModelTag::new("conversational").expect("valid tag"),
+                ModelTag::new("text-generation").expect("valid tag"),
+            ],
         )
     }
 
@@ -73,6 +86,15 @@ impl ModelFixture {
         ModelArtifact::new(Self::nowhere("staged.gguf"), ByteLength::new(4_096))
     }
 
+    /// An installed replica constructed for a given spec.
+    pub fn installed_for_spec(spec: &ModelSpec, digest: Option<Checksum>) -> InstalledModel {
+        InstalledModel::new(
+            spec.clone(),
+            Self::nowhere(&format!("installed/{}", spec.file())),
+            ByteLength::new(4_096),
+            digest,
+        )
+    }
     /// The replica a library reports once the fixture file is on disk.
     ///
     /// `digest` carries the proof of integrity, which is absent when upstream
