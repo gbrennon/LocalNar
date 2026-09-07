@@ -25,8 +25,11 @@ lint-fix:
 build:
     cargo build --workspace
 
+release level='patch' env='staging' crate='all' execute='false':
+    ./scripts/release.sh {{level}} {{env}} "{{crate}}" {{execute}}
+
 lint-scripts:
-    shellcheck --external-sources -S info scripts/lib/common.sh scripts/check_branch_name.sh scripts/check_commit_messages.sh scripts/check_no_llama_cpp.sh scripts/verify.sh scripts/check_coverage.sh
+    find scripts -type f -name '*.sh' -exec shellcheck --external-sources -S info {} +
 
 lint-workflows:
     actionlint -config-file .actionlint.yaml .forgejo/workflows/*.yml
