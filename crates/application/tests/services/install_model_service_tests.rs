@@ -264,3 +264,24 @@ fn install_when_a_fetch_leaves_the_replica_absent_then_upstream_is_reported_unav
         assert_eq!(failure, InstallModelError::UpstreamUnavailable);
     });
 }
+
+#[test]
+fn install_when_model_carries_capabilities_then_tags_are_retained() {
+    BlockOn::run(async {
+        let tagged_spec = ModelFixture::tagged_spec();
+        let service = InstallModelService::new(
+            FakeAdvertisingRegistry,
+            FakeStagingDownloader,
+            FakeVerifiedModelLibrary,
+            FakeSilentProgress,
+        );
+        let outcome = service.execute(&tagged_spec).await.expect("installed");
+
+        let tags = outcome
+            .tags()
+            .iter()
+            .map(|t| t.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(tags, vec!["conversational", "text-generation"]);
+    });
+}

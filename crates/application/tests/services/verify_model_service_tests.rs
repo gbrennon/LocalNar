@@ -112,3 +112,15 @@ fn verifying_when_the_replica_cannot_be_hashed_then_the_library_boundary_is_repo
         );
     });
 }
+
+#[test]
+fn verifying_a_model_exposes_its_capabilities() {
+    BlockOn::run(async {
+        let tagged_spec = ModelFixture::tagged_spec();
+        let service = VerifyModelService::new(FakeVerifiedModelLibrary);
+        let entry = service.execute(&tagged_spec).await.expect("verify");
+
+        let tags = entry.tags().iter().map(|t| t.as_str()).collect::<Vec<_>>();
+        assert_eq!(tags, vec!["conversational", "text-generation"]);
+    });
+}

@@ -82,3 +82,15 @@ fn inspecting_when_the_library_cannot_be_read_then_the_library_boundary_is_repor
         );
     });
 }
+
+#[test]
+fn inspecting_a_model_exposes_its_capabilities() {
+    BlockOn::run(async {
+        let tagged_spec = ModelFixture::tagged_spec();
+        let service = InspectModelService::new(FakeVerifiedModelLibrary);
+        let entry = service.execute(&tagged_spec).await.expect("inspect");
+
+        let tags = entry.tags().iter().map(|t| t.as_str()).collect::<Vec<_>>();
+        assert_eq!(tags, vec!["conversational", "text-generation"]);
+    });
+}

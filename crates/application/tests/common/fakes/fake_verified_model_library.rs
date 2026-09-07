@@ -28,9 +28,10 @@ impl ModelLibraryPort for FakeVerifiedModelLibrary {
         Ok(ModelState::Verified)
     }
 
-    async fn locate(&self, _model: &ModelSpec) -> Result<InstalledModel, LibraryError> {
-        Ok(ModelFixture::installed(Some(
-            ModelFixture::expected_digest(),
-        )))
+    async fn locate(&self, model: &ModelSpec) -> Result<InstalledModel, LibraryError> {
+        Ok(ModelFixture::installed_for_spec(
+            model,
+            Some(ModelFixture::expected_digest()),
+        ))
     }
 }
