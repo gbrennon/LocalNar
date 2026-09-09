@@ -74,6 +74,11 @@ impl GBadwolf {
 
     /// Error status style: red text on root background.
     pub const STATUS_ERROR: Style = Style::new().fg(Color::Red).bg(Self::ROOT_BACKGROUND);
+
+    /// Installing status style: accent orange text on root background.
+    pub const STATUS_INSTALLING: Style = Style::new()
+        .fg(Self::ACCENT_ORANGE)
+        .bg(Self::ROOT_BACKGROUND);
     pub const GAUGE: Style = Style::new()
         .fg(Self::ACCENT_ORANGE)
         .bg(Self::SURFACE_BACKGROUND)
@@ -125,6 +130,11 @@ impl Theme for GBadwolf {
     fn status_error(&self) -> Style {
         Self::STATUS_ERROR
     }
+
+    fn status_installing(&self) -> Style {
+        Self::STATUS_INSTALLING
+    }
+
     fn gauge(&self) -> Style {
         Self::GAUGE
     }

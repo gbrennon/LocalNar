@@ -34,6 +34,12 @@ pub trait Theme: Send + Sync {
 
     /// Style for error or broken status messages.
     fn status_error(&self) -> Style;
+
+    /// Style for in-progress model installations or downloads.
+    fn status_installing(&self) -> Style {
+        self.content_emphasis()
+    }
+
     fn gauge(&self) -> Style {
         self.highlight()
     }

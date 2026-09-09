@@ -192,7 +192,7 @@ impl LibraryTableWidget {
             let style = if row.is_broken() {
                 self.theme.status_error()
             } else if row.is_downloading() {
-                self.theme.highlight()
+                self.theme.status_installing()
             } else if row.state() == LibraryRow::VERIFIED {
                 self.theme.status_success()
             } else {

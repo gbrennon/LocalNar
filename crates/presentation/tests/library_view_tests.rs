@@ -2,7 +2,7 @@ use localnar_domain::{
     ByteLength, Checksum, InstalledModel, ManagedModel, ModelFileName, ModelInventory,
     ModelRepository, ModelRepositoryId, ModelSpec, ModelState, ModelTag,
 };
-use localnar_presentation::tui::{LibraryRow, LibraryTableWidget, ModelDetails};
+use localnar_presentation::tui::{GBadwolf, LibraryRow, LibraryTableWidget, ModelDetails};
 use ratatui::{Terminal, backend::TestBackend};
 
 const TERMINAL_WIDTH: u16 = 140;
@@ -450,4 +450,49 @@ fn library_row_shows_downloading_state() {
     assert_eq!(row.digest(), LibraryRow::UNRECORDED);
     assert_eq!(row.repository(), "unsloth/Qwen3-8B-GGUF@main");
     assert_eq!(row.file(), "Qwen3-8B-Q4_K_M.gguf");
+}
+
+#[test]
+fn an_unselected_downloading_model_row_colors_only_the_font_and_not_the_row() {
+    let mut widget = LibraryTableWidget::new();
+    widget.show(stocked_library());
+
+    let downloading_spec = spec("meta-llama/Llama-3-8B", "llama-3-8b.gguf");
+    widget.track_download(
+        downloading_spec,
+        Some(ByteLength::new(4_000_000_000)),
+        Some(0.452),
+    );
+
+    let backend = TestBackend::new(TERMINAL_WIDTH, TERMINAL_HEIGHT);
+    let mut terminal = Terminal::new(backend).expect("a test terminal");
+
+    terminal
+        .draw(|frame| widget.draw(frame, frame.area()))
+        .expect("a rendered frame");
+
+    let buffer = terminal.backend().buffer().clone();
+    let downloading_row_y = 4;
+    let row_text: String = (0..buffer.area.width)
+        .map(|column| buffer[(column, downloading_row_y)].symbol())
+        .collect();
+
+    assert!(
+        row_text.contains("llama-3-8b.gguf"),
+        "expected row text to contain model name, got: {row_text}"
+    );
+
+    let has_colored_text = (0..buffer.area.width).any(|column| {
+        let cell = &buffer[(column, downloading_row_y)];
+        cell.symbol() != " "
+            && cell.symbol() != "│"
+            && cell.style().fg == Some(GBadwolf::ACCENT_ORANGE)
+    });
+    assert!(has_colored_text);
+
+    let has_highlighted_background = (0..buffer.area.width).any(|column| {
+        let cell = &buffer[(column, downloading_row_y)];
+        cell.style().bg == Some(GBadwolf::ACCENT_ORANGE)
+    });
+    assert!(!has_highlighted_background);
 }
