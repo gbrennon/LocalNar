@@ -25,6 +25,9 @@ pub enum DomainError {
     /// A model tag was built from a blank label.
     InvalidModelTag,
 
+    /// A setting key was blank after trimming.
+    BlankSettingKey,
+
     /// A computed checksum disagreed with the one the remote advertised.
     IntegrityMismatch { expected: String, actual: String },
 }
@@ -47,6 +50,7 @@ impl fmt::Display for DomainError {
                 "`{literal}` is not a valid 64-character hexadecimal digest"
             ),
             Self::InvalidModelTag => formatter.write_str("a model tag must not be blank"),
+            Self::BlankSettingKey => formatter.write_str("a setting key must not be blank"),
             Self::IntegrityMismatch { expected, actual } => write!(
                 formatter,
                 "checksum mismatch: expected `{expected}`, computed `{actual}`"
@@ -88,6 +92,10 @@ mod domain_error_tests {
         assert_eq!(
             DomainError::InvalidModelTag.to_string(),
             "a model tag must not be blank"
+        );
+        assert_eq!(
+            DomainError::BlankSettingKey.to_string(),
+            "a setting key must not be blank"
         );
         assert_eq!(
             DomainError::IntegrityMismatch {

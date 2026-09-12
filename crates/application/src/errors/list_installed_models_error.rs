@@ -39,3 +39,52 @@ impl From<LibraryError> for ListInstalledModelsError {
         Self::Library(cause)
     }
 }
+
+#[cfg(test)]
+mod list_installed_models_error_tests {
+    use super::*;
+    use crate::errors::LibraryError;
+
+    #[test]
+    fn library_variant_constructs_and_displays() {
+        let cause = LibraryError::Unreadable {
+            model: "m".into(),
+            cause: "io".into(),
+        };
+        let error = ListInstalledModelsError::Library(cause);
+        assert_eq!(
+            error.to_string(),
+            "the installed models could not be listed: could not read the library for model `m`: io"
+        );
+    }
+
+    #[test]
+    fn list_installed_models_error_source_returns_inner() {
+        let cause = LibraryError::Unreadable {
+            model: "m".into(),
+            cause: "io".into(),
+        };
+        let error = ListInstalledModelsError::Library(cause);
+        assert!(error.source().is_some());
+    }
+
+    #[test]
+    fn from_library_error_constructs_library_variant() {
+        let cause = LibraryError::Unreadable {
+            model: "m".into(),
+            cause: "io".into(),
+        };
+        let error: ListInstalledModelsError = cause.into();
+        assert!(matches!(error, ListInstalledModelsError::Library(_)));
+    }
+
+    #[test]
+    fn list_installed_models_error_implements_std_error() {
+        let cause = LibraryError::Unreadable {
+            model: "m".into(),
+            cause: "io".into(),
+        };
+        let error = ListInstalledModelsError::Library(cause);
+        let _: &dyn std::error::Error = &error;
+    }
+}

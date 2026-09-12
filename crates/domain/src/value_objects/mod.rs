@@ -20,6 +20,10 @@ mod parameter_count;
 mod quantization;
 mod remote_model_file;
 mod search_query;
+mod setting;
+mod setting_key;
+mod setting_value;
+mod settings;
 
 pub use byte_length::ByteLength;
 pub use checksum::Checksum;
@@ -38,3 +42,7 @@ pub use parameter_count::ParameterCount;
 pub use quantization::Quantization;
 pub use remote_model_file::RemoteModelFile;
 pub use search_query::SearchQuery;
+pub use setting::Setting;
+pub use setting_key::SettingKey;
+pub use setting_value::SettingValue;
+pub use settings::Settings;

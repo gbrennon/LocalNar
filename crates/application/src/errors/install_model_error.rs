@@ -89,3 +89,141 @@ impl From<LibraryError> for InstallModelError {
         Self::Library(cause)
     }
 }
+
+#[cfg(test)]
+mod install_model_error_tests {
+    use super::*;
+    use crate::errors::{LibraryError, ModelDownloadError, RegistryReadError};
+
+    #[test]
+    fn registry_variant_constructs_and_displays() {
+        let cause = RegistryReadError::Unreachable {
+            repository: "repo".into(),
+            cause: "network".into(),
+        };
+        let error = InstallModelError::Registry(cause);
+        assert_eq!(
+            error.to_string(),
+            "the registry could not describe the model: repository `repo` could not be reached: network"
+        );
+    }
+
+    #[test]
+    fn download_variant_constructs_and_displays() {
+        let cause = ModelDownloadError::Unreachable {
+            file: "f".into(),
+            cause: "network".into(),
+        };
+        let error = InstallModelError::Download(cause);
+        assert_eq!(
+            error.to_string(),
+            "the model could not be downloaded: could not reach the host while downloading `f`: network"
+        );
+    }
+
+    #[test]
+    fn library_variant_constructs_and_displays() {
+        let cause = LibraryError::Unreadable {
+            model: "m".into(),
+            cause: "io".into(),
+        };
+        let error = InstallModelError::Library(cause);
+        assert_eq!(
+            error.to_string(),
+            "the model library could not be used: could not read the library for model `m`: io"
+        );
+    }
+
+    #[test]
+    fn upstream_unavailable_variant_constructs_and_displays() {
+        let error = InstallModelError::UpstreamUnavailable;
+        assert_eq!(
+            error.to_string(),
+            "the model is still missing after a download attempt: upstream supplied no bytes"
+        );
+    }
+
+    #[test]
+    fn unresolved_integrity_variant_constructs_and_displays() {
+        let error = InstallModelError::UnresolvedIntegrity {
+            expected: "abc".into(),
+            actual: "def".into(),
+        };
+        assert_eq!(
+            error.to_string(),
+            "model repair failed: expected checksum `abc` but got `def`"
+        );
+    }
+
+    #[test]
+    fn install_model_error_source_returns_inner_for_wrapped() {
+        let cause = RegistryReadError::Unreachable {
+            repository: "repo".into(),
+            cause: "network".into(),
+        };
+        let error = InstallModelError::Registry(cause);
+        assert!(error.source().is_some());
+
+        let cause = ModelDownloadError::Unreachable {
+            file: "f".into(),
+            cause: "network".into(),
+        };
+        let error = InstallModelError::Download(cause);
+        assert!(error.source().is_some());
+
+        let cause = LibraryError::Unreadable {
+            model: "m".into(),
+            cause: "io".into(),
+        };
+        let error = InstallModelError::Library(cause);
+        assert!(error.source().is_some());
+    }
+
+    #[test]
+    fn install_model_error_source_returns_none_for_leaf() {
+        let error = InstallModelError::UpstreamUnavailable;
+        assert!(error.source().is_none());
+
+        let error = InstallModelError::UnresolvedIntegrity {
+            expected: "abc".into(),
+            actual: "def".into(),
+        };
+        assert!(error.source().is_none());
+    }
+
+    #[test]
+    fn from_registry_read_error_constructs_registry_variant() {
+        let cause = RegistryReadError::Unreachable {
+            repository: "repo".into(),
+            cause: "network".into(),
+        };
+        let error: InstallModelError = cause.into();
+        assert!(matches!(error, InstallModelError::Registry(_)));
+    }
+
+    #[test]
+    fn from_model_download_error_constructs_download_variant() {
+        let cause = ModelDownloadError::Unreachable {
+            file: "f".into(),
+            cause: "network".into(),
+        };
+        let error: InstallModelError = cause.into();
+        assert!(matches!(error, InstallModelError::Download(_)));
+    }
+
+    #[test]
+    fn from_library_error_constructs_library_variant() {
+        let cause = LibraryError::Unreadable {
+            model: "m".into(),
+            cause: "io".into(),
+        };
+        let error: InstallModelError = cause.into();
+        assert!(matches!(error, InstallModelError::Library(_)));
+    }
+
+    #[test]
+    fn install_model_error_implements_std_error() {
+        let error = InstallModelError::UpstreamUnavailable;
+        let _: &dyn std::error::Error = &error;
+    }
+}

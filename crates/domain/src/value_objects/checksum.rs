@@ -127,4 +127,12 @@ mod checksum_tests {
         assert_eq!(format!("{digest}"), SAMPLE_HEX);
         assert_eq!(format!("{digest:?}"), SAMPLE_HEX);
     }
+
+    #[test]
+    fn a_non_hex_character_is_rejected() {
+        assert!(matches!(
+            Checksum::parse("g"),
+            Err(DomainError::InvalidChecksumLiteral(_))
+        ));
+    }
 }

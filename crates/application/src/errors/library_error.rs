@@ -30,3 +30,50 @@ impl fmt::Display for LibraryError {
 }
 
 impl Error for LibraryError {}
+
+#[cfg(test)]
+mod library_error_tests {
+    use super::*;
+
+    #[test]
+    fn unreadable_variant_constructs_and_displays() {
+        let error = LibraryError::Unreadable {
+            model: "m".into(),
+            cause: "io".into(),
+        };
+        assert_eq!(
+            error.to_string(),
+            "could not read the library for model `m`: io"
+        );
+    }
+
+    #[test]
+    fn unwritable_variant_constructs_and_displays() {
+        let error = LibraryError::Unwritable {
+            model: "m".into(),
+            cause: "io".into(),
+        };
+        assert_eq!(
+            error.to_string(),
+            "could not write the library for model `m`: io"
+        );
+    }
+
+    #[test]
+    fn unverifiable_variant_constructs_and_displays() {
+        let error = LibraryError::Unverifiable {
+            model: "m".into(),
+            cause: "io".into(),
+        };
+        assert_eq!(error.to_string(), "could not verify model `m`: io");
+    }
+
+    #[test]
+    fn library_error_implements_std_error() {
+        let error = LibraryError::Unreadable {
+            model: "m".into(),
+            cause: "io".into(),
+        };
+        let _: &dyn std::error::Error = &error;
+    }
+}
