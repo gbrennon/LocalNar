@@ -12,6 +12,7 @@ pub mod prune_library_error;
 pub mod registry_read_error;
 pub mod remove_model_error;
 pub mod search_models_error;
+pub mod settings_store_error;
 pub mod verify_model_error;
 
 pub use inspect_model_error::InspectModelError;
@@ -23,4 +24,5 @@ pub use prune_library_error::PruneLibraryError;
 pub use registry_read_error::RegistryReadError;
 pub use remove_model_error::RemoveModelError;
 pub use search_models_error::SearchModelsError;
+pub use settings_store_error::SettingsStoreError;
 pub use verify_model_error::VerifyModelError;

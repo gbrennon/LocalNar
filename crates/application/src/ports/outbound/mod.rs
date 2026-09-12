@@ -6,6 +6,7 @@ pub mod model_eviction_port;
 pub mod model_inventory_port;
 pub mod model_library_port;
 pub mod remote_model_registry_port;
+pub mod settings_store_port;
 
 pub use download_progress::DownloadProgress;
 pub use download_progress_port::DownloadProgressPort;
@@ -15,3 +16,4 @@ pub use model_eviction_port::ModelEvictionPort;
 pub use model_inventory_port::ModelInventoryPort;
 pub use model_library_port::ModelLibraryPort;
 pub use remote_model_registry_port::RemoteModelRegistryPort;
+pub use settings_store_port::SettingsStorePort;
