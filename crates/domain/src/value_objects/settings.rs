@@ -97,4 +97,43 @@ mod settings_tests {
 
         assert_eq!(settings.get(&key), Some(&SettingValue::new("/tmp/hf")));
     }
+
+    #[test]
+    fn with_adds_an_entry_to_an_empty_collection() {
+        let collection = Settings::default().with(setting("k", "v"));
+        assert_eq!(
+            collection.get(&SettingKey::new("k").unwrap()),
+            Some(&SettingValue::new("v"))
+        );
+    }
+
+    #[test]
+    fn with_overwrites_an_existing_key() {
+        let base = Settings::new([setting("k", "v1")]);
+        let updated = base.with(setting("k", "v2"));
+        assert_eq!(
+            updated.get(&SettingKey::new("k").unwrap()),
+            Some(&SettingValue::new("v2"))
+        );
+    }
+
+    #[test]
+    fn len_reports_the_number_of_entries() {
+        assert_eq!(Settings::default().len(), 0);
+        assert_eq!(Settings::new([setting("a", "1")]).len(), 1);
+        assert_eq!(
+            Settings::new([setting("a", "1"), setting("b", "2")]).len(),
+            2
+        );
+    }
+
+    #[test]
+    fn iter_yields_all_key_value_pairs() {
+        let settings = Settings::new([setting("a", "1"), setting("b", "2")]);
+        let entries: Vec<_> = settings.iter().collect();
+        assert_eq!(entries.len(), 2);
+        let keys: Vec<_> = entries.iter().map(|(k, _)| k.as_str()).collect();
+        assert!(keys.contains(&"a"));
+        assert!(keys.contains(&"b"));
+    }
 }
