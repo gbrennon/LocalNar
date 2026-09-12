@@ -10,8 +10,8 @@ pub mod adapters;
 pub mod persistence;
 pub mod remote;
 
-pub use persistence::DiskModelLibrary;
+pub use persistence::{DiskModelLibrary, EffectiveSettings, TomlSettingsStore};
 pub use remote::{
     HfApiRegistry, HfHubDownloader, HfHubTokioTransport, HubDownloadTransport, HubTransport,
-    ReqwestHubTransport,
+    HuggingFaceSettings, ReqwestHubTransport,
 };
