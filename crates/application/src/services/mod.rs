@@ -10,6 +10,7 @@ mod list_installed_models_service;
 mod load_settings_service;
 mod prune_library_service;
 mod remove_model_service;
+mod save_settings_service;
 mod search_models_service;
 mod verify_model_service;
 
@@ -19,5 +20,6 @@ pub use list_installed_models_service::ListInstalledModelsService;
 pub use load_settings_service::LoadSettingsService;
 pub use prune_library_service::PruneLibraryService;
 pub use remove_model_service::RemoveModelService;
+pub use save_settings_service::SaveSettingsService;
 pub use search_models_service::SearchModelsService;
 pub use verify_model_service::VerifyModelService;
