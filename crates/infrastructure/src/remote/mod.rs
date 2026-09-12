@@ -8,4 +8,5 @@ pub mod huggingface;
 pub use huggingface::{
     downloader::{HfHubDownloader, HfHubTokioTransport, HubDownloadTransport},
     registry::{HfApiRegistry, HubTransport, ReqwestHubTransport},
+    settings::HuggingFaceSettings,
 };
