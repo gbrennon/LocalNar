@@ -14,8 +14,10 @@ use localnar_application::{
     errors::ModelDownloadError,
     ports::outbound::{DownloadProgress, DownloadProgressPort, ModelDownloaderPort},
 };
-use localnar_domain::{ByteLength, ModelArtifact, RemoteModelFile};
+use localnar_domain::{ByteLength, ModelArtifact, RemoteModelFile, Settings};
 use tokio::sync::mpsc;
+
+use super::settings::HuggingFaceSettings;
 
 const DEFAULT_ENDPOINT: &str = "https://huggingface.co";
 
@@ -64,9 +66,39 @@ impl HfHubTokioTransport {
         Self::new(staging_dir, endpoint, token)
     }
 
+    /// Resolves configuration from persisted settings, falling back to the
+    /// environment and built-in defaults for any value left unset.
+    pub fn from_settings(settings: &Settings) -> Self {
+        let hf = HuggingFaceSettings::from_settings(settings);
+        let staging_dir = hf
+            .cache_directory()
+            .map(PathBuf::from)
+            .or_else(|| {
+                std::env::var("LOCALNAR_STAGING_DIR")
+                    .ok()
+                    .map(PathBuf::from)
+            })
+            .unwrap_or_else(default_staging_dir);
+        let endpoint = hf
+            .endpoint()
+            .map(str::to_owned)
+            .or_else(|| std::env::var("HF_ENDPOINT").ok())
+            .unwrap_or_else(|| DEFAULT_ENDPOINT.to_string());
+        let token = hf
+            .api_token()
+            .map(str::to_owned)
+            .or_else(|| std::env::var("HF_TOKEN").ok());
+        Self::new(staging_dir, endpoint, token)
+    }
+
     /// Returns the configured staging directory path.
     pub fn staging_dir(&self) -> &Path {
         &self.staging_dir
+    }
+
+    /// Returns the configured Hugging Face endpoint URL.
+    pub fn endpoint(&self) -> &str {
+        &self.endpoint
     }
 }
 
@@ -254,6 +286,11 @@ impl HfHubDownloader<HfHubTokioTransport> {
     /// Resolves configuration from environment variables.
     pub fn from_env() -> Self {
         Self::new(HfHubTokioTransport::from_env())
+    }
+
+    /// Builds a downloader from persisted settings with env/default fallback.
+    pub fn from_settings(settings: &Settings) -> Self {
+        Self::new(HfHubTokioTransport::from_settings(settings))
     }
 }
 
