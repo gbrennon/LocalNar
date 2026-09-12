@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use localnar_application::services::SearchModelsService;
+use localnar_application::services::{SaveSettingsService, SearchModelsService};
 use localnar_domain::{
     ByteLength, Checksum, InstalledModel, ManagedModel, ModelFileName, ModelRepository,
-    ModelRepositoryId, ModelSpec, ModelState,
+    ModelRepositoryId, ModelSpec, ModelState, Settings,
 };
 use localnar_infrastructure::{
-    DiskModelLibrary, HfApiRegistry, HfHubDownloader, ReqwestHubTransport,
+    DiskModelLibrary, HfApiRegistry, HfHubDownloader, ReqwestHubTransport, TomlSettingsStore,
     remote::huggingface::downloader::HfHubTokioTransport,
 };
 use localnar_presentation::tui::{AppEvent, AppMode, AppTab, GBadwolf, TuiApp};
@@ -27,7 +27,17 @@ fn create_app(temp_dir: &TempDir) -> TuiApp {
     let library = DiskModelLibrary::new(temp_dir.path());
     let theme = Arc::new(GBadwolf);
 
-    TuiApp::new(search_service, registry, downloader, library, theme)
+    let store = TomlSettingsStore::new(temp_dir.path().join("settings.toml"));
+    let save_settings = Arc::new(SaveSettingsService::new(store));
+    TuiApp::new(
+        search_service,
+        registry,
+        downloader,
+        library,
+        Settings::default(),
+        save_settings,
+        theme,
+    )
 }
 
 fn render_screen(app: &mut TuiApp) -> String {
