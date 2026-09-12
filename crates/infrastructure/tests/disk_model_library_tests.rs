@@ -1,7 +1,7 @@
 use localnar_application::{errors::LibraryError, ports::outbound::ModelLibraryPort};
 use localnar_domain::{
     ByteLength, Checksum, ModelArtifact, ModelFileName, ModelRepository, ModelRepositoryId,
-    ModelRevision, ModelSpec, ModelState, ModelTag,
+    ModelRevision, ModelSpec, ModelState, ModelTag, Setting, SettingValue, Settings,
 };
 use localnar_infrastructure::DiskModelLibrary;
 use sha2::{Digest, Sha256};
@@ -195,4 +195,16 @@ async fn commit_artifact_persists_tags_sidecar_and_locate_recovers_them() {
         .map(|t| t.as_str())
         .collect::<Vec<_>>();
     assert_eq!(recovered_tags, vec!["conversational", "tools"]);
+}
+
+#[test]
+fn from_settings_roots_the_library_at_the_configured_download_directory() {
+    let settings = Settings::new(vec![Setting::new(
+        DiskModelLibrary::download_directory_key(),
+        SettingValue::new("/custom/models"),
+    )]);
+
+    let library = DiskModelLibrary::from_settings(&settings);
+
+    assert_eq!(library.root(), std::path::Path::new("/custom/models"));
 }
