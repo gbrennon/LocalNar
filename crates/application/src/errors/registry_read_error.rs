@@ -36,3 +36,61 @@ impl fmt::Display for RegistryReadError {
 }
 
 impl Error for RegistryReadError {}
+
+#[cfg(test)]
+mod registry_read_error_tests {
+    use super::*;
+
+    #[test]
+    fn unreachable_variant_constructs_and_displays() {
+        let error = RegistryReadError::Unreachable {
+            repository: "repo".into(),
+            cause: "network".into(),
+        };
+        assert_eq!(
+            error.to_string(),
+            "repository `repo` could not be reached: network"
+        );
+    }
+
+    #[test]
+    fn file_not_found_variant_constructs_and_displays() {
+        let error = RegistryReadError::FileNotFound {
+            repository: "repo".into(),
+            file: "file".into(),
+        };
+        assert_eq!(
+            error.to_string(),
+            "file `file` was not found in repository `repo`"
+        );
+    }
+
+    #[test]
+    fn malformed_variant_constructs_and_displays() {
+        let error = RegistryReadError::Malformed {
+            repository: "repo".into(),
+        };
+        assert_eq!(
+            error.to_string(),
+            "the response for repository `repo` was malformed"
+        );
+    }
+
+    #[test]
+    fn enumeration_unsupported_variant_constructs_and_displays() {
+        let error = RegistryReadError::EnumerationUnsupported;
+        assert_eq!(
+            error.to_string(),
+            "this registry does not support enumerating files"
+        );
+    }
+
+    #[test]
+    fn registry_read_error_implements_std_error() {
+        let error = RegistryReadError::Unreachable {
+            repository: "repo".into(),
+            cause: "network".into(),
+        };
+        let _: &dyn std::error::Error = &error;
+    }
+}

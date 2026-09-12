@@ -45,3 +45,60 @@ impl From<LibraryError> for InspectModelError {
         Self::Library(cause)
     }
 }
+
+#[cfg(test)]
+mod inspect_model_error_tests {
+    use super::*;
+    use crate::errors::LibraryError;
+
+    #[test]
+    fn library_variant_constructs_and_displays() {
+        let cause = LibraryError::Unreadable {
+            model: "m".into(),
+            cause: "io".into(),
+        };
+        let error = InspectModelError::Library(cause);
+        assert_eq!(
+            error.to_string(),
+            "the model could not be inspected: could not read the library for model `m`: io"
+        );
+    }
+
+    #[test]
+    fn not_installed_variant_constructs_and_displays() {
+        let error = InspectModelError::NotInstalled { model: "m".into() };
+        assert_eq!(error.to_string(), "model `m` is not installed locally");
+    }
+
+    #[test]
+    fn inspect_model_error_source_returns_inner_for_wrapped() {
+        let cause = LibraryError::Unreadable {
+            model: "m".into(),
+            cause: "io".into(),
+        };
+        let error = InspectModelError::Library(cause);
+        assert!(error.source().is_some());
+    }
+
+    #[test]
+    fn inspect_model_error_source_returns_none_for_leaf() {
+        let error = InspectModelError::NotInstalled { model: "m".into() };
+        assert!(error.source().is_none());
+    }
+
+    #[test]
+    fn from_library_error_constructs_library_variant() {
+        let cause = LibraryError::Unreadable {
+            model: "m".into(),
+            cause: "io".into(),
+        };
+        let error: InspectModelError = cause.into();
+        assert!(matches!(error, InspectModelError::Library(_)));
+    }
+
+    #[test]
+    fn inspect_model_error_implements_std_error() {
+        let error = InspectModelError::NotInstalled { model: "m".into() };
+        let _: &dyn std::error::Error = &error;
+    }
+}

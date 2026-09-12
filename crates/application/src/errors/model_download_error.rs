@@ -40,3 +40,52 @@ impl fmt::Display for ModelDownloadError {
 }
 
 impl Error for ModelDownloadError {}
+
+#[cfg(test)]
+mod model_download_error_tests {
+    use super::*;
+
+    #[test]
+    fn unreachable_variant_constructs_and_displays() {
+        let error = ModelDownloadError::Unreachable {
+            file: "f".into(),
+            cause: "network".into(),
+        };
+        assert_eq!(
+            error.to_string(),
+            "could not reach the host while downloading `f`: network"
+        );
+    }
+
+    #[test]
+    fn size_mismatch_variant_constructs_and_displays() {
+        use localnar_domain::ByteLength;
+        let error = ModelDownloadError::SizeMismatch {
+            file: "f".into(),
+            expected: ByteLength::new(100),
+            received: ByteLength::new(50),
+        };
+        assert_eq!(
+            error.to_string(),
+            "download of `f` was incomplete: received 50 B of 100 B bytes"
+        );
+    }
+
+    #[test]
+    fn transport_variant_constructs_and_displays() {
+        let error = ModelDownloadError::Transport {
+            file: "f".into(),
+            cause: "timeout".into(),
+        };
+        assert_eq!(error.to_string(), "download of `f` failed: timeout");
+    }
+
+    #[test]
+    fn model_download_error_implements_std_error() {
+        let error = ModelDownloadError::Unreachable {
+            file: "f".into(),
+            cause: "network".into(),
+        };
+        let _: &dyn std::error::Error = &error;
+    }
+}
