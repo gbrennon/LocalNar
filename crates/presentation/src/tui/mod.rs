@@ -18,7 +18,7 @@ pub use app_mode::AppMode;
 pub use app_tab::AppTab;
 pub use components::{
     LibraryRow, LibraryTableWidget, ModelDetails, ModelRow, ModelTableWidget, ProgressWidget,
-    TabsWidget,
+    SettingsWidget, TabsWidget,
     themes::{self, GBadwolf, Theme},
 };
 pub use download_speed_tracker::DownloadSpeedTracker;

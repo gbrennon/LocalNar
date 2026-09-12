@@ -2,13 +2,13 @@ use std::sync::Arc;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use localnar_application::{
-    ports::inbound::search_models_port::SearchModelsPort,
+    ports::inbound::{save_settings_port::SaveSettingsPort, search_models_port::SearchModelsPort},
     services::{InstallModelService, SearchModelsService},
 };
-use localnar_domain::{DiscardedStray, ManagedModel, ModelSpec, SearchQuery};
+use localnar_domain::{DiscardedStray, ManagedModel, ModelSpec, SearchQuery, Settings};
 use localnar_infrastructure::{
-    DiskModelLibrary, HfApiRegistry, HfHubDownloader, ReqwestHubTransport, adapters::ProgressBus,
-    remote::huggingface::downloader::HfHubTokioTransport,
+    DiskModelLibrary, EffectiveSettings, HfApiRegistry, HfHubDownloader, ReqwestHubTransport,
+    adapters::ProgressBus, remote::huggingface::downloader::HfHubTokioTransport,
 };
 use ratatui::{
     Frame,
@@ -24,7 +24,7 @@ use crate::tui::{
     app_tab::AppTab,
     components::{
         HelpWidget, LibraryTableWidget, ModelDetails, ModelTableWidget, ProgressWidget,
-        SearchWidget, StatusWidget, TabsWidget, themes::Theme,
+        SearchWidget, SettingsWidget, StatusWidget, TabsWidget, themes::Theme,
     },
     events::EventHandler,
     layout_helper::LayoutHelper,
@@ -57,6 +57,8 @@ pub struct TuiApp {
     progress_widget: ProgressWidget,
     status_widget: StatusWidget,
     help_widget: HelpWidget,
+    settings_widget: SettingsWidget,
+    save_settings: Arc<dyn SaveSettingsPort>,
     details: Option<ManagedModel>,
     pending_removal: Option<ModelSpec>,
     event_sender: mpsc::UnboundedSender<AppEvent>,
@@ -72,6 +74,8 @@ impl TuiApp {
         registry: HfApiRegistry<ReqwestHubTransport>,
         downloader: HfHubDownloader<HfHubTokioTransport>,
         library: DiskModelLibrary,
+        initial_settings: Settings,
+        save_settings: Arc<dyn SaveSettingsPort>,
         theme: Arc<dyn Theme>,
     ) -> Self {
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
@@ -98,6 +102,8 @@ impl TuiApp {
             progress_widget: ProgressWidget::with_theme(Arc::clone(&theme)),
             status_widget: StatusWidget::with_theme(Arc::clone(&theme)),
             help_widget: HelpWidget::with_theme(Arc::clone(&theme)),
+            settings_widget: Self::build_settings_widget(&initial_settings, Arc::clone(&theme)),
+            save_settings,
             theme,
             details: None,
             pending_removal: None,
@@ -106,6 +112,12 @@ impl TuiApp {
             should_quit: false,
             last_error: None,
         }
+    }
+
+    fn build_settings_widget(settings: &Settings, theme: Arc<dyn Theme>) -> SettingsWidget {
+        let mut widget = SettingsWidget::with_theme(theme);
+        widget.load_from(&EffectiveSettings::resolve(settings));
+        widget
     }
 
     /// Get a clone of the event sender for spawning async tasks.
@@ -284,6 +296,7 @@ impl TuiApp {
             AppMode::ModelTable => self.handle_model_table_keys(key).await,
             AppMode::InstallProgress => self.handle_install_progress_keys(key),
             AppMode::Library => self.handle_library_keys(key),
+            AppMode::Settings => self.handle_settings_keys(key),
             AppMode::Help => self.handle_help_keys(key),
         }
     }
@@ -354,6 +367,9 @@ impl TuiApp {
             self.details = None;
             self.pending_removal = None;
         }
+        if leaving == AppTab::Settings {
+            self.settings_widget.cancel_edit();
+        }
     }
 
     /// Resolves the mode a tab maps to, honoring any in-flight install.
@@ -367,6 +383,7 @@ impl TuiApp {
                 }
             }
             AppTab::Library => AppMode::Library,
+            AppTab::Settings => AppMode::Settings,
             AppTab::Help => AppMode::Help,
         }
     }
@@ -595,6 +612,64 @@ impl TuiApp {
         }
     }
 
+    fn handle_settings_keys(&mut self, key: KeyEvent) {
+        if self.settings_widget.is_editing() {
+            self.handle_settings_edit_key(key);
+        } else {
+            self.handle_settings_browse_key(key);
+        }
+    }
+
+    fn handle_settings_edit_key(&mut self, key: KeyEvent) {
+        match key.code {
+            KeyCode::Char(character) => self.settings_widget.input_char(character),
+            KeyCode::Backspace => self.settings_widget.input_backspace(),
+            KeyCode::Enter => self.settings_widget.commit_edit(),
+            KeyCode::Esc => self.settings_widget.cancel_edit(),
+            _ => {}
+        }
+    }
+
+    fn handle_settings_browse_key(&mut self, key: KeyEvent) {
+        match key.code {
+            KeyCode::Up => self.settings_widget.previous(),
+            KeyCode::Down => self.settings_widget.next(),
+            KeyCode::Enter => self.settings_widget.begin_edit(),
+            KeyCode::Char('s') | KeyCode::Char('S') => self.save_settings_now(),
+            KeyCode::Esc => self.switch_to_tab(AppTab::Help),
+            _ => {}
+        }
+    }
+
+    /// Persists the edited settings, then rebuilds the services they configure
+    /// so the change takes effect without a restart.
+    fn save_settings_now(&mut self) {
+        let settings = self.settings_widget.to_settings();
+        if let Err(failure) = self.save_settings.execute(&settings) {
+            self.raise_failure(failure.to_string());
+            return;
+        }
+        self.settings_widget
+            .load_from(&EffectiveSettings::resolve(&settings));
+        if let Err(failure) = self.rebuild_from(&settings) {
+            self.raise_failure(failure);
+            return;
+        }
+        self.status_widget.report(Self::MSG_SETTINGS_SAVED);
+    }
+
+    fn rebuild_from(&mut self, settings: &Settings) -> Result<(), String> {
+        let registry =
+            HfApiRegistry::from_settings(settings).map_err(|failure| failure.to_string())?;
+        self.search_service = Arc::new(SearchModelsService::new(registry.clone()));
+        self.registry = registry;
+        self.downloader = HfHubDownloader::from_settings(settings);
+        self.library = DiskModelLibrary::from_settings(settings);
+        self.library_manager = LibraryManager::new(self.library.clone(), self.event_sender.clone());
+        self.library_manager.list();
+        Ok(())
+    }
+
     /// Render the TUI application.
     pub fn draw(&mut self, frame: &mut Frame) {
         let area = frame.area();
@@ -647,6 +722,9 @@ impl TuiApp {
             AppMode::Library => {
                 self.draw_banner(frame, area, Self::LIBRARY_HEADER, Self::LIBRARY_TITLE);
             }
+            AppMode::Settings => {
+                self.draw_banner(frame, area, Self::SETTINGS_HEADER, Self::SETTINGS_TITLE);
+            }
             AppMode::Help => {
                 self.draw_banner(frame, area, Self::HELP_HEADER, Self::HELP_TITLE);
             }
@@ -666,6 +744,9 @@ impl TuiApp {
             }
             AppMode::Library => {
                 self.library_table_widget.draw(frame, area);
+            }
+            AppMode::Settings => {
+                self.settings_widget.draw(frame, area);
             }
             AppMode::Help => {
                 self.help_widget.draw(frame, area);
@@ -797,7 +878,12 @@ impl TuiApp {
     const HELP_HEADER: &'static str = "Help (Esc/h returns to the previous tab)";
     const HELP_TITLE: &'static str = "Help";
 
-    const SEARCH_HELP_TEXT: &'static str = "Enter search query and press Enter to search models.\nTab / Shift+Tab move between tabs; Alt+1..Alt+3 jump straight to one.\nEsc opens the help tab.";
+    const SETTINGS_HEADER: &'static str =
+        "Settings (↑/↓ select, Enter edit, Esc cancel edit, s save, Tab change tab)";
+    const SETTINGS_TITLE: &'static str = "Settings";
+    const MSG_SETTINGS_SAVED: &'static str = "Settings saved and applied.";
+
+    const SEARCH_HELP_TEXT: &'static str = "Enter search query and press Enter to search models.\nTab / Shift+Tab move between tabs; Alt+1..Alt+4 jump straight to one.\nEsc opens the help tab.";
     const SEARCH_HELP_TITLE: &'static str = "Search";
 
     const ERROR_TITLE: &'static str = "Error";

@@ -3,9 +3,12 @@ use localnar_application::{errors::RegistryReadError, ports::outbound::RemoteMod
 use localnar_domain::{
     ByteLength, Checksum, ContextLength, ModelFileName, ModelInfo, ModelProfile, ModelRepository,
     ModelRepositoryId, ModelTag, ModelWeightChoice, ParameterCount, RemoteModelFile, SearchQuery,
+    Settings,
 };
 use reqwest::Client;
 use serde::{Deserialize, de::DeserializeOwned};
+
+use super::settings::HuggingFaceSettings;
 
 pub trait HubTransport: Send + Sync {
     /// Performs a GET request against `path` and deserializes the JSON response.
@@ -205,6 +208,22 @@ impl ReqwestHubTransport {
         Self::new(endpoint, token)
     }
 
+    /// Resolves configuration from persisted settings, falling back to the
+    /// environment and built-in defaults for any value left unset.
+    pub fn from_settings(settings: &Settings) -> Result<Self, RegistryReadError> {
+        let hf = HuggingFaceSettings::from_settings(settings);
+        let endpoint = hf
+            .endpoint()
+            .map(str::to_owned)
+            .or_else(|| std::env::var("HF_ENDPOINT").ok())
+            .unwrap_or_else(|| DEFAULT_ENDPOINT.to_string());
+        let token = hf
+            .api_token()
+            .map(str::to_owned)
+            .or_else(|| std::env::var("HF_TOKEN").ok());
+        Self::new(endpoint, token)
+    }
+
     /// Returns the base endpoint URL.
     pub fn endpoint(&self) -> &str {
         &self.endpoint
@@ -262,6 +281,11 @@ impl HubTransport for ReqwestHubTransport {
 impl HfApiRegistry<ReqwestHubTransport> {
     pub fn from_env() -> Result<Self, RegistryReadError> {
         Ok(Self::new(ReqwestHubTransport::from_env()?))
+    }
+
+    /// Builds a registry from persisted settings with env/default fallback.
+    pub fn from_settings(settings: &Settings) -> Result<Self, RegistryReadError> {
+        Ok(Self::new(ReqwestHubTransport::from_settings(settings)?))
     }
 }
 

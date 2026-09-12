@@ -3,15 +3,17 @@ use crate::tui::app_tab::AppTab;
 /// Application mode enumeration representing the current TUI state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppMode {
-    /// Search mode - user enters search query
+    /// Entering a search query.
     Search,
-    /// Model table mode - displays one row per model found
+    /// Browsing the search results table.
     ModelTable,
-    /// Install progress mode - shows download/install progress
+    /// Watching an install progress.
     InstallProgress,
-    /// Library mode - manages the models this machine already holds
+    /// Managing the installed-model library.
     Library,
-    /// Help mode - displays key bindings and usage
+    /// Managing operator settings.
+    Settings,
+    /// Reading the help screen.
     Help,
 }
 
@@ -24,6 +26,7 @@ impl AppMode {
         match self {
             Self::Search | Self::ModelTable | Self::InstallProgress => AppTab::Search,
             Self::Library => AppTab::Library,
+            Self::Settings => AppTab::Settings,
             Self::Help => AppTab::Help,
         }
     }
@@ -35,6 +38,7 @@ impl From<AppTab> for AppMode {
         match tab {
             AppTab::Search => Self::Search,
             AppTab::Library => Self::Library,
+            AppTab::Settings => Self::Settings,
             AppTab::Help => Self::Help,
         }
     }

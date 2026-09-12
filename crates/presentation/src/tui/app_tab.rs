@@ -5,17 +5,19 @@
 /// and what a digit shortcut stands for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppTab {
-    /// Where the operator states what they are looking for.
+    /// The model search screen.
     Search,
-    /// Where the models this machine already holds are managed.
+    /// The installed-model library screen.
     Library,
-    /// Where the key bindings are explained.
+    /// The operator settings screen.
+    Settings,
+    /// The help screen.
     Help,
 }
 
 impl AppTab {
     /// Every tab, in the order the strip renders them.
-    pub const ALL: [Self; 3] = [Self::Search, Self::Library, Self::Help];
+    pub const ALL: [Self; 4] = [Self::Search, Self::Library, Self::Settings, Self::Help];
 
     /// The label the strip renders for this tab.
     ///
@@ -25,7 +27,8 @@ impl AppTab {
         match self {
             Self::Search => "1 Search",
             Self::Library => "2 Library",
-            Self::Help => "3 Help",
+            Self::Settings => "3 Settings",
+            Self::Help => "4 Help",
         }
     }
 
@@ -34,7 +37,8 @@ impl AppTab {
         match self {
             Self::Search => 0,
             Self::Library => 1,
-            Self::Help => 2,
+            Self::Settings => 2,
+            Self::Help => 3,
         }
     }
 

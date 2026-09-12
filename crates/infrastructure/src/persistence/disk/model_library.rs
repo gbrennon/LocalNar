@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use localnar_application::{errors::LibraryError, ports::outbound::ModelLibraryPort};
 use localnar_domain::{
     ByteLength, Checksum, InstalledModel, ModelArtifact, ModelSpec, ModelState, ModelTag,
+    SettingKey, Settings,
 };
 use sha2::{Digest, Sha256};
 use tokio::io::AsyncReadExt;
@@ -17,6 +18,8 @@ pub struct DiskModelLibrary {
 }
 
 impl DiskModelLibrary {
+    const DOWNLOAD_DIRECTORY_KEY: &'static str = "library.download_directory";
+
     /// Builds a library rooted at the given directory path.
     pub fn new(root: impl Into<PathBuf>) -> Self {
         Self { root: root.into() }
@@ -28,6 +31,26 @@ impl DiskModelLibrary {
             .map(PathBuf::from)
             .unwrap_or_else(|_| Self::default_root());
         Self::new(path)
+    }
+
+    /// Resolves the download directory from persisted settings, falling back to
+    /// the environment and built-in default when it is unset.
+    pub fn from_settings(settings: &Settings) -> Self {
+        let configured = settings
+            .get(&Self::download_directory_key())
+            .map(|value| value.as_str().to_owned())
+            .filter(|value| !value.trim().is_empty());
+        let path = configured
+            .map(PathBuf::from)
+            .or_else(|| std::env::var("LOCALNAR_MODELS_DIR").ok().map(PathBuf::from))
+            .unwrap_or_else(Self::default_root);
+        Self::new(path)
+    }
+
+    /// The domain key under which the model download directory is stored.
+    pub fn download_directory_key() -> SettingKey {
+        SettingKey::new(Self::DOWNLOAD_DIRECTORY_KEY)
+            .expect("a static library setting key is non-blank")
     }
 
     /// Returns the root directory path where models are stored.

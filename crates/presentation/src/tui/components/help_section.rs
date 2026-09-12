@@ -90,13 +90,32 @@ impl HelpSection {
         },
     ];
 
+    const SETTINGS_MODE_LINES: &[HelpLine] = &[
+        HelpLine::KeyBinding {
+            key: "↑ / ↓",
+            description: "Select a setting",
+        },
+        HelpLine::KeyBinding {
+            key: "Enter",
+            description: "Edit the selected setting",
+        },
+        HelpLine::KeyBinding {
+            key: "Esc",
+            description: "Cancel the current edit",
+        },
+        HelpLine::KeyBinding {
+            key: "s",
+            description: "Save and apply settings",
+        },
+    ];
+
     const GENERAL_LINES: &[HelpLine] = &[
         HelpLine::KeyBinding {
             key: "Tab / Shift+Tab",
             description: "Move to the next / previous tab",
         },
         HelpLine::KeyBinding {
-            key: "Alt+1..Alt+3",
+            key: "Alt+1..Alt+4",
             description: "Jump straight to a tab",
         },
         HelpLine::KeyBinding {
@@ -129,17 +148,23 @@ impl HelpSection {
         lines: Self::LIBRARY_MODE_LINES,
     };
 
+    const SETTINGS_MODE: Self = Self {
+        title: "Settings Mode",
+        lines: Self::SETTINGS_MODE_LINES,
+    };
+
     const GENERAL: Self = Self {
         title: "General",
         lines: Self::GENERAL_LINES,
     };
 
     /// All help sections in display order.
-    pub const ALL: [&'static Self; 5] = [
+    pub const ALL: [&'static Self; 6] = [
         &Self::SEARCH_MODE,
         &Self::MODEL_TABLE_MODE,
         &Self::INSTALL_PROGRESS_MODE,
         &Self::LIBRARY_MODE,
+        &Self::SETTINGS_MODE,
         &Self::GENERAL,
     ];
 
