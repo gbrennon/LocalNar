@@ -1,9 +1,10 @@
 use std::{path::Path, sync::Arc};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use localnar_application::services::SearchModelsService;
+use localnar_application::services::{SaveSettingsService, SearchModelsService};
+use localnar_domain::Settings;
 use localnar_infrastructure::{
-    DiskModelLibrary, HfApiRegistry, HfHubDownloader, ReqwestHubTransport,
+    DiskModelLibrary, HfApiRegistry, HfHubDownloader, ReqwestHubTransport, TomlSettingsStore,
 };
 use localnar_presentation::tui::{AppEvent, AppMode, AppTab, GBadwolf, Theme, TuiApp};
 use ratatui::{
@@ -24,11 +25,14 @@ fn app(models_root: &Path) -> TuiApp {
     let registry = HfApiRegistry::new(transport);
     let search_service = Arc::new(SearchModelsService::new(registry.clone()));
 
+    let store = TomlSettingsStore::new(models_root.join("settings.toml"));
     TuiApp::new(
         search_service,
         registry,
         HfHubDownloader::default(),
         DiskModelLibrary::new(models_root),
+        Settings::default(),
+        Arc::new(SaveSettingsService::new(store)),
         Arc::new(GBadwolf),
     )
 }
@@ -86,7 +90,15 @@ fn carries_the_highlight(styles: &[Style]) -> bool {
 
 #[test]
 fn the_tabs_follow_the_order_of_the_strip() {
-    assert_eq!(AppTab::ALL, [AppTab::Search, AppTab::Library, AppTab::Help]);
+    assert_eq!(
+        AppTab::ALL,
+        [
+            AppTab::Search,
+            AppTab::Library,
+            AppTab::Settings,
+            AppTab::Help
+        ]
+    );
 
     for (position, tab) in AppTab::ALL.into_iter().enumerate() {
         assert_eq!(tab.index(), position);
@@ -96,7 +108,8 @@ fn the_tabs_follow_the_order_of_the_strip() {
 #[test]
 fn moving_forward_walks_the_tabs_and_wraps_past_the_last() {
     assert_eq!(AppTab::Search.next(), AppTab::Library);
-    assert_eq!(AppTab::Library.next(), AppTab::Help);
+    assert_eq!(AppTab::Library.next(), AppTab::Settings);
+    assert_eq!(AppTab::Settings.next(), AppTab::Help);
     assert_eq!(AppTab::Help.next(), AppTab::Search);
 }
 
@@ -111,9 +124,10 @@ fn moving_back_undoes_moving_forward() {
 fn a_digit_shortcut_names_the_tab_at_that_position() {
     assert_eq!(AppTab::from_shortcut('1'), Some(AppTab::Search));
     assert_eq!(AppTab::from_shortcut('2'), Some(AppTab::Library));
-    assert_eq!(AppTab::from_shortcut('3'), Some(AppTab::Help));
+    assert_eq!(AppTab::from_shortcut('3'), Some(AppTab::Settings));
+    assert_eq!(AppTab::from_shortcut('4'), Some(AppTab::Help));
     assert_eq!(AppTab::from_shortcut('0'), None);
-    assert_eq!(AppTab::from_shortcut('4'), None);
+    assert_eq!(AppTab::from_shortcut('5'), None);
     assert_eq!(AppTab::from_shortcut('x'), None);
 }
 
@@ -123,6 +137,7 @@ fn every_mode_reports_the_tab_it_belongs_to() {
     assert_eq!(AppMode::ModelTable.tab(), AppTab::Search);
     assert_eq!(AppMode::InstallProgress.tab(), AppTab::Search);
     assert_eq!(AppMode::Library.tab(), AppTab::Library);
+    assert_eq!(AppMode::Settings.tab(), AppTab::Settings);
     assert_eq!(AppMode::Help.tab(), AppTab::Help);
 }
 
@@ -130,6 +145,7 @@ fn every_mode_reports_the_tab_it_belongs_to() {
 fn selecting_a_tab_lands_on_that_tabs_mode() {
     assert_eq!(AppMode::from(AppTab::Search), AppMode::Search);
     assert_eq!(AppMode::from(AppTab::Library), AppMode::Library);
+    assert_eq!(AppMode::from(AppTab::Settings), AppMode::Settings);
     assert_eq!(AppMode::from(AppTab::Help), AppMode::Help);
 }
 
@@ -150,7 +166,7 @@ async fn pressing_tab_moves_to_the_next_tab() {
     assert_eq!(app.active_tab(), AppTab::Library);
 
     app.handle_key_event(pressed(KeyCode::Tab)).await;
-    assert_eq!(app.active_tab(), AppTab::Help);
+    assert_eq!(app.active_tab(), AppTab::Settings);
 }
 
 #[tokio::test]
@@ -201,7 +217,8 @@ async fn the_strip_names_every_tab() {
 
     assert!(strip.contains("1 Search"));
     assert!(strip.contains("2 Library"));
-    assert!(strip.contains("3 Help"));
+    assert!(strip.contains("3 Settings"));
+    assert!(strip.contains("4 Help"));
     assert!(!strip.contains("Models"));
 }
 
@@ -373,11 +390,14 @@ async fn a_custom_theme_can_be_injected() {
     let registry = HfApiRegistry::new(transport);
     let search_service = Arc::new(SearchModelsService::new(registry.clone()));
 
+    let store = TomlSettingsStore::new(models_root.path().join("settings.toml"));
     let mut custom_app = TuiApp::new(
         search_service,
         registry,
         HfHubDownloader::default(),
         DiskModelLibrary::new(models_root.path()),
+        Settings::default(),
+        Arc::new(SaveSettingsService::new(store)),
         Arc::new(CustomTestTheme),
     );
 
