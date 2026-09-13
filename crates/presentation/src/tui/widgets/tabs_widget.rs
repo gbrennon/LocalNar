@@ -8,8 +8,8 @@ use ratatui::{
 };
 
 use crate::tui::{
-    app_tab::AppTab,
-    components::themes::{GBadwolf, Theme},
+    AppTab,
+    widgets::themes::{GBadwolf, Theme},
 };
 
 /// Renders the tab strip that tells the operator which screen they are on.

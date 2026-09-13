@@ -1,6 +1,6 @@
 use ratatui::style::{Color, Modifier, Style};
 
-use crate::tui::components::themes::Theme;
+use crate::tui::widgets::themes::Theme;
 
 /// Badwolf visual theme inspired by the tmux environment and Badwolf color palette.
 ///

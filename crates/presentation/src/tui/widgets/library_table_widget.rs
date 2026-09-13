@@ -7,7 +7,7 @@ use ratatui::{
     widgets::{Block, Borders, Row, Table, TableState},
 };
 
-use crate::tui::components::{
+use crate::tui::widgets::{
     library_row::LibraryRow,
     themes::{GBadwolf, Theme},
 };
