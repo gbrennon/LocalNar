@@ -133,7 +133,7 @@ async fn app_displays_download_speed_rate_in_progress_screen() {
     sender
         .send(AppEvent::InstallProgress(
             0.62,
-            "Downloading: 620.0 MiB / 1.0 GiB (62.0%) @ 24.5 MiB/s".to_owned(),
+            "Downloading: 620.0 MiB / 1.0 GiB (62.0%) @ 24.5 MiB/s · ETA 17s".to_owned(),
         ))
         .expect("send progress");
 
@@ -142,6 +142,7 @@ async fn app_displays_download_speed_rate_in_progress_screen() {
     let progress_screen = render_screen(&mut app);
     assert!(progress_screen.contains("62.0%"), "{progress_screen}");
     assert!(progress_screen.contains("24.5 MiB/s"), "{progress_screen}");
+    assert!(progress_screen.contains("ETA 17s"), "{progress_screen}");
 }
 
 #[tokio::test]
