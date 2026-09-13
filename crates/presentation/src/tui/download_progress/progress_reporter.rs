@@ -46,6 +46,7 @@ impl ProgressReporterBridge {
             }
             ProgressEvent::Advanced { transferred, total } => {
                 let speed = tracker.record_sample(transferred, now);
+                let eta_speed = tracker.smoothed_speed();
                 let percentage = if total > 0 {
                     (transferred as f64 / total as f64) * 100.0
                 } else {
@@ -59,7 +60,7 @@ impl ProgressReporterBridge {
                         ByteLength::new(total),
                         percentage,
                         speed,
-                        Self::format_eta(transferred, total, speed.bytes())
+                        Self::format_eta(transferred, total, eta_speed.bytes())
                     )
                 } else {
                     format!(
