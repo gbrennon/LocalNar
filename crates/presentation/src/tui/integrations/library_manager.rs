@@ -14,7 +14,7 @@ use localnar_domain::ModelSpec;
 use localnar_infrastructure::DiskModelLibrary;
 use tokio::sync::mpsc;
 
-use crate::tui::app_event::AppEvent;
+use crate::tui::AppEvent;
 
 /// Drives the model manager use cases on behalf of the interface.
 ///

@@ -1,33 +1,28 @@
-mod app_event;
-mod app_mode;
-mod app_tab;
-mod components;
-mod download_speed_tracker;
-mod events;
-mod layout_helper;
-mod library_manager;
-mod progress_reporter;
-mod terminal_session;
-mod tui_app;
-mod tui_launch_error;
-mod tui_launcher;
-mod ui;
+mod application;
+mod composition;
+mod download_progress;
+mod event_loop;
+mod integrations;
+mod interactions;
+mod layout;
+mod screens;
+mod terminal;
+mod widgets;
 
-pub use app_event::AppEvent;
-pub use app_mode::AppMode;
-pub use app_tab::AppTab;
-pub use components::{
+pub use application::{AppEvent, AppMode, AppTab, TuiApp};
+pub use composition::{TuiLaunchError, TuiLauncher};
+pub use download_progress::{DownloadSpeedTracker, ProgressReporterBridge};
+pub use event_loop::AppRunner;
+pub use integrations::LibraryManager;
+pub use interactions::EventHandler;
+pub use layout::LayoutHelper;
+pub use screens::{
+    HelpScreen, InstallProgressScreen, LibraryScreen, ModelTableScreen, SearchScreen,
+    SettingsScreen,
+};
+pub use terminal::TerminalSession;
+pub use widgets::{
     LibraryRow, LibraryTableWidget, ModelDetails, ModelRow, ModelTableWidget, ProgressWidget,
     SettingsWidget, TabsWidget,
     themes::{self, GBadwolf, Theme},
 };
-pub use download_speed_tracker::DownloadSpeedTracker;
-pub use events::EventHandler;
-pub use layout_helper::LayoutHelper;
-pub use library_manager::LibraryManager;
-pub use progress_reporter::ProgressReporterBridge;
-pub use terminal_session::TerminalSession;
-pub use tui_app::TuiApp;
-pub use tui_launch_error::TuiLaunchError;
-pub use tui_launcher::TuiLauncher;
-pub use ui::AppRunner;

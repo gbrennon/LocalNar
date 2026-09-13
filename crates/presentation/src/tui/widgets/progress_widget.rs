@@ -6,7 +6,7 @@ use ratatui::{
     widgets::{Block, Borders, Gauge, Paragraph},
 };
 
-use crate::tui::components::themes::{GBadwolf, Theme};
+use crate::tui::widgets::themes::{GBadwolf, Theme};
 
 /// Progress widget displaying install progress with gauge and status message.
 #[derive(Clone)]

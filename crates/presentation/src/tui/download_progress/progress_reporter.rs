@@ -4,7 +4,7 @@ use localnar_domain::ByteLength;
 use localnar_infrastructure::adapters::{ProgressBus, ProgressEvent};
 use tokio::sync::mpsc;
 
-use crate::tui::{app_event::AppEvent, download_speed_tracker::DownloadSpeedTracker};
+use crate::tui::{AppEvent, DownloadSpeedTracker};
 
 /// Bridge between infrastructure progress bus and TUI event channel.
 /// Subscribes to infrastructure ProgressEvent and converts to TUI AppEvent.
@@ -54,15 +54,16 @@ impl ProgressReporterBridge {
                 let ratio = percentage / 100.0;
                 let message = if speed.bytes() > 0 {
                     format!(
-                        "Downloading: {} / {} ({:.1}%) @ {}/s",
+                        "Downloading: {} / {} ({:.1}%) @ {}/s · ETA {}",
                         ByteLength::new(transferred),
                         ByteLength::new(total),
                         percentage,
-                        speed
+                        speed,
+                        Self::format_eta(transferred, total, speed.bytes())
                     )
                 } else {
                     format!(
-                        "Downloading: {} / {} ({:.1}%)",
+                        "Downloading: {} / {} ({:.1}%) · ETA calculating...",
                         ByteLength::new(transferred),
                         ByteLength::new(total),
                         percentage
@@ -76,7 +77,28 @@ impl ProgressReporterBridge {
             }
         }
     }
+
+    fn format_eta(transferred: u64, total: u64, speed: u64) -> String {
+        if speed == 0 {
+            return "calculating...".to_owned();
+        }
+
+        let remaining = total.saturating_sub(transferred);
+        let seconds = remaining / speed + u64::from(!remaining.is_multiple_of(speed));
+        let hours = seconds / 3_600;
+        let minutes = (seconds % 3_600) / 60;
+        let seconds = seconds % 60;
+
+        if hours > 0 {
+            return format!("{hours}h {minutes}m {seconds}s");
+        }
+        if minutes > 0 {
+            return format!("{minutes}m {seconds}s");
+        }
+        format!("{seconds}s")
+    }
 }
+
 #[cfg(test)]
 mod tests {
     use std::time::{Duration, Instant};
@@ -127,10 +149,41 @@ mod tests {
         match app_event {
             AppEvent::InstallProgress(ratio, message) => {
                 assert_eq!(ratio, 0.2);
-                assert!(message.contains("19.1 MiB / 95.4 MiB (20.0%) @ 19.1 MiB/s"));
+                assert!(message.contains("19.1 MiB / 95.4 MiB (20.0%) @ 19.1 MiB/s · ETA 4s"));
             }
             _ => panic!("expected InstallProgress event with speed"),
         }
+    }
+
+    #[test]
+    fn advanced_event_without_speed_reports_calculating_eta() {
+        let mut tracker = DownloadSpeedTracker::new();
+        let app_event = ProgressReporterBridge::convert_event(
+            ProgressEvent::Advanced {
+                transferred: 0,
+                total: 100_000_000,
+            },
+            &mut tracker,
+            Instant::now(),
+        );
+
+        match app_event {
+            AppEvent::InstallProgress(_, message) => {
+                assert!(message.contains("ETA calculating..."));
+            }
+            _ => panic!("expected InstallProgress event"),
+        }
+    }
+
+    #[test]
+    fn eta_uses_compact_duration_units() {
+        assert_eq!(
+            ProgressReporterBridge::format_eta(0, 0, 0),
+            "calculating..."
+        );
+        assert_eq!(ProgressReporterBridge::format_eta(0, 5, 1), "5s");
+        assert_eq!(ProgressReporterBridge::format_eta(0, 125, 1), "2m 5s");
+        assert_eq!(ProgressReporterBridge::format_eta(0, 3_725, 1), "1h 2m 5s");
     }
 
     #[test]

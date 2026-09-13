@@ -9,7 +9,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Wrap},
 };
 
-use crate::tui::components::themes::{GBadwolf, Theme};
+use crate::tui::widgets::themes::{GBadwolf, Theme};
 
 struct SettingsField {
     label: &'static str,

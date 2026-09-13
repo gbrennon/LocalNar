@@ -7,7 +7,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 
-use crate::tui::components::{
+use crate::tui::widgets::{
     help_section::HelpSection,
     themes::{GBadwolf, Theme},
 };
