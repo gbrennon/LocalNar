@@ -3,7 +3,7 @@ use std::time::Duration;
 use crossterm::event::Event;
 use ratatui::Terminal;
 
-use crate::tui::{TuiApp, events::EventHandler};
+use crate::tui::{EventHandler, TuiApp};
 /// Application runner managing the main TUI event loop.
 pub struct AppRunner;
 
