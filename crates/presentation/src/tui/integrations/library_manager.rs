@@ -11,7 +11,7 @@ use localnar_application::{
     },
 };
 use localnar_domain::ModelSpec;
-use localnar_infrastructure::DiskModelLibrary;
+use localnar_infrastructure::{DiskModelLibrary, HfApiRegistry, ReqwestHubTransport};
 use tokio::sync::mpsc;
 
 use crate::tui::AppEvent;
@@ -30,7 +30,7 @@ use crate::tui::AppEvent;
 pub struct LibraryManager {
     listing: Arc<ListInstalledModelsService<DiskModelLibrary>>,
     inspection: Arc<InspectModelService<DiskModelLibrary>>,
-    verification: Arc<VerifyModelService<DiskModelLibrary>>,
+    verification: Arc<VerifyModelService<DiskModelLibrary, HfApiRegistry<ReqwestHubTransport>>>,
     removal: Arc<RemoveModelService<DiskModelLibrary, DiskModelLibrary>>,
     pruning: Arc<PruneLibraryService<DiskModelLibrary>>,
     events: mpsc::UnboundedSender<AppEvent>,
@@ -38,11 +38,15 @@ pub struct LibraryManager {
 
 impl LibraryManager {
     /// Composes every manager use case from `library`, reporting to `events`.
-    pub fn new(library: DiskModelLibrary, events: mpsc::UnboundedSender<AppEvent>) -> Self {
+    pub fn new(
+        library: DiskModelLibrary,
+        registry: HfApiRegistry<ReqwestHubTransport>,
+        events: mpsc::UnboundedSender<AppEvent>,
+    ) -> Self {
         Self {
             listing: Arc::new(ListInstalledModelsService::new(library.clone())),
             inspection: Arc::new(InspectModelService::new(library.clone())),
-            verification: Arc::new(VerifyModelService::new(library.clone())),
+            verification: Arc::new(VerifyModelService::new(library.clone(), registry)),
             removal: Arc::new(RemoveModelService::new(library.clone(), library.clone())),
             pruning: Arc::new(PruneLibraryService::new(library)),
             events,
