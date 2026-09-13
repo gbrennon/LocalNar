@@ -1,4 +1,4 @@
-use crate::tui::app_tab::AppTab;
+use crate::tui::application::app_tab::AppTab;
 
 /// Application mode enumeration representing the current TUI state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
