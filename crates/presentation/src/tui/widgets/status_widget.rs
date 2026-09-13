@@ -6,7 +6,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 
-use crate::tui::components::themes::{GBadwolf, Theme};
+use crate::tui::widgets::themes::{GBadwolf, Theme};
 
 /// Status widget displaying status messages with error/success coloring.
 #[derive(Clone)]

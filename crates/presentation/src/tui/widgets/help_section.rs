@@ -1,6 +1,6 @@
 use ratatui::text::{Line, Span};
 
-use crate::tui::components::{help_line::HelpLine, themes::Theme};
+use crate::tui::widgets::{help_line::HelpLine, themes::Theme};
 
 /// A section of help content with a title and lines.
 #[derive(Debug, Clone, Copy)]

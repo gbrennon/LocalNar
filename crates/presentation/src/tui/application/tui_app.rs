@@ -19,17 +19,13 @@ use ratatui::{
 use tokio::sync::mpsc;
 
 use crate::tui::{
-    app_event::AppEvent,
-    app_mode::AppMode,
-    app_tab::AppTab,
-    components::{
+    EventHandler, HelpScreen, InstallProgressScreen, LayoutHelper, LibraryManager, LibraryScreen,
+    ModelTableScreen, ProgressReporterBridge, SearchScreen, SettingsScreen,
+    application::{app_event::AppEvent, app_mode::AppMode, app_tab::AppTab},
+    widgets::{
         HelpWidget, LibraryTableWidget, ModelDetails, ModelTableWidget, ProgressWidget,
         SearchWidget, SettingsWidget, StatusWidget, TabsWidget, themes::Theme,
     },
-    events::EventHandler,
-    layout_helper::LayoutHelper,
-    library_manager::LibraryManager,
-    progress_reporter::ProgressReporterBridge,
 };
 
 /// Main TUI application struct managing the model downloader interface.
@@ -734,22 +730,22 @@ impl TuiApp {
     fn draw_content(&mut self, frame: &mut Frame, area: Rect) {
         match self.mode {
             AppMode::Search => {
-                self.draw_search_help(frame, area);
+                SearchScreen::draw(frame, area, self.theme.as_ref());
             }
             AppMode::ModelTable => {
-                self.model_table_widget.draw(frame, area);
+                ModelTableScreen::draw(frame, area, &mut self.model_table_widget);
             }
             AppMode::InstallProgress => {
-                self.progress_widget.draw(frame, area);
+                InstallProgressScreen::draw(frame, area, &mut self.progress_widget);
             }
             AppMode::Library => {
-                self.library_table_widget.draw(frame, area);
+                LibraryScreen::draw(frame, area, &mut self.library_table_widget);
             }
             AppMode::Settings => {
-                self.settings_widget.draw(frame, area);
+                SettingsScreen::draw(frame, area, &mut self.settings_widget);
             }
             AppMode::Help => {
-                self.help_widget.draw(frame, area);
+                HelpScreen::draw(frame, area, &mut self.help_widget);
             }
         }
     }
@@ -772,21 +768,6 @@ impl TuiApp {
                     .style(self.theme.content()),
             );
         frame.render_widget(banner, area);
-    }
-
-    fn draw_search_help(&self, frame: &mut Frame, area: Rect) {
-        let help = Paragraph::new(Self::SEARCH_HELP_TEXT)
-            .style(self.theme.content())
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title(Self::SEARCH_HELP_TITLE)
-                    .title_style(self.theme.title())
-                    .border_style(self.theme.border())
-                    .style(self.theme.content()),
-            )
-            .wrap(Wrap { trim: true });
-        frame.render_widget(help, area);
     }
 
     fn draw_details_popup(&self, frame: &mut Frame, area: Rect, entry: &ManagedModel) {
@@ -882,9 +863,6 @@ impl TuiApp {
         "Settings (↑/↓ select, Enter edit, Esc cancel edit, s save, Tab change tab)";
     const SETTINGS_TITLE: &'static str = "Settings";
     const MSG_SETTINGS_SAVED: &'static str = "Settings saved and applied.";
-
-    const SEARCH_HELP_TEXT: &'static str = "Enter search query and press Enter to search models.\nTab / Shift+Tab move between tabs; Alt+1..Alt+4 jump straight to one.\nEsc opens the help tab.";
-    const SEARCH_HELP_TITLE: &'static str = "Search";
 
     const ERROR_TITLE: &'static str = "Error";
     const ERROR_POPUP_WIDTH_PCT: u16 = 60;
