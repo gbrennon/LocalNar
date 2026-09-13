@@ -2,21 +2,15 @@ use crate::errors::DomainError;
 
 /// A free-text phrase an operator types to discover downloadable models.
 ///
-/// The value is trimmed and never blank, so an adapter can hand it to an
-/// upstream catalog without re-validating it.
+/// The value is trimmed and may be empty, allowing the catalog to provide its
+/// default model list when no search phrase is entered.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SearchQuery(String);
 
 impl SearchQuery {
-    /// Builds a query, rejecting a phrase that carries no searchable text.
+    /// Builds a query from trimmed text, including the empty catalog query.
     pub fn new(phrase: impl Into<String>) -> Result<Self, DomainError> {
-        let phrase = phrase.into().trim().to_string();
-
-        if phrase.is_empty() {
-            return Err(DomainError::BlankSearchQuery);
-        }
-
-        Ok(Self(phrase))
+        Ok(Self(phrase.into().trim().to_string()))
     }
 
     /// The trimmed phrase to send upstream.
@@ -27,7 +21,7 @@ impl SearchQuery {
 
 #[cfg(test)]
 mod search_query_tests {
-    use crate::{errors::DomainError, value_objects::SearchQuery};
+    use crate::value_objects::SearchQuery;
 
     #[test]
     fn a_phrase_is_trimmed() {
@@ -37,10 +31,9 @@ mod search_query_tests {
     }
 
     #[test]
-    fn a_blank_phrase_is_rejected() {
-        assert_eq!(
-            SearchQuery::new("   ").unwrap_err(),
-            DomainError::BlankSearchQuery
-        );
+    fn a_blank_phrase_is_preserved_as_the_catalog_query() {
+        let query = SearchQuery::new("   ").expect("the catalog query is valid");
+
+        assert_eq!(query.as_str(), "");
     }
 }
