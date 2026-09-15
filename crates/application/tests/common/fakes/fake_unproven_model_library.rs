@@ -4,10 +4,10 @@ use localnar_domain::{Checksum, InstalledModel, ModelArtifact, ModelSpec, ModelS
 
 use crate::common::fakes::model_fixture::ModelFixture;
 
-/// A library holding a replica that no digest was ever recorded for.
+/// A library holding a replica that has no locally recorded digest.
 ///
-/// Hashing such a replica would read the whole file for a verdict nothing can
-/// be compared against, so this library refuses to be asked.
+/// Its verification result remains downloaded when the remote registry also
+/// provides no checksum.
 pub struct FakeUnprovenModelLibrary;
 
 impl ModelLibraryPort for FakeUnprovenModelLibrary {
@@ -28,7 +28,7 @@ impl ModelLibraryPort for FakeUnprovenModelLibrary {
         _model: &ModelSpec,
         _expected: Option<Checksum>,
     ) -> Result<ModelState, LibraryError> {
-        panic!("a replica carrying no recorded digest must never be re-read")
+        Ok(ModelState::Downloaded)
     }
 
     async fn locate(&self, _model: &ModelSpec) -> Result<InstalledModel, LibraryError> {

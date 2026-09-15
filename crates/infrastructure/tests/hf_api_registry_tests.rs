@@ -9,6 +9,7 @@ use localnar_infrastructure::{HfApiRegistry, HubTransport, ReqwestHubTransport};
 use serde::de::DeserializeOwned;
 
 const SEARCH_PATH: &str = "api/models?search=qwen3 gguf&limit=10&expand%5B%5D=gguf";
+const EMPTY_SEARCH_PATH: &str = "api/models?search=&limit=10&expand%5B%5D=gguf";
 const QWEN_REVISION_PATH: &str = "api/models/Qwen/Qwen3-8B-GGUF/revision/main?blobs=true";
 const UNSLOTH_REVISION_PATH: &str = "api/models/unsloth/Qwen3-8B-GGUF/revision/main?blobs=true";
 const QWEN_REPO_INFO_PATH: &str = "api/models/Qwen/Qwen3-8B-GGUF";
@@ -523,6 +524,30 @@ async fn search_requests_paths_with_api_models_prefix_without_nesting() {
             "expected path to not contain duplicate api segment, got: {requested_path}"
         );
     }
+}
+
+#[tokio::test]
+async fn empty_search_requests_the_default_catalog_path() {
+    let paths = Arc::new(Mutex::new(Vec::<String>::new()));
+    let recording = RecordingTransport::new(
+        FakeCatalogTransport::answering(&[
+            (EMPTY_SEARCH_PATH, CATALOG_JSON),
+            (QWEN_REVISION_PATH, QWEN_REVISION_JSON),
+            (UNSLOTH_REVISION_PATH, UNSLOTH_REVISION_JSON),
+            (QWEN_REPO_INFO_PATH, QWEN_REPO_INFO_JSON),
+            (UNSLOTH_REPO_INFO_PATH, UNSLOTH_REPO_INFO_JSON),
+        ]),
+        Arc::clone(&paths),
+    );
+    let registry = HfApiRegistry::new(recording);
+    let empty_query = SearchQuery::new("").expect("empty catalog query");
+
+    let _ = registry.search_models(&empty_query).await.expect("search");
+
+    assert_eq!(
+        paths.lock().expect("lock paths").first(),
+        Some(&EMPTY_SEARCH_PATH.to_string())
+    );
 }
 
 #[test]

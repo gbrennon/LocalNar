@@ -89,6 +89,20 @@ async fn app_tracks_download_progress_and_displays_it_in_library_table() {
         "{progress_screen}"
     );
 
+    sender
+        .send(AppEvent::InstallProgress(
+            1.0,
+            "Download completed".to_owned(),
+        ))
+        .expect("send download completion");
+    app.handle_events().await;
+
+    let verification_screen = render_screen(&mut app);
+    assert!(
+        verification_screen.contains("Verifying model integrity"),
+        "{verification_screen}"
+    );
+
     app.handle_key_event(KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE))
         .await;
     let installed_replica = InstalledModel::new(
@@ -102,6 +116,11 @@ async fn app_tracks_download_progress_and_displays_it_in_library_table() {
         .expect("send completed");
     app.handle_events().await;
 
+    let completion_screen = render_screen(&mut app);
+    assert!(
+        completion_screen.contains("Verified and installed"),
+        "{completion_screen}"
+    );
     assert_eq!(app.active_tab(), AppTab::Library);
 }
 
@@ -146,7 +165,7 @@ async fn app_displays_download_speed_rate_in_progress_screen() {
 }
 
 #[tokio::test]
-async fn verifying_a_model_updates_status_without_opening_details_popup() {
+async fn verifying_a_model_opens_a_persistent_details_popup() {
     let temp_dir = TempDir::new().expect("temp dir");
     let mut app = create_app(&temp_dir);
     let sender = app.event_sender();
@@ -172,7 +191,7 @@ async fn verifying_a_model_updates_status_without_opening_details_popup() {
     let screen = render_screen(&mut app);
     assert!(screen.contains("Verified:"), "{screen}");
     assert!(
-        !screen.contains("Installed Model (Esc to close)"),
+        screen.contains("Installed Model (Esc to close)"),
         "{screen}"
     );
 }

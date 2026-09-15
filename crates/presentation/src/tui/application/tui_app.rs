@@ -77,17 +77,18 @@ impl TuiApp {
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
         let progress_bus = ProgressBus::new(16);
         let _bridge = ProgressReporterBridge::new(&progress_bus, event_sender.clone());
-        let library_manager = LibraryManager::new(library.clone(), event_sender.clone());
+        let library_manager =
+            LibraryManager::new(library.clone(), registry.clone(), event_sender.clone());
         library_manager.list();
-        Self {
+        let app = Self {
             search_service,
             registry,
             downloader,
             library,
             library_manager,
             progress_bus,
-            mode: AppMode::Search,
-            search_mode: AppMode::Search,
+            mode: AppMode::ModelTable,
+            search_mode: AppMode::ModelTable,
             is_installing: false,
             installing_model: None,
             previous_tab: None,
@@ -107,7 +108,9 @@ impl TuiApp {
             event_receiver,
             should_quit: false,
             last_error: None,
-        }
+        };
+        app.start_search(String::new());
+        app
     }
 
     fn build_settings_widget(settings: &Settings, theme: Arc<dyn Theme>) -> SettingsWidget {
@@ -178,22 +181,25 @@ impl TuiApp {
                 AppEvent::InstallProgress(progress, msg) => {
                     self.progress_widget.advance(progress, msg.clone());
                     self.library_table_widget.update_download_progress(progress);
-                    self.status_widget.report(format!(
-                        "Installing: {:.1}% - {}",
-                        progress * 100.0,
-                        msg
-                    ));
+                    let status = if progress >= 1.0 {
+                        Self::MSG_INSTALL_VERIFYING.to_owned()
+                    } else {
+                        format!("Installing: {:.1}% - {}", progress * 100.0, msg)
+                    };
+                    self.status_widget.report(status);
                 }
                 AppEvent::InstallCompleted(model) => {
                     self.is_installing = false;
                     self.installing_model = None;
                     self.library_table_widget.clear_download();
                     self.leave_install_progress_for(AppMode::ModelTable);
-                    self.status_widget.report(format!(
-                        "{}{}",
-                        Self::MSG_INSTALL_COMPLETED,
-                        model.spec()
-                    ));
+                    let completion_message = if model.is_verified() {
+                        Self::MSG_INSTALL_VERIFIED
+                    } else {
+                        Self::MSG_INSTALL_UNPROVEN
+                    };
+                    self.status_widget
+                        .report(format!("{completion_message}{}", model.spec()));
                     self.library_manager.list();
                 }
                 AppEvent::InstallFailed(err) => {
@@ -386,39 +392,33 @@ impl TuiApp {
 
     async fn handle_search_keys(&mut self, key: KeyEvent) {
         match key.code {
-            KeyCode::Char(c) => {
-                self.search_widget.input_char(c);
-            }
-            KeyCode::Backspace => {
-                self.search_widget.input_backspace();
-            }
+            KeyCode::Char(c) => self.search_widget.input_char(c),
+            KeyCode::Backspace => self.search_widget.input_backspace(),
             KeyCode::Enter => {
-                if let Some(query) = self.search_widget.take_query() {
-                    self.status_widget.report(Self::MSG_SEARCHING);
-                    let search_service = self.search_service.clone();
-                    let sender = self.event_sender.clone();
-                    tokio::spawn(async move {
-                        match SearchQuery::new(query) {
-                            Ok(search_query) => match search_service.execute(&search_query).await {
-                                Ok(results) => {
-                                    let _ = sender.send(AppEvent::SearchCompleted(results));
-                                }
-                                Err(e) => {
-                                    let _ = sender.send(AppEvent::SearchFailed(e.to_string()));
-                                }
-                            },
-                            Err(e) => {
-                                let _ = sender.send(AppEvent::SearchFailed(e.to_string()));
-                            }
-                        }
-                    });
-                }
+                let query = self.search_widget.take_query();
+                self.status_widget.report(Self::MSG_SEARCHING);
+                self.start_search(query);
             }
-            KeyCode::Esc => {
-                self.switch_to_tab(AppTab::Help);
-            }
+            KeyCode::Esc => self.switch_to_tab(AppTab::Help),
             _ => {}
         }
+    }
+
+    fn start_search(&self, phrase: String) {
+        let search_service = Arc::clone(&self.search_service);
+        let sender = self.event_sender.clone();
+        tokio::spawn(async move {
+            let search_query =
+                SearchQuery::new(phrase).expect("search query construction is infallible");
+            match search_service.execute(&search_query).await {
+                Ok(results) => {
+                    let _ = sender.send(AppEvent::SearchCompleted(results));
+                }
+                Err(error) => {
+                    let _ = sender.send(AppEvent::SearchFailed(error.to_string()));
+                }
+            }
+        });
     }
 
     async fn handle_model_table_keys(&mut self, key: KeyEvent) {
@@ -429,10 +429,23 @@ impl TuiApp {
             KeyCode::Down => {
                 self.model_table_widget.next();
             }
+            KeyCode::Char('p') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.mode = AppMode::InstallProgress;
+                self.search_mode = AppMode::InstallProgress;
+            }
+            KeyCode::Char(character) => self.search_widget.input_char(character),
+            KeyCode::Backspace => self.search_widget.input_backspace(),
             KeyCode::Enter => {
                 if self.is_installing {
                     self.mode = AppMode::InstallProgress;
                     self.search_mode = AppMode::InstallProgress;
+                    return;
+                }
+
+                if self.search_widget.has_query() {
+                    let query = self.search_widget.take_query();
+                    self.status_widget.report(Self::MSG_SEARCHING);
+                    self.start_search(query);
                     return;
                 }
 
@@ -464,20 +477,7 @@ impl TuiApp {
                     });
                 }
             }
-            KeyCode::Char('p') | KeyCode::Char('P') => {
-                self.mode = AppMode::InstallProgress;
-                self.search_mode = AppMode::InstallProgress;
-            }
-            KeyCode::Char('l') | KeyCode::Char('L') => {
-                self.switch_to_tab(AppTab::Library);
-            }
-            KeyCode::Esc => {
-                self.search_mode = AppMode::Search;
-                self.mode = AppMode::Search;
-            }
-            KeyCode::Char('h') | KeyCode::Char('H') | KeyCode::Char('?') => {
-                self.switch_to_tab(AppTab::Help);
-            }
+            KeyCode::Esc => self.switch_to_tab(AppTab::Help),
             _ => {}
         }
     }
@@ -581,13 +581,11 @@ impl TuiApp {
         }
     }
 
-    /// Handles successful model verification by reporting the verdict,
-    /// refreshing open details if any, and reloading the library listing.
+    /// Handles successful model verification by opening the result details,
+    /// reporting the verdict, and reloading the library listing.
     fn on_model_verified(&mut self, entry: ManagedModel) {
         self.status_widget.report(Self::verdict_of(&entry));
-        if self.details.is_some() {
-            self.details = Some(entry);
-        }
+        self.details = Some(entry);
         self.library_manager.list();
     }
 
@@ -661,7 +659,11 @@ impl TuiApp {
         self.registry = registry;
         self.downloader = HfHubDownloader::from_settings(settings);
         self.library = DiskModelLibrary::from_settings(settings);
-        self.library_manager = LibraryManager::new(self.library.clone(), self.event_sender.clone());
+        self.library_manager = LibraryManager::new(
+            self.library.clone(),
+            self.registry.clone(),
+            self.event_sender.clone(),
+        );
         self.library_manager.list();
         Ok(())
     }
@@ -700,12 +702,7 @@ impl TuiApp {
                 self.search_widget.draw(frame, area);
             }
             AppMode::ModelTable => {
-                let header = if self.is_installing {
-                    Self::MODEL_TABLE_HEADER_INSTALLING
-                } else {
-                    Self::MODEL_TABLE_HEADER
-                };
-                self.draw_banner(frame, area, header, Self::MODEL_TABLE_TITLE);
+                self.search_widget.draw(frame, area);
             }
             AppMode::InstallProgress => {
                 self.draw_banner(
@@ -844,11 +841,6 @@ impl TuiApp {
     const CONTENT_MIN_HEIGHT: u16 = 10;
     const STATUS_HEIGHT: u16 = 3;
 
-    const MODEL_TABLE_HEADER: &'static str = "Models (↑/↓ navigate, Enter install, p progress, Esc search again, Tab change tab, h help)";
-    const MODEL_TABLE_HEADER_INSTALLING: &'static str =
-        "Models (↑/↓ navigate, p / Enter view progress, Esc search again, Tab change tab, h help)";
-    const MODEL_TABLE_TITLE: &'static str = "Models";
-
     const INSTALL_PROGRESS_HEADER: &'static str = "Installing Model... (Esc to return)";
     const INSTALL_PROGRESS_TITLE: &'static str = "Install Progress";
 
@@ -880,7 +872,9 @@ impl TuiApp {
     const MSG_SEARCH_COMPLETED: &'static str =
         "Search completed. Use ↑/↓ to navigate, Enter to install.";
     const MSG_INSTALL_STARTED: &'static str = "Installing model...";
-    const MSG_INSTALL_COMPLETED: &'static str = "Installed: ";
+    const MSG_INSTALL_VERIFYING: &'static str = "Download complete; Verifying model integrity...";
+    const MSG_INSTALL_VERIFIED: &'static str = "Verified and installed: ";
+    const MSG_INSTALL_UNPROVEN: &'static str = "Installed without a digest: ";
     const MSG_SEARCHING: &'static str = "Searching...";
     const MSG_READING_LIBRARY: &'static str = "Reading the installed models...";
     const MSG_INSPECTED: &'static str = "Esc closes the details.";

@@ -1,6 +1,6 @@
 use std::{error::Error, fmt};
 
-use crate::errors::library_error::LibraryError;
+use crate::errors::{library_error::LibraryError, registry_read_error::RegistryReadError};
 
 /// Failures that can end a verification of one locally installed model.
 ///
@@ -12,6 +12,9 @@ pub enum VerifyModelError {
     /// The durable library could not be read, written, or hashed.
     Library(LibraryError),
 
+    /// The remote registry could not provide the expected checksum.
+    Registry(RegistryReadError),
+
     /// The library holds no replica of the requested model to verify.
     NotInstalled { model: String },
 }
@@ -21,6 +24,9 @@ impl fmt::Display for VerifyModelError {
         match self {
             Self::Library(cause) => {
                 write!(formatter, "the model could not be verified: {cause}")
+            }
+            Self::Registry(cause) => {
+                write!(formatter, "the remote model could not be resolved: {cause}")
             }
             Self::NotInstalled { model } => {
                 write!(
@@ -36,6 +42,7 @@ impl Error for VerifyModelError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::Library(cause) => Some(cause),
+            Self::Registry(cause) => Some(cause),
             Self::NotInstalled { .. } => None,
         }
     }
@@ -44,6 +51,12 @@ impl Error for VerifyModelError {
 impl From<LibraryError> for VerifyModelError {
     fn from(cause: LibraryError) -> Self {
         Self::Library(cause)
+    }
+}
+
+impl From<RegistryReadError> for VerifyModelError {
+    fn from(cause: RegistryReadError) -> Self {
+        Self::Registry(cause)
     }
 }
 

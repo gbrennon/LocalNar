@@ -8,6 +8,7 @@ use localnar_domain::ManagedModel;
 use crate::common::{
     block_on::BlockOn,
     fakes::{
+        fake_advertising_registry::FakeAdvertisingRegistry,
         fake_broken_model_library::FakeBrokenModelLibrary,
         fake_missing_model_library::FakeMissingModelLibrary,
         fake_unhashable_model_library::FakeUnhashableModelLibrary,
@@ -24,7 +25,7 @@ impl VerifyHarness {
     async fn outcome<Library: ModelLibraryPort>(
         library: Library,
     ) -> Result<ManagedModel, VerifyModelError> {
-        VerifyModelService::new(library)
+        VerifyModelService::new(library, FakeAdvertisingRegistry)
             .execute(&ModelFixture::spec())
             .await
     }
@@ -117,7 +118,7 @@ fn verifying_when_the_replica_cannot_be_hashed_then_the_library_boundary_is_repo
 fn verifying_a_model_exposes_its_capabilities() {
     BlockOn::run(async {
         let tagged_spec = ModelFixture::tagged_spec();
-        let service = VerifyModelService::new(FakeVerifiedModelLibrary);
+        let service = VerifyModelService::new(FakeVerifiedModelLibrary, FakeAdvertisingRegistry);
         let entry = service.execute(&tagged_spec).await.expect("verify");
 
         let tags = entry.tags().iter().map(|t| t.as_str()).collect::<Vec<_>>();
