@@ -13,13 +13,18 @@ Ordered by dependency. Items are intentionally small and testable.
 - [x] Domain: value objects, the install state machine (`ModelState`), and the
       types describing what the library holds - `ManagedModel`,
       `ModelInventory`, `RemovedModel`, `DiscardedStray`.
-- [x] Application: seven inbound ports, seven outbound ports, one typed error
-      per use case, and one service per port.
+- [x] Application: nine inbound ports, eight outbound port traits, one typed
+      error per use case, and nine services - including settings load, save,
+      and the settings-store boundary.
 - [x] Infrastructure: Hugging Face registry and downloader; `DiskModelLibrary`
-      implementing the library, inventory, eviction, and maintenance ports.
-- [x] Presentation: a `ratatui` TUI with search, model table, install progress,
-      library, and help modes.
-- [x] Search a remote catalog and install a model, verifying its checksum.
+      implementing the library, inventory, eviction, and maintenance ports, with
+      persisted `.tags` capability metadata; TOML/effective settings adapters
+      backing the settings-store boundary.
+- [x] Presentation: a `ratatui` TUI across four tabs - Search, Library,
+      Settings, and Help - where Search carries the model-table and
+      install-progress substates.
+- [x] Search a remote catalog and install a model, verifying it when a checksum
+      is advertised and recording it as installed-but-unproven otherwise.
 - [x] Total control over the local library: list, inspect, verify, delete with
       confirmation, and prune leftovers.
 
