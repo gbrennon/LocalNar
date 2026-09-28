@@ -7,8 +7,10 @@ Instructions for validating and running models downloaded by LocalNar using
 
 ## 1. Locating installed models
 
-LocalNar stores models in a structured on-disk hierarchy rooted at
-`$LOCALNAR_MODELS_DIR` (defaults to `~/.cache/localnar/models`):
+LocalNar stores models in a structured on-disk hierarchy. Its root resolves in
+precedence order: `library.download_directory` from the persisted settings file
+at `${XDG_CONFIG_HOME:-$HOME/.config}/localnar/settings.toml`, then
+`$LOCALNAR_MODELS_DIR`, then the built-in default `~/.cache/localnar/models`:
 
 ```text
 ~/.cache/localnar/models/
@@ -16,21 +18,25 @@ LocalNar stores models in a structured on-disk hierarchy rooted at
     └── <repository>/
         └── <revision>/
             ├── <model-file>.gguf
-            └── <model-file>.gguf.sha256
+            ├── <model-file>.gguf.sha256
+            └── <model-file>.gguf.tags
 ```
 
 ### Finding the exact path
 
 - **Inside LocalNar TUI**:
   1. Press `Alt+2` (or cycle with `Tab`) to switch to the **Library** screen.
-     *(Screens use `Alt+1` for Search, `Alt+2` for Library, and `Alt+3` for Help).*
+     *(Tabs use `Alt+1` for Search, `Alt+2` for Library, `Alt+3` for Settings, and `Alt+4` for Help).*
   2. Select the model using `↑` / `↓`.
   3. Press `i` or `Enter` to inspect the model. The exact absolute path to the
      `.gguf` file is shown on screen.
-- **Via terminal**:
+- **Via terminal** (valid for the environment/default root only):
   ```sh
   find "${LOCALNAR_MODELS_DIR:-$HOME/.cache/localnar/models}" -name "*.gguf"
   ```
+  If you configured a **Model Download Path** in Settings, search that effective
+  directory instead, or use the absolute path the TUI shows when inspecting the
+  model.
 
 ---
 
@@ -40,9 +46,11 @@ Before loading a model into an inference engine, verify that the download is
 complete and uncorrupted:
 
 - **Inside LocalNar**: On the Library screen (`Alt+2` or `Tab`), select the model
-  and press `v`. The state badge will confirm **verified** against the upstream
-  SHA-256 digest.
-- **Via command line**:
+  and press `v`. LocalNar verifies against the digest it recorded locally when
+  one exists, otherwise against the checksum the remote catalog advertises. The
+  state badge confirms **verified** when a checksum is available in either place;
+  with no checksum anywhere the replica stays **unproven**.
+- **Via command line** (requires an existing `.sha256` sidecar / recorded digest):
   ```sh
   MODEL_PATH="/path/to/model.gguf"
   echo "$(cat "${MODEL_PATH}.sha256")  ${MODEL_PATH}" | sha256sum -c
@@ -87,6 +95,10 @@ lscpu -p | grep -v '^#' | sort -u -t, -k 2,4 | wc -l
 - `-ctk q8_0 -ctv q8_0`: Quantizes key/value cache to 8-bit, cutting KV memory consumption in half with negligible accuracy loss.
 
 ---
+
+> **Note**: `llama-cli`, `llama-server`, `llama-bench`, `llama-perplexity`, and
+> the companion utilities below are external tools. LocalNar neither vendors nor
+> invokes them; it only manages the model files they load.
 
 ## 4. Validating with `llama-cli` (interactive prompt)
 
