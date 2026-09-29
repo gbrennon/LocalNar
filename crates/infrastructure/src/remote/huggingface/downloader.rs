@@ -6,6 +6,7 @@ use std::{
     },
 };
 
+use futures::{StreamExt, TryStreamExt, stream};
 use hf_hub::{
     Repo, RepoType,
     api::tokio::{ApiBuilder, ApiRepo, Progress as HfProgress},
@@ -14,7 +15,9 @@ use localnar_application::{
     errors::ModelDownloadError,
     ports::outbound::{DownloadProgress, DownloadProgressPort, ModelDownloaderPort},
 };
-use localnar_domain::{ByteLength, ModelArtifact, RemoteModelFile, Settings};
+use localnar_domain::{
+    ByteLength, ModelArtifact, ModelFileName, MultiPartShard, RemoteModelFile, Settings,
+};
 use tokio::sync::mpsc;
 
 use super::settings::HuggingFaceSettings;
@@ -156,20 +159,50 @@ impl HubDownloadTransport for HfHubTokioTransport {
     ) -> Result<ModelArtifact, ModelDownloadError> {
         self.ensure_staging_dir(remote).await?;
 
+        let part_names = MultiPartShard
+            .all_parts(remote.file())
+            .unwrap_or_else(|| vec![remote.file().clone()]);
+        let mut downloaded = self.download_parts(remote, &part_names, progress).await?;
+        let total_size = downloaded.iter().map(|(_, size)| size.bytes()).sum();
+        let (primary, _) = downloaded.remove(0);
+        let companions = downloaded.into_iter().map(|(path, _)| path).collect();
+
+        Ok(ModelArtifact::new(primary, ByteLength::new(total_size)).with_companions(companions))
+    }
+}
+
+impl HfHubTokioTransport {
+    async fn download_parts(
+        &self,
+        remote: &RemoteModelFile,
+        parts: &[ModelFileName],
+        progress: &dyn DownloadProgressPort,
+    ) -> Result<Vec<(PathBuf, ByteLength)>, ModelDownloadError> {
+        stream::iter(parts.iter().enumerate())
+            .then(|(index, part)| self.download_part(remote, part, index == 0, progress))
+            .try_collect()
+            .await
+    }
+
+    async fn download_part(
+        &self,
+        remote: &RemoteModelFile,
+        part: &ModelFileName,
+        primary: bool,
+        progress: &dyn DownloadProgressPort,
+    ) -> Result<(PathBuf, ByteLength), ModelDownloadError> {
         let api_repo = build_api_repo(
             &self.endpoint,
             self.token.as_deref(),
             &self.staging_dir,
             remote,
         )?;
-
-        let downloaded = run_download(api_repo, remote, progress).await?;
-
-        validate_download_size(&downloaded, remote.size(), remote.file().as_str()).await
+        let path = run_download(api_repo, part.as_str(), progress).await?;
+        let size = downloaded_size(&path, part.as_str()).await?;
+        validate_primary_size(primary, remote.size(), size, part.as_str())?;
+        Ok((path, size))
     }
-}
 
-impl HfHubTokioTransport {
     /// Creates the staging directory downloads land in before they are
     /// committed.
     async fn ensure_staging_dir(&self, remote: &RemoteModelFile) -> Result<(), ModelDownloadError> {
@@ -186,15 +219,19 @@ impl HfHubTokioTransport {
 /// where the bytes landed.
 async fn run_download(
     api_repo: ApiRepo,
-    remote: &RemoteModelFile,
+    file_name: &str,
     progress: &dyn DownloadProgressPort,
 ) -> Result<PathBuf, ModelDownloadError> {
     let (tx, mut rx) = mpsc::unbounded_channel::<DownloadProgress>();
     let bridge = ProgressBridge::new(tx);
 
-    let file_name = remote.file().as_str().to_string();
-    let download_handle =
-        tokio::spawn(async move { api_repo.download_with_progress(&file_name, bridge).await });
+    let file_name = file_name.to_string();
+    let requested_file = file_name.clone();
+    let download_handle = tokio::spawn(async move {
+        api_repo
+            .download_with_progress(&requested_file, bridge)
+            .await
+    });
 
     while let Some(event) = rx.recv().await {
         progress.report(event);
@@ -203,10 +240,37 @@ async fn run_download(
     download_handle
         .await
         .map_err(|err| ModelDownloadError::Transport {
-            file: remote.file().to_string(),
+            file: file_name.clone(),
             cause: err.to_string(),
         })?
-        .map_err(|err| map_api_error(&err, remote.file().as_str()))
+        .map_err(|err| map_api_error(&err, file_name.as_str()))
+}
+
+fn validate_primary_size(
+    primary: bool,
+    expected: ByteLength,
+    received: ByteLength,
+    file_name: &str,
+) -> Result<(), ModelDownloadError> {
+    match (primary, expected != ByteLength::ZERO, received != expected) {
+        (true, true, true) => Err(ModelDownloadError::SizeMismatch {
+            file: file_name.to_string(),
+            expected,
+            received,
+        }),
+        _ => Ok(()),
+    }
+}
+
+async fn downloaded_size(path: &Path, file_name: &str) -> Result<ByteLength, ModelDownloadError> {
+    let metadata =
+        tokio::fs::metadata(path)
+            .await
+            .map_err(|err| ModelDownloadError::Transport {
+                file: file_name.to_string(),
+                cause: err.to_string(),
+            })?;
+    Ok(ByteLength::new(metadata.len()))
 }
 
 fn build_api_repo(
@@ -235,33 +299,6 @@ fn build_api_repo(
     let revision = remote.repository().revision().as_str().to_string();
     let repo = Repo::with_revision(repo_id, RepoType::Model, revision);
     Ok(api.repo(repo))
-}
-
-async fn validate_download_size(
-    downloaded_path: &Path,
-    expected_size: ByteLength,
-    file_name: &str,
-) -> Result<ModelArtifact, ModelDownloadError> {
-    let metadata = tokio::fs::metadata(downloaded_path).await.map_err(|err| {
-        ModelDownloadError::Transport {
-            file: file_name.to_string(),
-            cause: err.to_string(),
-        }
-    })?;
-
-    let received_size = ByteLength::new(metadata.len());
-    if expected_size != ByteLength::ZERO && received_size != expected_size {
-        return Err(ModelDownloadError::SizeMismatch {
-            file: file_name.to_string(),
-            expected: expected_size,
-            received: received_size,
-        });
-    }
-
-    Ok(ModelArtifact::new(
-        downloaded_path.to_path_buf(),
-        received_size,
-    ))
 }
 
 /// Model downloader using Hugging Face Hub tokio client.
@@ -313,16 +350,15 @@ impl<Transport: HubDownloadTransport> ModelDownloaderPort for HfHubDownloader<Tr
 fn map_api_error(err: &hf_hub::api::tokio::ApiError, file_name: &str) -> ModelDownloadError {
     match err {
         hf_hub::api::tokio::ApiError::RequestError(reqwest_err) => {
-            if reqwest_err.is_connect() || reqwest_err.is_timeout() {
-                ModelDownloadError::Unreachable {
+            match reqwest_err.is_connect() || reqwest_err.is_timeout() {
+                true => ModelDownloadError::Unreachable {
                     file: file_name.to_string(),
                     cause: reqwest_err.to_string(),
-                }
-            } else {
-                ModelDownloadError::Transport {
+                },
+                false => ModelDownloadError::Transport {
                     file: file_name.to_string(),
                     cause: reqwest_err.to_string(),
-                }
+                },
             }
         }
         other => ModelDownloadError::Transport {
