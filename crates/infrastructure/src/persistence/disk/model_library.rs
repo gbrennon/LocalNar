@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use futures::{StreamExt, TryStreamExt, stream};
 use localnar_application::{errors::LibraryError, ports::outbound::ModelLibraryPort};
 use localnar_domain::{
     ByteLength, Checksum, InstalledModel, ModelArtifact, ModelSpec, ModelState, ModelTag,
@@ -268,6 +269,31 @@ impl DiskModelLibrary {
         Ok(())
     }
 
+    async fn place_companions(
+        artifact: &ModelArtifact,
+        primary_destination: &Path,
+        model: &ModelSpec,
+    ) -> Result<(), LibraryError> {
+        let Some(directory) = primary_destination.parent() else {
+            return Ok(());
+        };
+
+        stream::iter(artifact.companions())
+            .then(|staged| async move {
+                let Some(file_name) = staged.file_name() else {
+                    return Err(LibraryError::Unwritable {
+                        model: model.to_string(),
+                        cause: format!("companion path `{}` has no file name", staged.display()),
+                    });
+                };
+                let destination = directory.join(file_name);
+                Self::place_staged_artifact(staged, &destination, model).await
+            })
+            .try_collect::<Vec<_>>()
+            .await
+            .map(|_| ())
+    }
+
     /// Answers whether the filesystem holds a replica for `model`.
     async fn file_present(&self, path: &Path, model: &ModelSpec) -> Result<bool, LibraryError> {
         tokio::fs::try_exists(path)
@@ -386,6 +412,7 @@ impl ModelLibraryPort for DiskModelLibrary {
         }
 
         Self::confirm_committed(&destination, model).await?;
+        Self::place_companions(artifact, &destination, model).await?;
 
         Ok(ModelState::Downloaded)
     }
@@ -490,6 +517,38 @@ mod tests {
             .await
             .expect("installed state");
         assert_eq!(installed_state, ModelState::Downloaded);
+    }
+
+    #[tokio::test]
+    async fn commit_artifact_places_companion_files_alongside_primary() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        let library = DiskModelLibrary::new(temp_dir.path());
+        let spec = test_spec();
+        let staged_dir = TempDir::new().expect("staged dir");
+        let primary = staged_dir.path().join("part-00001.gguf");
+        let companion = staged_dir.path().join("part-00002.gguf");
+        tokio::fs::write(&primary, b"primary")
+            .await
+            .expect("write primary");
+        tokio::fs::write(&companion, b"companion")
+            .await
+            .expect("write companion");
+
+        let artifact =
+            ModelArtifact::new(&primary, ByteLength::new(15)).with_companions(vec![companion]);
+        library
+            .commit_artifact(&spec, &artifact)
+            .await
+            .expect("commit");
+
+        let model_path = library.model_file_path(&spec);
+        let directory = model_path.parent().expect("model directory");
+        assert_eq!(
+            tokio::fs::read(directory.join("part-00002.gguf"))
+                .await
+                .unwrap(),
+            b"companion"
+        );
     }
 
     /// Regression: a downloader (hf-hub) stages its artifact as a symlink into
