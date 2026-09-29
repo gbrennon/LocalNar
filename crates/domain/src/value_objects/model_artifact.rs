@@ -11,6 +11,7 @@ use crate::value_objects::ByteLength;
 pub struct ModelArtifact {
     staged_at: PathBuf,
     size: ByteLength,
+    companions: Vec<PathBuf>,
 }
 
 impl ModelArtifact {
@@ -19,7 +20,19 @@ impl ModelArtifact {
         Self {
             staged_at: staged_at.into(),
             size,
+            companions: Vec::new(),
         }
+    }
+
+    /// Adds staged sibling files that belong beside the primary artifact.
+    pub fn with_companions(mut self, companions: Vec<PathBuf>) -> Self {
+        self.companions = companions;
+        self
+    }
+
+    /// The staged sibling files that belong to this artifact.
+    pub fn companions(&self) -> &[PathBuf] {
+        &self.companions
     }
 
     /// The path where the staged bytes currently live.
