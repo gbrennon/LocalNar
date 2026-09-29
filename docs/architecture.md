@@ -37,8 +37,10 @@ The dependency rule points inwards. `localnar-domain` depends on nothing;
 and `localnar-presentation` depend on the layers inside them and never the reverse.
 
 Ports are plain traits using native `async fn` in trait position, enabled by
-`#![allow(async_fn_in_trait)]` in the `localnar-application` crate root. There is no
-`#[async_trait]` anywhere in the workspace.
+`#![allow(async_fn_in_trait)]` in the crate roots of both `localnar-application`
+(`localnar-application/src/lib.rs`) and `localnar-infrastructure`
+(`infrastructure/src/lib.rs`). There is no `#[async_trait]` anywhere in the
+workspace.
 
 ## 2. Domain crate (`crates/domain`)
 
@@ -78,7 +80,11 @@ crates/domain/src
 │   ├── parameter_count.rs          ParameterCount
 │   ├── quantization.rs             Quantization
 │   ├── remote_model_file.rs        RemoteModelFile
-│   └── search_query.rs             SearchQuery
+│   ├── search_query.rs             SearchQuery
+│   ├── setting.rs                  Setting
+│   ├── setting_key.rs              SettingKey
+│   ├── setting_value.rs            SettingValue
+│   └── settings.rs                 Settings
 ```
 
 Value objects live under `value_objects/`; yes-or-no domain rules under
@@ -125,10 +131,11 @@ replica, and the manager reports that honestly rather than claiming success.
 - `RemovedModel` - what a deletion reclaimed: spec, path, `ByteLength`.
 - `DiscardedStray` - one leftover a sweep discarded, plus `total_reclaimed`.
 
-### 2.4 Domain errors - `crates/domain/src/domain_error.rs`
+### 2.4 Domain errors - `crates/domain/src/errors/domain_error.rs`
 
 `BlankSearchQuery`, `EmptyRevision`, `MalformedRepository`, `InvalidFileName`,
-`InvalidChecksumLiteral`, `InvalidModelTag`. Construction is fallible where a
+`InvalidChecksumLiteral`, `InvalidModelTag`, `BlankSettingKey`, and
+`IntegrityMismatch { expected, actual }`. Construction is fallible where a
 value has a rule;
 nothing else validates on the operator's behalf.
 
@@ -147,6 +154,8 @@ orchestrate them. No I/O lives here.
 | `VerifyModelPort` | do this replica's bytes still match its digest |
 | `RemoveModelPort` | discard this replica and reclaim its space |
 | `PruneLibraryPort` | discard what the library keeps that is no model |
+| `LoadSettingsPort` | read the operator's persisted settings |
+| `SaveSettingsPort` | persist the operator's settings |
 
 ### 3.2 Outbound ports - what adapters must provide
 
@@ -159,6 +168,7 @@ orchestrate them. No I/O lives here.
 | `ModelEvictionPort` | discard one replica |
 | `LibraryMaintenancePort` | discard the library's leftovers |
 | `DownloadProgressPort` | observe a transfer in flight |
+| `SettingsStorePort` | load and store persisted operator settings |
 
 ### 3.3 Services
 
@@ -166,16 +176,20 @@ One service per inbound port, each taking exactly the outbound ports its use
 case needs as generic parameters, so calls stay statically dispatched:
 `SearchModelsService`, `InstallModelService`, `ListInstalledModelsService`,
 `InspectModelService`, `VerifyModelService`, `RemoveModelService`,
-`PruneLibraryService`.
+`PruneLibraryService`, `LoadSettingsService`, `SaveSettingsService`. Settings
+persistence is represented by the load/save use cases over the settings-store
+outbound adapter.
 
 `InstallModelService` drives the state machine: `Verified` is a no-op,
 `Downloaded` verifies, `Missing` fetches then commits then verifies, and
 `IntegrityMismatch` repairs once before returning
 `InstallModelError::UnresolvedIntegrity`.
 
-`VerifyModelService` re-hashes against the digest the library itself recorded -
-no network call. A replica with no recorded digest cannot be proven, and the
-service says so rather than inventing a verdict.
+`VerifyModelService` proves a replica against a checksum it can obtain: the
+digest the library recorded when present, otherwise the checksum the remote
+registry advertises for that file. With no recorded and no advertised checksum
+it returns the replica as `Downloaded`/unproven rather than inventing a verdict,
+and it re-hashes the bytes only when a checksum is available.
 
 ### 3.4 Errors
 
@@ -183,7 +197,7 @@ One error type per use case, so a failing boundary is never flattened into an
 opaque string: `SearchModelsError`, `InstallModelError`,
 `ListInstalledModelsError`, `InspectModelError`, `VerifyModelError`,
 `RemoveModelError`, `PruneLibraryError`, plus the outbound `LibraryError`,
-`RegistryReadError`, `ModelDownloadError`.
+`RegistryReadError`, `ModelDownloadError`, and `SettingsStoreError`.
 
 ## 4. Infrastructure crate (`crates/infrastructure`)
 
@@ -192,17 +206,21 @@ crates/infrastructure/src
 ├── adapters/
 │   ├── progress_bus.rs        broadcast bus for progress events
 │   └── progress_reporter.rs   DownloadProgressPort implementation
-├── persistence/disk/
-│   ├── model_library.rs       ModelLibraryPort + the path layout
-│   ├── model_inventory.rs     ModelInventoryPort
-│   ├── model_eviction.rs      ModelEvictionPort
-│   ├── library_maintenance.rs LibraryMaintenancePort
-│   ├── library_tree.rs        reading and pruning the directory tree
-│   ├── inventory_walk.rs      reading replicas out of the hierarchy
-│   ├── library_sweep.rs       finding and discarding leftovers
-│   └── library_fault.rs       building path-based LibraryError values
+├── persistence/
+│   ├── effective_settings.rs   merges persisted settings with adapter defaults
+│   ├── toml_settings_store.rs  SettingsStorePort over settings.toml
+│   └── disk/
+│       ├── model_library.rs       ModelLibraryPort + the path layout
+│       ├── model_inventory.rs     ModelInventoryPort
+│       ├── model_eviction.rs      ModelEvictionPort
+│       ├── library_maintenance.rs LibraryMaintenancePort
+│       ├── library_tree.rs        reading and pruning the directory tree
+│       ├── inventory_walk.rs      reading replicas out of the hierarchy
+│       ├── library_sweep.rs       finding and discarding leftovers
+│       └── library_fault.rs       building path-based LibraryError values
 └── remote/huggingface/
     ├── registry.rs            RemoteModelRegistryPort
+    ├── settings.rs            HuggingFaceSettings from persisted config
     └── downloader.rs          ModelDownloaderPort
 ```
 
@@ -213,18 +231,27 @@ crates/infrastructure/src
 ```
 <root>/<owner>/<name>/<revision>/<file>
 <root>/<owner>/<name>/<revision>/<file>.sha256   <- the digest note
+<root>/<owner>/<name>/<revision>/<file>.tags     <- the model's tags
 ```
 
-The root comes from `$LOCALNAR_MODELS_DIR`, defaulting to
-`~/.cache/localnar/models`. `model_file_path` is the single place that knows
-this layout; the sibling adapters read it rather than restating it.
+The root resolves in precedence order: `library.download_directory` from
+persisted settings, then `$LOCALNAR_MODELS_DIR`, then the built-in default
+`~/.cache/localnar/models`. Persisted settings live in a TOML file at
+`${XDG_CONFIG_HOME:-$HOME/.config}/localnar/settings.toml`, and
+`EffectiveSettings` merges those persisted values with each adapter's defaults
+to report the four effective fields the operator sees: the Hugging Face API
+token, endpoint, and cache directory, plus the model download directory.
+`model_file_path` is the single place that knows this layout; the sibling
+adapters read it rather than restating it.
 
 ### 4.2 Reading the library cheaply
 
 `ModelInventoryPort::enumerate` walks owner -> name -> revision -> file and
 trusts the digest note to decide `Verified` versus `Downloaded`. It never hashes
 a file, which is what keeps listing a library of multi-gigabyte models cheap.
-Proving bytes is `VerifyModelPort`'s job, on demand, for one model.
+Proving bytes is `VerifyModelPort`'s job, on demand, for one model. The `.tags`
+note stores a replica's model tags and is read back while locating inventory
+entries.
 
 Anything in the tree that names no model is left out rather than reported as a
 broken entry: a digest note, an entry at the wrong depth, and a path segment the
@@ -232,18 +259,24 @@ domain refuses all stand for no model.
 
 ### 4.3 Deleting and sweeping
 
-Eviction reads the size before removing anything, discards the replica and its
-digest note together, then discards the directories that model alone needed -
-stopping short of the root.
+Eviction reads the size before removing anything, discards the replica together
+with both of its sidecars - the `.sha256` digest note and the `.tags` note - and
+then discards the directories that model alone needed, stopping short of the
+root.
 
-A sweep discards only two things: digest notes whose replica is gone, and
-directories left holding nothing. A replica the operator installed is never a
-leftover, proven or not, and neither is a file the library did not put there.
+A sweep discards only two things: orphan notes - a `.sha256` or `.tags` whose
+replica is gone - and directories left holding nothing. A replica the operator
+installed is never a leftover, proven or not, and neither is the library root or
+a file the library did not put there.
 
 ## 5. Presentation crate (`crates/presentation`)
 
-A `ratatui` + `crossterm` TUI with five modes - search, model table, install
-progress, library, and help - cycled with `Tab`/`Shift+Tab`.
+A `ratatui` + `crossterm` TUI with six `AppMode` values - `Search`,
+`ModelTable`, `InstallProgress`, `Library`, `Settings`, and `Help` - laid over
+four tabs (`Search`, `Library`, `Settings`, `Help`) cycled with
+`Tab`/`Shift+Tab` or reached directly with `Alt+1`..`Alt+4`. The settings tab
+loads persisted settings, edits them field by field, and saves them back through
+the load/save use cases.
 
 `TuiLauncher` is the composition root: it resolves the registry, builds the
 adapters and services, then claims the terminal through a `TerminalSession`
