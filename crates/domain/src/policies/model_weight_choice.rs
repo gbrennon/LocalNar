@@ -1,6 +1,6 @@
 use crate::{
-    specifications::{Specification, WholeWeightFile},
-    value_objects::{Quantization, RemoteModelFile},
+    specifications::{MultiPartShard, Specification, WholeWeightFile},
+    value_objects::{ModelFileName, Quantization, RemoteModelFile},
 };
 
 /// The rule that reduces everything a repository offers to one candidate file.
@@ -24,8 +24,18 @@ impl ModelWeightChoice {
     pub fn among(offered: &[RemoteModelFile]) -> Option<&RemoteModelFile> {
         offered
             .iter()
-            .filter(|offer| WholeWeightFile.is_satisfied_by(offer.file()))
+            .filter(|offer| Self::is_installable_weight(offer.file()))
             .min_by(|left, right| Self::preference(left).cmp(&Self::preference(right)))
+    }
+
+    fn is_installable_weight(file: &ModelFileName) -> bool {
+        !Self::is_projector(file)
+            && (WholeWeightFile.is_satisfied_by(file) || MultiPartShard.is_first_part(file))
+    }
+
+    fn is_projector(file: &ModelFileName) -> bool {
+        let basename = file.as_str().rsplit('/').next().unwrap_or(file.as_str());
+        basename.to_ascii_lowercase().contains("mmproj")
     }
 
     fn preference(offer: &RemoteModelFile) -> (u8, bool, u64, &str) {
@@ -91,13 +101,13 @@ mod model_weight_choice_tests {
     }
 
     #[test]
-    fn a_repository_offering_only_split_parts_yields_no_candidate() {
+    fn a_repository_offering_split_parts_chooses_the_first_part() {
         assert_eq!(
             chosen(&[
                 ("Qwen3-235B-Q4_K_M-00001-of-00003.gguf", 15_000_000_000),
                 ("Qwen3-235B-Q4_K_M-00002-of-00003.gguf", 15_000_000_000),
             ]),
-            None
+            Some("Qwen3-235B-Q4_K_M-00001-of-00003.gguf".to_owned())
         );
     }
 
@@ -163,18 +173,18 @@ mod model_weight_choice_tests {
                 ("Qwen3-235B-Q4_K_M-00002-of-00003.gguf", 15_000_000_000),
                 ("Qwen3-235B-Q8_0.gguf", 250_000_000_000),
             ]),
-            Some("Qwen3-235B-Q8_0.gguf".to_owned())
+            Some("Qwen3-235B-Q4_K_M-00001-of-00003.gguf".to_owned())
         );
     }
 
     #[test]
-    fn a_repository_offering_only_multi_part_weights_yields_no_candidate() {
+    fn a_repository_offering_only_multi_part_weights_yields_the_first_part() {
         assert_eq!(
             chosen(&[
                 ("Qwen3-235B-Q4_K_M-00001-of-00003.gguf", 15_000_000_000),
                 ("Qwen3-235B-Q4_K_M-00002-of-00003.gguf", 15_000_000_000),
             ]),
-            None
+            Some("Qwen3-235B-Q4_K_M-00001-of-00003.gguf".to_owned())
         );
     }
 
