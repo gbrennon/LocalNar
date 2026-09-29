@@ -4,14 +4,6 @@ use crate::{specifications::Specification, value_objects::ModelFileName};
 pub struct MultiPartShard;
 
 impl MultiPartShard {
-    const SHARD_MARKER: &'static str = "of";
-    const TOKEN_SEPARATOR: char = '-';
-    const MARKED_TOKEN_RUN: usize = 3;
-
-    fn is_ordinal(token: &str) -> bool {
-        !token.is_empty() && token.bytes().all(|byte| byte.is_ascii_digit())
-    }
-
     /// True when the name is the first part (`00001-of-...`) of a split weight.
     ///
     /// The first part is the file the loader is pointed at; the remaining parts
@@ -60,11 +52,13 @@ impl MultiPartShard {
         let index_text = &before[index_start..];
         let total_text = Self::leading_digits(&name[marker_at + Self::MARKER.len()..]);
 
-        Some(Shard {
+        let index = index_text.parse().ok()?;
+        let total = total_text.parse().ok()?;
+        (index > 0 && index <= total).then_some(Shard {
             prefix: name[..index_start].to_owned(),
             width: index_text.len(),
-            index: index_text.parse().ok()?,
-            total: total_text.parse().ok()?,
+            index,
+            total,
             suffix: name[marker_at..].to_owned(),
         })
     }
@@ -108,19 +102,9 @@ fn character_width(text: &str, boundary: usize) -> usize {
 }
 
 impl Specification<ModelFileName> for MultiPartShard {
-    /// Satisfied when the name carries an `<ordinal>-of-<ordinal>` run.
-    ///
-    /// The run is looked for in the name without its extension, so the trailing
-    /// ordinal is recognized even when the extension follows it directly, as in
-    /// `Qwen3-235B-00001-of-00003.gguf`.
+    /// Satisfied when the name carries a valid `<ordinal>-of-<ordinal>` run.
     fn is_satisfied_by(&self, candidate: &ModelFileName) -> bool {
-        let name = candidate.as_str();
-        let stem = name.rsplit_once('.').map_or(name, |(stem, _)| stem);
-        let tokens: Vec<&str> = stem.split(Self::TOKEN_SEPARATOR).collect();
-
-        tokens.windows(Self::MARKED_TOKEN_RUN).any(|run| {
-            Self::is_ordinal(run[0]) && run[1] == Self::SHARD_MARKER && Self::is_ordinal(run[2])
-        })
+        Self::parse(candidate.as_str()).is_some()
     }
 }
 
@@ -157,6 +141,12 @@ mod multi_part_shard_tests {
     fn a_run_of_non_numeric_parts_does_not_satisfy_the_rule() {
         assert!(!is_one_part("model-a-of-b.gguf"));
         assert!(!is_one_part("best-of-breed.gguf"));
+    }
+
+    #[test]
+    fn an_ordinal_outside_the_declared_shard_set_does_not_satisfy_the_rule() {
+        assert!(!is_one_part("model-00000-of-00003.gguf"));
+        assert!(!is_one_part("model-00004-of-00003.gguf"));
     }
 
     #[test]
