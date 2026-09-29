@@ -8,8 +8,8 @@ use localnar_domain::{
 use localnar_infrastructure::{HfApiRegistry, HubTransport, ReqwestHubTransport};
 use serde::de::DeserializeOwned;
 
-const SEARCH_PATH: &str = "api/models?search=qwen3 gguf&limit=10&expand%5B%5D=gguf";
-const EMPTY_SEARCH_PATH: &str = "api/models?search=&limit=10&expand%5B%5D=gguf";
+const SEARCH_PATH: &str = "api/models?search=qwen3 gguf&filter=gguf&limit=10&expand%5B%5D=gguf";
+const EMPTY_SEARCH_PATH: &str = "api/models?search=&filter=gguf&limit=10&expand%5B%5D=gguf";
 const QWEN_REVISION_PATH: &str = "api/models/Qwen/Qwen3-8B-GGUF/revision/main?blobs=true";
 const UNSLOTH_REVISION_PATH: &str = "api/models/unsloth/Qwen3-8B-GGUF/revision/main?blobs=true";
 const QWEN_REPO_INFO_PATH: &str = "api/models/Qwen/Qwen3-8B-GGUF";
