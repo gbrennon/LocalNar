@@ -336,11 +336,17 @@ impl<Transport: HubTransport> RemoteModelRegistryPort for HfApiRegistry<Transpor
 impl<Transport: HubTransport> HfApiRegistry<Transport> {
     const SEARCH_RESULT_LIMIT: usize = 10;
     const GGUF_EXPANSION: &'static str = "expand%5B%5D=gguf";
+    /// Restricts the catalog to GGUF repositories, exactly as the Hugging Face
+    /// website does when the `GGUF` library facet is selected. Without it the
+    /// catalog ranks base (safetensors-only) repositories highly and the result
+    /// set no longer matches what the site shows for a GGUF search.
+    const GGUF_FILTER: &'static str = "filter=gguf";
 
     fn search_path(query: &SearchQuery) -> String {
         format!(
-            "api/models?search={}&limit={}&{}",
+            "api/models?search={}&{}&limit={}&{}",
             query.as_str(),
+            Self::GGUF_FILTER,
             Self::SEARCH_RESULT_LIMIT,
             Self::GGUF_EXPANSION
         )
